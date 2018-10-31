@@ -1,6 +1,7 @@
 import torch
 import torch.nn as nn
 from torch.autograd import Variable
+from torch import optim
 import numpy as np
 import string
 
@@ -12,6 +13,16 @@ all_letters = '0123456789'
 n_letters = len(all_letters)
 all_categories = list(map(str, range(max_range+1)))
 print('all_categories:', all_categories)
+n_categories = len(all_categories)
+
+def get_example():
+    rmax = np.random.randint(low=0, high=max_range+1)
+    rmin = np.random.randint(low=0, high=rmax+1)
+    instance = ''.join(map(str, range(rmin, rmax)))
+    label = np.random.randint(low=0, high=max_range+1)
+    instance = str(label) + instance
+    return instance, label
+
 
 # Find letter index from all_letters, e.g. "a" = 0
 def letterToIndex(letter):
@@ -59,74 +70,68 @@ class RNN(nn.Module):
         output = self.softmax(output)
         return output, hidden
 
-    def initHidden(self):
+    def init_hidden(self):
         return torch.zeros(1, self.hidden_size)
 
+class SimpleRNN(nn.Module):
+    def __init__(self, input_size, hidden_size, output_size):
+        super(SimpleRNN, self).__init__()
+        self.hidden_size = hidden_size
 
-n_categories = 10
+        self.inp = nn.Linear(in_features=input_size, out_features=hidden_size)
+        self.rnn = nn.LSTM(input_size=hidden_size, hidden_size=hidden_size,
+                           num_layers=1, dropout=0.05)
+        self.out = nn.Linear(in_features=hidden_size, out_features=output_size)
+        self.softmax = nn.LogSoftmax(dim=1)
+
+    def forward(self, x, hidden=None):
+        x = self.inp(x.view(1, -1)).unsqueeze(1)
+        output, hidden = self.rnn(x, hidden)
+        output = self.out(output.squeeze(1))
+        output = self.softmax(output)
+        return output, hidden
+
+    def init_hidden(self):
+        return torch.zeros(1, 1, self.hidden_size)
 
 
 n_hidden = 128
-rnn = RNN(n_letters, n_hidden, n_categories)
+
+model_obj = SimpleRNN
+# model_obj = RNN
+
+model = model_obj(input_size=n_letters, hidden_size=n_hidden, output_size=n_categories)
 criterion = nn.NLLLoss()
+optimizer = optim.SGD(model.parameters(), lr=0.1)
 
-# input = lineToTensor('Albert')
-# hidden = torch.zeros(1, n_hidden)
-# output, next_hidden = rnn(input[0], hidden)
-# print(output)
-
-
-# learning_rate = 0.005 # If you set this too high, it might explode. If too low, it might not learn
-learning_rate = 0.001
-
-def train(category_tensor, line_tensor):
-    # print(category_tensor)
-    # print(line_tensor)
-    hidden = rnn.initHidden()
-
-    rnn.zero_grad()
-
+def train(line_tensor, category_tensor):
+    hidden = None
     for i in range(line_tensor.size()[0]):
-        output, hidden = rnn(line_tensor[i], hidden)
+        output, hidden = model(line_tensor[i], hidden)
 
+    optimizer.zero_grad()
     loss = criterion(output, category_tensor)
     loss.backward()
-
-    # Add parameters' gradients to their values, multiplied by learning rate
-    for p in rnn.parameters():
-        p.data.add_(-learning_rate, p.grad.data)
+    optimizer.step()
 
     return output, loss.item()
 
-for i in range(100000):
-    rmax = np.random.randint(low=1, high=max_range+1)
-    rmin = np.random.randint(low=0, high=rmax)
-    line = ''.join(map(str, range(rmin, rmax)))
-    # target = rmax
-    # target = rmin
-    target = np.random.randint(low=1, high=max_range+1)
-    line = str(target) + line
-    o, l = train(category_tensor=torch.tensor([target]), line_tensor=lineToTensor(line))
 
-    print('loss=%.2f line=%s target=%s' % (l, line, target))
+for i in range(2000):
+    instance, label = get_example()
+    o, l = train(line_tensor=lineToTensor(instance), category_tensor=torch.tensor([label]))
+    cat, cat_i = categoryFromOutput(o)
+    print('loss=%.2f instance=%s label=%s pred=%s' % (l, instance, label, cat))
 
 
-# hidden = rnn.initHidden()
-# for c in '0123':
-#     o, hidden = rnn(letterToTensor(c), hidden)
-#     print(o)
-print('---')
 def evaluate(line_tensor):
-    hidden = rnn.initHidden()
-
+    hidden = None
     for i in range(line_tensor.size()[0]):
-        output, hidden = rnn(line_tensor[i], hidden)
-
+        output, hidden = model(line_tensor[i], hidden=hidden)
     return output
 
 output = evaluate(lineToTensor('0'))
 print(categoryFromOutput(output))
-
 
 output = evaluate(lineToTensor('34'))
 print(categoryFromOutput(output))
@@ -141,6 +146,9 @@ output = evaluate(lineToTensor('12567'))
 print(categoryFromOutput(output))
 
 output = evaluate(lineToTensor('6894517'))
+print(categoryFromOutput(output))
+
+output = evaluate(lineToTensor('654'))
 print(categoryFromOutput(output))
 
 output = evaluate(lineToTensor('123456789'))
