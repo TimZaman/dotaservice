@@ -9,22 +9,46 @@ torch.manual_seed(7)
 
 # all_letters = string.ascii_letters + " .,;'"
 max_range = 9
-all_letters = '0123456789'
-n_letters = len(all_letters)
-all_categories = list(map(str, range(max_range+1)))
-print('all_categories:', all_categories)
+# all_categories = list(map(str, range(max_range+1)))
+all_categories = list(string.digits)
 n_categories = len(all_categories)
+print('categories:', all_categories)
+
+all_letters = string.digits + string.ascii_lowercase + r" ,:{}"
+
+print('letters:', all_letters)
+n_letters = len(all_letters)
+
+
+
+
+
+# def get_example():
+#     rmax = np.random.randint(low=0, high=max_range+1)
+#     rmin = np.random.randint(low=0, high=rmax+1)
+#     instance = ''.join(map(str, range(rmin, rmax)))
+#     label = np.random.randint(low=0, high=max_range+1)
+#     instance = str(label) + instance
+#     return instance, label
+
+
 
 def get_example():
-    rmax = np.random.randint(low=0, high=max_range+1)
-    rmin = np.random.randint(low=0, high=rmax+1)
-    instance = ''.join(map(str, range(rmin, rmax)))
+    n_samples = np.random.randint(low=0, high=4)
+    d = {}
+    for s in range(n_samples):
+        size = np.random.randint(low=1, high=10)
+        key = np.random.choice(list(string.ascii_lowercase), size=size)
+        key = ''.join(key)
+        d[key] = np.random.randint(low=0, high=max_range+1)
     label = np.random.randint(low=0, high=max_range+1)
-    instance = str(label) + instance
+    d['invoker'] = label
+    instance = str(d)
     return instance, label
 
 
-# Find letter index from all_letters, e.g. "a" = 0
+
+# Find letter index from all_letters
 def letterToIndex(letter):
     return all_letters.find(letter)
 
@@ -74,13 +98,13 @@ class RNN(nn.Module):
         return torch.zeros(1, self.hidden_size)
 
 class SimpleRNN(nn.Module):
-    def __init__(self, input_size, hidden_size, output_size):
+    def __init__(self, input_size, hidden_size, output_size, num_layers=2):
         super(SimpleRNN, self).__init__()
         self.hidden_size = hidden_size
 
         self.inp = nn.Linear(in_features=input_size, out_features=hidden_size)
         self.rnn = nn.LSTM(input_size=hidden_size, hidden_size=hidden_size,
-                           num_layers=1, dropout=0.05)
+                           num_layers=num_layers, dropout=0.05)
         self.out = nn.Linear(in_features=hidden_size, out_features=output_size)
         self.softmax = nn.LogSoftmax(dim=1)
 
@@ -102,7 +126,7 @@ model_obj = SimpleRNN
 
 model = model_obj(input_size=n_letters, hidden_size=n_hidden, output_size=n_categories)
 criterion = nn.NLLLoss()
-optimizer = optim.SGD(model.parameters(), lr=0.1)
+optimizer = optim.Adam(model.parameters(), lr=0.001, weight_decay=1e-5)
 
 def train(line_tensor, category_tensor):
     hidden = None
@@ -117,7 +141,7 @@ def train(line_tensor, category_tensor):
     return output, loss.item()
 
 
-for i in range(2000):
+for i in range(100000):
     instance, label = get_example()
     o, l = train(line_tensor=lineToTensor(instance), category_tensor=torch.tensor([label]))
     cat, cat_i = categoryFromOutput(o)
@@ -130,26 +154,30 @@ def evaluate(line_tensor):
         output, hidden = model(line_tensor[i], hidden=hidden)
     return output
 
-output = evaluate(lineToTensor('0'))
+
+output = evaluate(lineToTensor("{'foo': 3, 'invoker': 5, 'bar': 2}'}"))
 print(categoryFromOutput(output))
 
-output = evaluate(lineToTensor('34'))
-print(categoryFromOutput(output))
+# output = evaluate(lineToTensor('0'))
+# print(categoryFromOutput(output))
 
-output = evaluate(lineToTensor('67'))
-print(categoryFromOutput(output))
+# output = evaluate(lineToTensor('34'))
+# print(categoryFromOutput(output))
 
-output = evaluate(lineToTensor('12345678'))
-print(categoryFromOutput(output))
+# output = evaluate(lineToTensor('67'))
+# print(categoryFromOutput(output))
 
-output = evaluate(lineToTensor('12567'))
-print(categoryFromOutput(output))
+# output = evaluate(lineToTensor('12345678'))
+# print(categoryFromOutput(output))
 
-output = evaluate(lineToTensor('6894517'))
-print(categoryFromOutput(output))
+# output = evaluate(lineToTensor('12567'))
+# print(categoryFromOutput(output))
 
-output = evaluate(lineToTensor('654'))
-print(categoryFromOutput(output))
+# output = evaluate(lineToTensor('6894517'))
+# print(categoryFromOutput(output))
 
-output = evaluate(lineToTensor('123456789'))
-print(categoryFromOutput(output))
+# output = evaluate(lineToTensor('654'))
+# print(categoryFromOutput(output))
+
+# output = evaluate(lineToTensor('123456789'))
+# print(categoryFromOutput(output))
