@@ -14,7 +14,7 @@ all_categories = list(string.digits)
 n_categories = len(all_categories)
 print('categories:', all_categories)
 
-all_letters = string.digits + string.ascii_lowercase + r" ,:{}"
+all_letters = string.digits + string.ascii_lowercase + r" ',:{}'"
 
 print('letters:', all_letters)
 n_letters = len(all_letters)
@@ -41,8 +41,11 @@ def get_example():
         key = np.random.choice(list(string.ascii_lowercase), size=size)
         key = ''.join(key)
         d[key] = np.random.randint(low=0, high=max_range+1)
-    label = np.random.randint(low=0, high=max_range+1)
-    d['invoker'] = label
+    label1 = np.random.randint(low=0, high=max_range+1)
+    label2 = np.random.randint(low=0, high=max_range - label1 + 1)
+    label = label1 + label2
+    d['invoker'] = label1
+    d['zeus'] = label2
     instance = str(d)
     return instance, label
 
@@ -98,20 +101,24 @@ class RNN(nn.Module):
         return torch.zeros(1, self.hidden_size)
 
 class SimpleRNN(nn.Module):
-    def __init__(self, input_size, hidden_size, output_size, num_layers=2):
+    def __init__(self, input_size, hidden_size, output_size, num_layers=1):
         super(SimpleRNN, self).__init__()
         self.hidden_size = hidden_size
 
         self.inp = nn.Linear(in_features=input_size, out_features=hidden_size)
         self.rnn = nn.LSTM(input_size=hidden_size, hidden_size=hidden_size,
                            num_layers=num_layers, dropout=0.05)
-        self.out = nn.Linear(in_features=hidden_size, out_features=output_size)
+        self.out1 = nn.Linear(in_features=hidden_size, out_features=output_size)
+        # self.relu = nn.ReLU6()
+        # self.out2 = nn.Linear(in_features=output_size, out_features=output_size)
         self.softmax = nn.LogSoftmax(dim=1)
 
     def forward(self, x, hidden=None):
         x = self.inp(x.view(1, -1)).unsqueeze(1)
         output, hidden = self.rnn(x, hidden)
-        output = self.out(output.squeeze(1))
+        output = self.out1(output.squeeze(1))
+        # output = self.relu(output)
+        # output = self.out2(output.squeeze(1))
         output = self.softmax(output)
         return output, hidden
 
