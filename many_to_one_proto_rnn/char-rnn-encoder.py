@@ -5,30 +5,49 @@ from torch import optim
 import numpy as np
 import string
 from collections import namedtuple
+from math import hypot
 
 torch.manual_seed(7)
 
 Example = namedtuple('Example', ['depth', 'key_enum', 'value'])
 
+Action = namedtuple('Action', ['selection', 'move_x', 'move_y'])
 
 class DictDataset():
-    max_range = 9
+    max_value = 100
     def next(self):
         n_samples = np.random.randint(low=0, high=4)
-        instance = {}
-        label1 = np.random.randint(low=0, high=self.max_range+1)
-        label2 = np.random.randint(low=0, high=self.max_range - label1 + 1)
-        label = label1 + label2
-        instance['invoker'] = label1
-        instance['zeus'] = label2
+        x = np.random.uniform(low=0, high=self.max_value)
+        y = np.random.uniform(low=0, high=self.max_value)
+        instance = {'x': x, 'y': y}
+        distance = hypot(x, y)
+        selection = distance > self.max_value/3.  # boolean to move y/n
+        label = Action(selection=selection, move_x=x if selection else 0, move_y=y if selection else 0)
         return instance, label
 
 
 class DictExampleDataset():
-    input_size = 3
-    keys = ['zeus', 'invoker']
+    keys = ['x', 'y']  # TODO(tzaman): get from proto
+    input_size = len(keys) + 1 + 1
+    output_size = 1 + 1 + 1
     def __init__(self, dict_dataset):
         self.dict_dataset = dict_dataset
+
+    @classmethod
+    def label_to_tensor(self, label):
+        tensor = torch.zeros(self.output_size)
+        tensor[0] = float(label.selection)
+        tensor[1] = label.move_x
+        tensor[2] = label.move_y
+        return tensor.unsqueeze(0)
+
+    @classmethod
+    def example_to_tensor(self, example):
+        tensor = torch.zeros(self.input_size)
+        tensor[example.key_enum] = 1
+        tensor[-2] = example.depth
+        tensor[-1] = example.value
+        return tensor.unsqueeze(0)
 
     @classmethod
     def dict_to_examples(self, x):
@@ -79,21 +98,22 @@ n_hidden = 128
 
 model_obj = SimpleRNN
 
-output_size = 1
+output_size = dataset.output_size
 
 model = model_obj(input_size=dataset.input_size, hidden_size=n_hidden, output_size=output_size)
 # criterion = nn.NLLLoss()
 criterion = nn.MSELoss()
 optimizer = optim.Adam(model.parameters(), lr=0.0001)#, weight_decay=1e-5)
 
-def train(instances, category_tensor):
+
+def train(instances, label):
     hidden = None
     for ex in instances:
-        x = torch.tensor([ex.depth, ex.key_enum, ex.value], dtype=torch.float)
+        x = dataset.example_to_tensor(ex)
         output, hidden = model(x, hidden)
 
     optimizer.zero_grad()
-    loss = criterion(output, category_tensor)
+    loss = criterion(output, dataset.label_to_tensor(label))
     loss.backward()
     optimizer.step()
 
@@ -102,11 +122,9 @@ def train(instances, category_tensor):
 
 for i in range(100000):
     instances, label = dataset.next()
-    print(instances)
-    print(label)
-    o, l = train(instances=instances, category_tensor=torch.tensor([[label]], dtype=torch.float))
-    # cat, cat_i = categoryFromOutput(o)
-    print('loss=%.2f instances=%s label=%s pred=%s' % (l, instances, label, o))
+    print('instances=%s label=%s' % (instances, label))
+    o, l = train(instances=instances, label=label)
+    print('  loss=%.2f pred=%s' % (l, o))
 
 
 def evaluate(line_tensor):
@@ -116,29 +134,5 @@ def evaluate(line_tensor):
     return output
 
 
-output = evaluate(lineToTensor("{'foo': 3, 'invoker': 5, 'bar': 2}'}"))
-print(categoryFromOutput(output))
-
-# output = evaluate(lineToTensor('0'))
-# print(categoryFromOutput(output))
-
-# output = evaluate(lineToTensor('34'))
-# print(categoryFromOutput(output))
-
-# output = evaluate(lineToTensor('67'))
-# print(categoryFromOutput(output))
-
-# output = evaluate(lineToTensor('12345678'))
-# print(categoryFromOutput(output))
-
-# output = evaluate(lineToTensor('12567'))
-# print(categoryFromOutput(output))
-
-# output = evaluate(lineToTensor('6894517'))
-# print(categoryFromOutput(output))
-
-# output = evaluate(lineToTensor('654'))
-# print(categoryFromOutput(output))
-
-# output = evaluate(lineToTensor('123456789'))
+# output = evaluate(lineToTensor("?"))
 # print(categoryFromOutput(output))

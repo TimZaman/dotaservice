@@ -44,8 +44,8 @@ class DictDataset():
         instance = str(d)
         return instance, label
 
-dataset = RangeDataset()
-# dataset = DictDataset()
+# dataset = RangeDataset()
+dataset = DictDataset()
 
 
 # Find letter index from all_letters
@@ -151,10 +151,29 @@ def evaluate(line_tensor):
     hidden = None
     for i in range(line_tensor.size()[0]):
         output, hidden = model(line_tensor[i], hidden=hidden)
+        print(output)
     return output
 
 
-output = evaluate(lineToTensor("{'foo': 3, 'invoker': 5, 'bar': 2}'}"))
+output = evaluate(lineToTensor("{'zeus': 3}"))
+print(categoryFromOutput(output))
+
+output = evaluate(lineToTensor("{'invoker': 3}"))
+print(categoryFromOutput(output))
+
+output = evaluate(lineToTensor("{'zeus': 3, 'zeus': 3}"))
+print(categoryFromOutput(output))
+
+output = evaluate(lineToTensor("{'zeus': 3, 'foo': 5, 'zeus': 3}"))
+print(categoryFromOutput(output))
+
+output = evaluate(lineToTensor("{'invoker': 3, 'invoker': 5, 'bar': 2}"))
+print(categoryFromOutput(output))
+
+output = evaluate(lineToTensor("{'foo': 3, 'invoker': 5, 'bar': 2}"))
+print(categoryFromOutput(output))
+
+output = evaluate(lineToTensor("{'invoker': 3, 'invoker': 5, 'zeus': 2}"))
 print(categoryFromOutput(output))
 
 # output = evaluate(lineToTensor('0'))
