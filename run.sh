@@ -1,4 +1,7 @@
 
+# 4gb Ramdisk on OSX:
+# diskutil erasevolume HFS+ 'RAM Disk' `hdiutil attach -nomount ram://8388608`
+
 docker run --net=host -it dotabot
 
 /root/Steam/steamapps/common/dota\ 2\ beta/game/dota.sh \
