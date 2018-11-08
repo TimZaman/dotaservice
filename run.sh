@@ -1,6 +1,8 @@
 
 # 4gb Ramdisk on OSX:
-# diskutil erasevolume HFS+ 'RAM Disk' `hdiutil attach -nomount ram://8388608`
+# diskutil erasevolume HFS+ 'ramdisk' `hdiutil attach -nomount ram://8388608`
+
+# person that worked on the dota bot api at valve is "Chris Carollo"
 
 docker run --net=host -it dotabot
 
