@@ -13,15 +13,17 @@ from torch.distributions import Categorical
 from tensorboardX import SummaryWriter
 
 
-# writer = SummaryWriter()
-writer = None
+writer = SummaryWriter()
+# writer = None
 if writer:
     log_dir = writer.file_writer.get_logdir()
 torch.manual_seed(7)
 
-# pretrained_model = None
-pretrained_model = "/Users/tzaman/Drive/code/dotabot/many_to_one_proto_rnn/runs/Nov10_12-33-14_Tims-Mac-Pro.local/model_001360000_l0.63.pt"
+pretrained_model = None
+# pretrained_model = "/Users/tzaman/Drive/code/dotabot/many_to_one_proto_rnn/runs/Nov10_12-33-14_Tims-Mac-Pro.local/model_001360000_l0.63.pt"
 
+# print(torch.load(pretrained_model))
+# exit()
 
 Example = recordtype('Example', ['depth', 'key_enum', 'value'])
 
@@ -89,12 +91,12 @@ class Action(object):
  
     def __init__(self, head, prob):
         self.head = head
-        self.prob = prob#[0][0]
+        self.prob = prob
         m = Categorical(self.prob)
         self.sample = m.sample()
         self.logprob = m.log_prob(self.sample)
+        # self.logprob = -(1 - self.prob[self.sample])
         # print('logprob:', self.logprob)
-        # self.sample = prob[0][0][0] < prob[0][0][1]
 
 
 
@@ -110,10 +112,10 @@ class Head(object):
     def __call__(self, x):
         """Calling the head creates an action, associated with this head."""
         x = self.head(x)
+        x = x.view(-1)
         # print('head(x)=', x)
         action_prob = F.softmax(x, dim=-1)
         # print('softmax(x)=', action_prob)
-        # exit()
 
         return Action(head=self, prob=action_prob)
 
@@ -123,14 +125,17 @@ class Policy(nn.Module):
         super(Policy, self).__init__()
         self._heads = heads
 
-        self.fc1 = nn.Linear(4, 16)
+        self.fc1 = nn.Linear(2, 16)
 
-        self.rnn = nn.LSTM(input_size=16, hidden_size=16,
-                           num_layers=1)#, dropout=0.05)
+        # self.rnn = nn.LSTM(input_size=16, hidden_size=16,
+        #                    num_layers=1)#, dropout=0.05)
 
         for head in self._heads: head.create_head()
 
-    def forward(self, x, hidden=None):
+        self.head1 = self._heads[0].head  # HACK
+        self.head2 = self._heads[1].head  # HACK
+
+    def forward_rnn(self, x, hidden=None):
         # print()
         # print('x=', x)
         x = x.view(1, -1)
@@ -138,6 +143,18 @@ class Policy(nn.Module):
         x = F.relu(self.fc1(x)).unsqueeze(1)
         # print('relu(fc(x))=', x)
         x, hidden = self.rnn(x, hidden)
+        return x, hidden
+
+    def forward_mlp(self, x):
+        # print('x =', x)
+        # x = x.view(1, -1)
+        # print('x =', x)
+        x = F.relu(self.fc1(x))#.unsqueeze(1)
+        # print('relu(fc(x))=', x)
+
+        return x
+
+    def forward_heads(self, x):
 
         # x = F.relu(x)
         # print('rnn()=', x)
@@ -145,7 +162,7 @@ class Policy(nn.Module):
         for head in self._heads:
             actions.append(head(x))
         # raw_input('Enter..')
-        return actions, hidden
+        return actions
 
 
 # class SimpleRNN(nn.Module):
@@ -193,23 +210,34 @@ head_y = Head(name='y')
 heads = [head_x, head_y]
 
 model = Policy(heads=heads)
-
+print(model)
 # criterion = nn.NLLLoss()
 # criterion = nn.MSELoss()
 # criterion = torch.nn.MSELoss(reduction='none')
 # criterion = torch.nn.BCELoss(reduction='none')
 
-optimizer = optim.Adam(model.parameters(), lr=1e-3)#, weight_decay=1e-5)
-# optimizer = optim.RMSprop(model.parameters(), lr=1e-3)
+optimizer = optim.Adam(model.parameters(), lr=1e-1)#, weight_decay=1e-5)
+# optimizer = optim.RMSprop(model.parameters(), lr=1)
 
 def encode_and_policy(instances):
     # print('instances=', instances)
     # TODO(tzaman): separate the encoder and policy into distinct networks.
-    hidden = None
-    for ex in instances:
-        x = dataset.example_to_tensor(ex)
-        # print('x:', x)
-        actions, hidden = model(x, hidden)
+    # hidden = None
+    # for example in instances:
+    #     example_tensor = dataset.example_to_tensor(example)
+    #     output, hidden = model.forward_rnn(example_tensor, hidden=hidden)
+    
+    # hidden = None
+    # example_tensors = []
+    # for example in instances:
+    #     example_tensor = dataset.example_to_tensor(example)[-1]
+    example_tensor = torch.stack([dataset.example_to_tensor(instances[0])[-1], dataset.example_to_tensor(instances[1])[-1]])
+    # print('example_tensor', example_tensor)
+    output = model.forward_mlp(example_tensor)
+    
+
+
+    actions = model.forward_heads(output)
 
     # print('actions=', [actions[0].prob, actions[0].prob])
 
@@ -246,35 +274,50 @@ def discount_rewards(r, gamma=0.99):
 
 batch_size = 32
 
-def train(episode_number, instances):
+def train(episode_number, dataset):
 
-    rewards = []  # rewards
-    reward = -1
-    nsteps = 10
+    all_discounted_rewards = []  # rewards
     actions_steps = []
+    reward_sum = 0
 
-    # print('')
-    # print("(x={x},y={y})".format(x=instances[0].value, y=instances[1].value))    
-    for i in range(nsteps):
+    for _ in range(batch_size):
+        instances = dataset.next()
+        rewards = []
+        reward = -1
+        nsteps = 10
         # print('')
-        actions = encode_and_policy(instances)
-        # print(' prob', [a.prob for a in actions])
-        # print(' sample', [a.sample for a in actions])
-        # print(' logprob', [a.logprob for a in actions])
-        # Update the state given the action.
-        instances = update_state(instances=instances, actions=actions)
-        actions_steps.append(actions)
-        
-        if i == nsteps-1:
-            if hypot(instances[0].value, instances[1].value) < 20:
-                rewards.append(1)
-            else:
-                rewards.append(-1)
-        else:
-            rewards.append(0)
-        # print(instances)
-        # rewards.append(-hypot(instances[0].value, instances[1].value)/100. + 0.5)
         # print("(x={x},y={y})".format(x=instances[0].value, y=instances[1].value))    
+        for i in range(nsteps):
+            # print('')
+            actions = encode_and_policy(instances)
+            # print(' prob', [a.prob for a in actions])
+            # print(' sample', [a.sample for a in actions])
+            # print(' logprob', [a.logprob for a in actions])
+            # Update the state given the action.
+            instances = update_state(instances=instances, actions=actions)
+            actions_steps.append(actions)
+            
+            if i == nsteps-1:
+                if hypot(instances[0].value, instances[1].value) < 20:
+                    rewards.append(1)
+                else:
+                    rewards.append(-1)
+            else:
+                rewards.append(0)
+            reward_sum += rewards[-1]
+            # print(instances)
+            # rewards.append(-hypot(instances[0].value, instances[1].value)/100. + 0.5)
+            # print("(x={x},y={y})".format(x=instances[0].value, y=instances[1].value))    
+
+        # Discount the rewards
+        discounted_rewards = []
+        R = 0
+        gamma = 0.99
+        eps = 1e-7
+        for r in rewards[::-1]:
+            R = r + gamma * R
+            discounted_rewards.insert(0, R)
+        all_discounted_rewards.extend(discounted_rewards)
 
     # print('rewards:', rewards)
     # if rewards[-1] != 1:
@@ -287,15 +330,19 @@ def train(episode_number, instances):
     # t_discounted_epr = torch.tensor(discounted_epr, dtype=torch.float32)#.unsqueeze(0)
     # print('t_discounted_epr', t_discounted_epr)
 
-    rewards_norm = []
-    R = 0
-    gamma = 0.99
-    eps = 1e-7
-    for r in rewards[::-1]:
-        R = r + gamma * R
-        rewards_norm.insert(0, R)
-    rewards_norm = torch.tensor(rewards_norm)
+
+    # rewards_norm = []
+    # R = 0
+    # gamma = 0.99
+    # eps = 1e-7
+    # for r in rewards[::-1]:
+    #     R = r + gamma * R
+    #     rewards_norm.insert(0, R)
+    # print('all_discounted_rewards:', all_discounted_rewards)
+    rewards_norm = torch.tensor(all_discounted_rewards)
     rewards_norm = (rewards_norm - rewards_norm.mean()) / (rewards_norm.std() + eps)
+
+    # print('rewards_norm:', rewards_norm)
 
     t_discounted_epr = rewards_norm
 
@@ -309,41 +356,40 @@ def train(episode_number, instances):
 
     head_losses = []
     for logprob_head in logprobs.values():
-        # head_loss = -torch.mul(-torch.cat(logprob_head), t_discounted_epr)
-        head_loss = torch.cat(logprob_head) * t_discounted_epr
-        # print('head loss:', head_loss)
+        head_loss = -torch.stack(logprob_head) * t_discounted_epr
         head_losses.append(head_loss)
     head_losses = torch.stack(head_losses)
 
     loss = torch.sum(head_losses)  
-    loss.backward()
-    if episode_number % batch_size == 0 and episode_number > 0:                   
-        optimizer.step()
-        optimizer.zero_grad()       
 
-    return rewards[-1]
+    # if episode_number % batch_size == 0 and episode_number > 0:                
+    loss.backward()
+    optimizer.step()
+    optimizer.zero_grad()       
+
+    return reward_sum / batch_size
 
 if pretrained_model:
     model.load_state_dict(torch.load(pretrained_model))
 
 
+SUMMARY_EVER_N_STEPS = 1
 
 all_rewards = []
 for i in range(100000000):
-    instances = dataset.next()
     # print('instances=%s' % (instances))
-    reward = train(episode_number=i, instances=instances)
-    all_rewards.append(reward)
-    running_avg_reward = np.mean(all_rewards[-200:-1])
-    if i % 10 == 0:
-        print('%.3f' % running_avg_reward)
+    reward = train(episode_number=i, dataset=dataset)
+    # all_rewards.append(reward)
+    # running_avg_reward = np.mean(all_rewards[-200:-1])
+    if i % SUMMARY_EVER_N_STEPS == 0:
+        print('%.3f' % reward)
         if writer:
             writer.add_scalar('reward', reward, i)
         # print('  loss=%.2f pred=%s' % (l, o))
 
-    # if i % 10000 == 0:
-    #     filename = os.path.join(log_dir, "model_%09d_l%.2f.pt" % (i, running_avg_reward))
-    #     torch.save(model.state_dict(), filename)
+    if writer and i % 10000 == 0:
+        filename = os.path.join(log_dir, "model_%09d_l%.2f.pt" % (i, reward))
+        torch.save(model.state_dict(), filename)
 
 
 # def evaluate(line_tensor):
