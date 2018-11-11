@@ -125,10 +125,10 @@ class Policy(nn.Module):
         super(Policy, self).__init__()
         self._heads = heads
 
-        self.fc1 = nn.Linear(2, 16)
+        self.fc1 = nn.Linear(4, 16)
 
-        # self.rnn = nn.LSTM(input_size=16, hidden_size=16,
-        #                    num_layers=1)#, dropout=0.05)
+        self.rnn = nn.LSTM(input_size=16, hidden_size=16,
+                           num_layers=1)#, dropout=0.05)
 
         for head in self._heads: head.create_head()
 
@@ -216,24 +216,21 @@ print(model)
 # criterion = torch.nn.MSELoss(reduction='none')
 # criterion = torch.nn.BCELoss(reduction='none')
 
-optimizer = optim.Adam(model.parameters(), lr=1e-1)#, weight_decay=1e-5)
+optimizer = optim.Adam(model.parameters(), lr=1e-2)#, weight_decay=1e-5)
 # optimizer = optim.RMSprop(model.parameters(), lr=1)
 
 def encode_and_policy(instances):
     # print('instances=', instances)
     # TODO(tzaman): separate the encoder and policy into distinct networks.
-    # hidden = None
-    # for example in instances:
-    #     example_tensor = dataset.example_to_tensor(example)
-    #     output, hidden = model.forward_rnn(example_tensor, hidden=hidden)
+    hidden = None
+    for example in instances:
+        example_tensor = dataset.example_to_tensor(example)
+        output, hidden = model.forward_rnn(example_tensor, hidden=hidden)
     
-    # hidden = None
-    # example_tensors = []
-    # for example in instances:
-    #     example_tensor = dataset.example_to_tensor(example)[-1]
-    example_tensor = torch.stack([dataset.example_to_tensor(instances[0])[-1], dataset.example_to_tensor(instances[1])[-1]])
-    # print('example_tensor', example_tensor)
-    output = model.forward_mlp(example_tensor)
+
+    # example_tensor = torch.stack([dataset.example_to_tensor(instances[0])[-1], dataset.example_to_tensor(instances[1])[-1]])
+    # # print('example_tensor', example_tensor)
+    # output = model.forward_mlp(example_tensor)
     
 
 
