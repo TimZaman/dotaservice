@@ -1,3 +1,5 @@
+import os
+
 import torch
 import torch.nn as nn
 from torch.autograd import Variable
@@ -10,8 +12,16 @@ from math import hypot
 from torch.distributions import Categorical
 from tensorboardX import SummaryWriter
 
-writer = SummaryWriter()
+
+# writer = SummaryWriter()
+writer = None
+if writer:
+    log_dir = writer.file_writer.get_logdir()
 torch.manual_seed(7)
+
+# pretrained_model = None
+pretrained_model = "/Users/tzaman/Drive/code/dotabot/many_to_one_proto_rnn/runs/Nov10_12-33-14_Tims-Mac-Pro.local/model_001360000_l0.63.pt"
+
 
 Example = recordtype('Example', ['depth', 'key_enum', 'value'])
 
@@ -29,8 +39,8 @@ class DictDataset():
 
 class DictExampleDataset():
     keys = ['x', 'y']  # TODO(tzaman): get from proto
-    # input_size = len(keys) + 1 + 1
-    input_size = 1
+    input_size = len(keys) + 1 + 1
+    # input_size = 1
     output_size = 2# + 1 + 1
     def __init__(self, dict_dataset):
         self.dict_dataset = dict_dataset
@@ -46,9 +56,10 @@ class DictExampleDataset():
     @classmethod
     def example_to_tensor(self, example):
         tensor = torch.zeros(self.input_size)
-        # tensor[example.key_enum] = 1
-        # tensor[-2] = example.depth
-        tensor[-1] = example.value
+        tensor[example.key_enum] = 1 - 0.5
+        tensor[-2] = example.depth
+        tensor[-1] = example.value / 100. # normalize
+        # print('tensor', tensor)
         return tensor#.unsqueeze(0)
 
     @classmethod
@@ -75,13 +86,15 @@ dataset = DictExampleDataset(dict_dataset=DictDataset())
 # print(dataset.next())
 
 class Action(object):
-
+ 
     def __init__(self, head, prob):
         self.head = head
-        self.prob = prob
-        m = Categorical(prob)
+        self.prob = prob#[0][0]
+        m = Categorical(self.prob)
         self.sample = m.sample()
         self.logprob = m.log_prob(self.sample)
+        # print('logprob:', self.logprob)
+        # self.sample = prob[0][0][0] < prob[0][0][1]
 
 
 
@@ -97,7 +110,11 @@ class Head(object):
     def __call__(self, x):
         """Calling the head creates an action, associated with this head."""
         x = self.head(x)
-        action_prob = F.softmax(x, dim=1)
+        # print('head(x)=', x)
+        action_prob = F.softmax(x, dim=-1)
+        # print('softmax(x)=', action_prob)
+        # exit()
+
         return Action(head=self, prob=action_prob)
 
 
@@ -106,16 +123,29 @@ class Policy(nn.Module):
         super(Policy, self).__init__()
         self._heads = heads
 
-        self.affine1 = nn.Linear(2, 16)
+        self.fc1 = nn.Linear(4, 16)
+
+        self.rnn = nn.LSTM(input_size=16, hidden_size=16,
+                           num_layers=1)#, dropout=0.05)
 
         for head in self._heads: head.create_head()
 
     def forward(self, x, hidden=None):
-        x = F.relu(self.affine1(x))
+        # print()
+        # print('x=', x)
+        x = x.view(1, -1)
+        # print('x=', x)
+        x = F.relu(self.fc1(x)).unsqueeze(1)
+        # print('relu(fc(x))=', x)
+        x, hidden = self.rnn(x, hidden)
+
+        # x = F.relu(x)
+        # print('rnn()=', x)
         actions = []
         for head in self._heads:
             actions.append(head(x))
-        return actions
+        # raw_input('Enter..')
+        return actions, hidden
 
 
 # class SimpleRNN(nn.Module):
@@ -156,14 +186,6 @@ class Policy(nn.Module):
 #         return torch.zeros(1, 1, self.hidden_size)
 
 
-n_hidden = 32
-
-# model_obj = SimpleRNN
-
-# output_size = dataset.output_size
-
-# model = model_obj(input_size=dataset.input_size, hidden_size=n_hidden, output_size=output_size)
-
 
 head_x = Head(name='x')
 head_y = Head(name='y')
@@ -177,35 +199,19 @@ model = Policy(heads=heads)
 # criterion = torch.nn.MSELoss(reduction='none')
 # criterion = torch.nn.BCELoss(reduction='none')
 
-optimizer = optim.Adam(model.parameters(), lr=1e-2)#, weight_decay=1e-5)
-# optimizer = optim.RMSprop(model.parameters(), lr=1e-6)
+optimizer = optim.Adam(model.parameters(), lr=1e-3)#, weight_decay=1e-5)
+# optimizer = optim.RMSprop(model.parameters(), lr=1e-3)
 
 def encode_and_policy(instances):
     # print('instances=', instances)
     # TODO(tzaman): separate the encoder and policy into distinct networks.
-    # hidden = None
-    # for ex in instances:
-    #     x = dataset.example_to_tensor(ex)
-    #     output, hidden = model(x, hidden)
+    hidden = None
+    for ex in instances:
+        x = dataset.example_to_tensor(ex)
+        # print('x:', x)
+        actions, hidden = model(x, hidden)
 
-
-    # xy = []
-    # for ex in instances:
-        
-    #     xy.append(x[0][-1].unsqueeze(0))
-
-    # xy = torch.cat(xy)
-    
-    # print('xy=', xy)
-    xy = [dataset.example_to_tensor(instances[0]), dataset.example_to_tensor(instances[1])]
-    xy = torch.cat(xy).unsqueeze(0)
-    xy /= 100.  # normalize
-    # print('x=', x)
-    # output, hidden = model(x, hidden)
-    # print('xy=', xy)
-    actions = model(xy)
-    # exit()
-
+    # print('actions=', [actions[0].prob, actions[0].prob])
 
     return actions
 
@@ -213,17 +219,14 @@ def update_state(instances, actions):
     # Notice `instances` is changed in-place
     # print('instances=', instances)
     # print('actions=', actions)
-    
 
-    # action = actions[0]
     move_x = actions[0].sample
     move_y = actions[1].sample
-    # move_x = actions[0]
-
+    # print('move_x={}, move_y={}'.format(move_x, move_y))
     if move_x:
-        instances[0].value -= 10
-    else:
         instances[0].value += 10
+    else:
+        instances[0].value -= 10
     if move_y:
         instances[1].value += 10
     else:
@@ -241,104 +244,60 @@ def discount_rewards(r, gamma=0.99):
         discounted_r[t] = running_add
     return discounted_r
 
-batch_size = 4
+batch_size = 32
 
 def train(episode_number, instances):
 
-    # print(instances)
-    # for instance in instances:
-    #     x = torch.tensor(instance.value, dtype=torch.float32)
-    #     print(x)
-    #     instance.value = x
-
-    # for param in model.parameters():
-    #     print('param:', param)
-    #     print(param.data)
-
     rewards = []  # rewards
-    # dlogps = []
-    # action_probs = []
-    # fake_labels = []
-    # log_probs = []
     reward = -1
-    # Go through an episode
-    # print("(x={x},y={y})".format(x=instances[0].value, y=instances[1].value))
     nsteps = 10
     actions_steps = []
+
+    # print('')
+    # print("(x={x},y={y})".format(x=instances[0].value, y=instances[1].value))    
     for i in range(nsteps):
         # print('')
         actions = encode_and_policy(instances)
-        
-        # print('action_prob:', action_prob)
-        # print('actions:', actions)
-
-        # Probe a random action
-        # action_rand = torch.rand_like(action_prob)
-        # print('action_rand:', action_rand)
-
-        # "grad that encourages the action that was taken to be taken
-        # (see http://cs231n.github.io/neural-networks-2/#losses if confused)
-        # action = action_rand < action_prob.detach()  # Does this detach the gradient tape?
-
-        # print('action', action)
-
-        # fake_label = 1 - action
-        # fake_labels.append(fake_label)
-
-        # print('fake_label', fake_label)
-
-        # action_probs.append(action_prob)
-
-        # print('action_prob:', action_prob)
-        # m = Categorical(action_prob)
-        # action = m.sample()
-        # print('Action:', action)
-        # logprob = m.log_prob(action)
-        # log_probs.append(logprob)
-        # print('logprob:', logprob)
-        # print('action.item()', action.item())
-
+        # print(' prob', [a.prob for a in actions])
+        # print(' sample', [a.sample for a in actions])
+        # print(' logprob', [a.logprob for a in actions])
         # Update the state given the action.
         instances = update_state(instances=instances, actions=actions)
         actions_steps.append(actions)
         
         if i == nsteps-1:
             if hypot(instances[0].value, instances[1].value) < 20:
-                # if abs(instances[0].value) < 15:
                 rewards.append(1)
-                # raw_input("Noise! Press Enter..")
-                # print("                                    nice!")
             else:
                 rewards.append(-1)
-                # print("FAIL")
         else:
             rewards.append(0)
+        # print(instances)
+        # rewards.append(-hypot(instances[0].value, instances[1].value)/100. + 0.5)
         # print("(x={x},y={y})".format(x=instances[0].value, y=instances[1].value))    
-    # print('actions_steps', actions_steps)
-    # print('AP', action_probs)
-    # action_probs = torch.stack([a.prob for a in actions_steps]).float()
-    # fake_labels = torch.cat(fake_labels).float()
-    
+
     # print('rewards:', rewards)
-    # print('action_probs:', action_probs)
-    # print('fake_labels:', fake_labels)
+    # if rewards[-1] != 1:
+    # input('Enter')
 
-  
-
-    
-    # log_probs = torch.stack(log_probs)
-    
-    # exit()
-
-
-    # exit()
-
-    epr = np.array(rewards).astype(np.float)
-    discounted_epr = discount_rewards(epr)
-    discounted_epr -= np.mean(discounted_epr)
-    discounted_epr /= np.max([np.std(discounted_epr), 1e-9])
-    t_discounted_epr = torch.tensor(discounted_epr, dtype=torch.float32)#.unsqueeze(0)
+    # epr = np.array(rewards).astype(np.float)
+    # discounted_epr = discount_rewards(epr)
+    # discounted_epr -= np.mean(discounted_epr)
+    # discounted_epr /= np.max([np.std(discounted_epr), 1e-7])
+    # t_discounted_epr = torch.tensor(discounted_epr, dtype=torch.float32)#.unsqueeze(0)
     # print('t_discounted_epr', t_discounted_epr)
+
+    rewards_norm = []
+    R = 0
+    gamma = 0.99
+    eps = 1e-7
+    for r in rewards[::-1]:
+        R = r + gamma * R
+        rewards_norm.insert(0, R)
+    rewards_norm = torch.tensor(rewards_norm)
+    rewards_norm = (rewards_norm - rewards_norm.mean()) / (rewards_norm.std() + eps)
+
+    t_discounted_epr = rewards_norm
 
 
     # Get the losses for each action.
@@ -350,30 +309,13 @@ def train(episode_number, instances):
 
     head_losses = []
     for logprob_head in logprobs.values():
-        # print('hi head')
-        # print(logprobs)
-        # print()
-        # print(torch.stack(logprob_head))
-        # xxx = 
-        # print('xxx=', xxx)
-        # print('t_discounted_epr=', t_discounted_epr)
-        head_loss = torch.mul(-torch.cat(logprob_head), t_discounted_epr)
-        #exit()#
-        # print('headloss=', head_loss)
+        # head_loss = -torch.mul(-torch.cat(logprob_head), t_discounted_epr)
+        head_loss = torch.cat(logprob_head) * t_discounted_epr
+        # print('head loss:', head_loss)
         head_losses.append(head_loss)
-        # head_losses = torch.cat([head_losses, head_loss])
     head_losses = torch.stack(head_losses)
 
-    # print('head_losses', head_losses)
-    # exit()
-
-    # losses = -log_probs * t_discounted_epr
-
     loss = torch.sum(head_losses)  
-    # print('loss=', loss)
-
-
-
     loss.backward()
     if episode_number % batch_size == 0 and episode_number > 0:                   
         optimizer.step()
@@ -381,24 +323,35 @@ def train(episode_number, instances):
 
     return rewards[-1]
 
+if pretrained_model:
+    model.load_state_dict(torch.load(pretrained_model))
+
+
+
 all_rewards = []
-for i in range(1000000):
+for i in range(100000000):
     instances = dataset.next()
     # print('instances=%s' % (instances))
     reward = train(episode_number=i, instances=instances)
     all_rewards.append(reward)
     running_avg_reward = np.mean(all_rewards[-200:-1])
-    print('%.3f' % running_avg_reward)
-    writer.add_scalar('reward', reward, i)
-    # print('  loss=%.2f pred=%s' % (l, o))
+    if i % 10 == 0:
+        print('%.3f' % running_avg_reward)
+        if writer:
+            writer.add_scalar('reward', reward, i)
+        # print('  loss=%.2f pred=%s' % (l, o))
+
+    # if i % 10000 == 0:
+    #     filename = os.path.join(log_dir, "model_%09d_l%.2f.pt" % (i, running_avg_reward))
+    #     torch.save(model.state_dict(), filename)
 
 
-def evaluate(line_tensor):
-    hidden = None
-    for i in range(line_tensor.size()[0]):
-        output, hidden = model(line_tensor[i], hidden=hidden)
-    return output
+# def evaluate(line_tensor):
+#     hidden = None
+#     for i in range(line_tensor.size()[0]):
+#         output, hidden = model(line_tensor[i], hidden=hidden)
+#     return output
 
 
-# output = evaluate(lineToTensor("?"))
-# print(categoryFromOutput(output))
+# # output = evaluate(lineToTensor("?"))
+# # print(categoryFromOutput(output))
