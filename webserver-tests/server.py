@@ -43,7 +43,6 @@ def get_action(tick):
 
 
 
-
 @app.route(r"/action", methods=['POST'])
 def post():
     game_id  = request.args.get('game_id')

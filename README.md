@@ -1,5 +1,11 @@
 
 
+## Check out open sockets:
+
+`$ lsof -n -i | grep -e LISTEN -e ESTABLISHED`
+Result:
+`dota2     1061 tzaman  215u  IPv4 0x84b2d9c103958a77      0t0  TCP *:12120 (LISTEN)`
+
 ## Dota has TensorFlow:
 
 `cat Steam/steamapps/common/dota\ 2\ beta/game/dota/bin/linuxsteamrt64/libserver.so | grep -a tensorflow`
