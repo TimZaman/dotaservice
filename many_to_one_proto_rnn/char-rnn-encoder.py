@@ -11,16 +11,23 @@ from recordtype import recordtype
 from math import hypot
 from torch.distributions import Categorical
 from tensorboardX import SummaryWriter
+import random
 
+torch.manual_seed(7)
+random.seed(7)
+np.random.seed(7)
+
+eps = 1e-7
 
 writer = SummaryWriter()
 # writer = None
 if writer:
     log_dir = writer.file_writer.get_logdir()
-torch.manual_seed(7)
+
+
 
 pretrained_model = None
-# pretrained_model = "/Users/tzaman/Drive/code/dotabot/many_to_one_proto_rnn/runs/Nov10_12-33-14_Tims-Mac-Pro.local/model_001360000_l0.63.pt"
+# pretrained_model = "/Users/tzaman/Drive/code/dotabot/many_to_one_proto_rnn/runs/Nov11_16-18-17_ngvpn01-175-39.dyn.scz.us.nvidia.com/model_000000700_r6.88.pt"
 
 # print(torch.load(pretrained_model))
 # exit()
@@ -107,7 +114,7 @@ class Head(object):
         self.name = name
 
     def create_head(self):
-        self.head = nn.Linear(16, 2)
+        self.head = nn.Linear(128, 2)
 
     def __call__(self, x):
         """Calling the head creates an action, associated with this head."""
@@ -125,9 +132,9 @@ class Policy(nn.Module):
         super(Policy, self).__init__()
         self._heads = heads
 
-        self.fc1 = nn.Linear(4, 16)
+        self.fc1 = nn.Linear(4, 128)
 
-        self.rnn = nn.LSTM(input_size=16, hidden_size=16,
+        self.rnn = nn.LSTM(input_size=128, hidden_size=128,
                            num_layers=1)#, dropout=0.05)
 
         for head in self._heads: head.create_head()
@@ -211,13 +218,8 @@ heads = [head_x, head_y]
 
 model = Policy(heads=heads)
 print(model)
-# criterion = nn.NLLLoss()
-# criterion = nn.MSELoss()
-# criterion = torch.nn.MSELoss(reduction='none')
-# criterion = torch.nn.BCELoss(reduction='none')
 
-optimizer = optim.Adam(model.parameters(), lr=1e-2)#, weight_decay=1e-5)
-# optimizer = optim.RMSprop(model.parameters(), lr=1)
+optimizer = optim.Adam(model.parameters(), lr=1e-3)#, weight_decay=1e-5)
 
 def encode_and_policy(instances):
     # print('instances=', instances)
@@ -232,7 +234,6 @@ def encode_and_policy(instances):
     # # print('example_tensor', example_tensor)
     # output = model.forward_mlp(example_tensor)
     
-
 
     actions = model.forward_heads(output)
 
@@ -259,16 +260,6 @@ def update_state(instances, actions):
     return instances
 
 
-def discount_rewards(r, gamma=0.99):
-    """ take 1D float array of rewards and compute discounted reward """
-    discounted_r = np.zeros_like(r)
-    running_add = 0
-    for t in reversed(range(0, r.size)):
-        # if r[t] != 0: running_add = 0 # reset the sum, since this was a game boundary (pong specific!)
-        running_add = running_add * gamma + r[t]
-        discounted_r[t] = running_add
-    return discounted_r
-
 batch_size = 32
 
 def train(episode_number, dataset):
@@ -280,7 +271,7 @@ def train(episode_number, dataset):
     for _ in range(batch_size):
         instances = dataset.next()
         rewards = []
-        reward = -1
+        # reward = -1
         nsteps = 10
         # print('')
         # print("(x={x},y={y})".format(x=instances[0].value, y=instances[1].value))    
@@ -294,58 +285,45 @@ def train(episode_number, dataset):
             instances = update_state(instances=instances, actions=actions)
             actions_steps.append(actions)
             
-            if i == nsteps-1:
-                if hypot(instances[0].value, instances[1].value) < 20:
-                    rewards.append(1)
-                else:
-                    rewards.append(-1)
+            if hypot(instances[0].value, instances[1].value) < 20:
+                rewards.append(1)
             else:
                 rewards.append(0)
             reward_sum += rewards[-1]
+
+            # if i == nsteps-1:
+            #     if hypot(instances[0].value, instances[1].value) < 20:
+            #         rewards.append(1)
+            #     else:
+            #         rewards.append(-1)
+            # else:
+            #     rewards.append(0)
+
             # print(instances)
             # rewards.append(-hypot(instances[0].value, instances[1].value)/100. + 0.5)
-            # print("(x={x},y={y})".format(x=instances[0].value, y=instances[1].value))    
+            # print("(x={x},y={y})".format(x=instances[0].value, y=instances[1].value))
+        # reward_sum += rewards[-1]
 
         # Discount the rewards
         discounted_rewards = []
         R = 0
         gamma = 0.99
-        eps = 1e-7
+        
         for r in rewards[::-1]:
             R = r + gamma * R
             discounted_rewards.insert(0, R)
+        # print('disc;', discounted_rewards)
         all_discounted_rewards.extend(discounted_rewards)
 
-    # print('rewards:', rewards)
-    # if rewards[-1] != 1:
-    # input('Enter')
 
-    # epr = np.array(rewards).astype(np.float)
-    # discounted_epr = discount_rewards(epr)
-    # discounted_epr -= np.mean(discounted_epr)
-    # discounted_epr /= np.max([np.std(discounted_epr), 1e-7])
-    # t_discounted_epr = torch.tensor(discounted_epr, dtype=torch.float32)#.unsqueeze(0)
-    # print('t_discounted_epr', t_discounted_epr)
-
-
-    # rewards_norm = []
-    # R = 0
-    # gamma = 0.99
-    # eps = 1e-7
-    # for r in rewards[::-1]:
-    #     R = r + gamma * R
-    #     rewards_norm.insert(0, R)
-    # print('all_discounted_rewards:', all_discounted_rewards)
     rewards_norm = torch.tensor(all_discounted_rewards)
     rewards_norm = (rewards_norm - rewards_norm.mean()) / (rewards_norm.std() + eps)
 
     # print('rewards_norm:', rewards_norm)
 
-    t_discounted_epr = rewards_norm
-
+    # writer.add_scalar('rewards_norm.mean', rewards_norm.mean(), episode_number)
 
     # Get the losses for each action.
-
     logprobs = {head_x: [], head_y: []}
     for action_step in actions_steps:
         for action in action_step:
@@ -353,24 +331,28 @@ def train(episode_number, dataset):
 
     head_losses = []
     for logprob_head in logprobs.values():
-        head_loss = -torch.stack(logprob_head) * t_discounted_epr
+        head_loss = -torch.stack(logprob_head) * rewards_norm
         head_losses.append(head_loss)
     head_losses = torch.stack(head_losses)
+    loss = torch.sum(head_losses) / batch_size
 
-    loss = torch.sum(head_losses)  
-
-    # if episode_number % batch_size == 0 and episode_number > 0:                
+    optimizer.zero_grad()             
     loss.backward()
     optimizer.step()
-    optimizer.zero_grad()       
 
-    return reward_sum / batch_size
+    # Write statistics
+    reward = reward_sum / batch_size
+    print('%.3f' % reward)
+    if writer:
+        writer.add_scalar('reward', reward, episode_number)
+        writer.add_scalar('loss', loss, episode_number)
+
 
 if pretrained_model:
     model.load_state_dict(torch.load(pretrained_model))
 
 
-SUMMARY_EVER_N_STEPS = 1
+# SUMMARY_EVER_N_STEPS = 1
 
 all_rewards = []
 for i in range(100000000):
@@ -378,14 +360,13 @@ for i in range(100000000):
     reward = train(episode_number=i, dataset=dataset)
     # all_rewards.append(reward)
     # running_avg_reward = np.mean(all_rewards[-200:-1])
-    if i % SUMMARY_EVER_N_STEPS == 0:
-        print('%.3f' % reward)
-        if writer:
-            writer.add_scalar('reward', reward, i)
+    # if i % SUMMARY_EVER_N_STEPS == 0:
+    #     print('%.3f' % reward)
+        # if writer:
         # print('  loss=%.2f pred=%s' % (l, o))
 
-    if writer and i % 10000 == 0:
-        filename = os.path.join(log_dir, "model_%09d_l%.2f.pt" % (i, reward))
+    if writer and i % 100 == 0:
+        filename = os.path.join(log_dir, "model_%09d.pt" % i)
         torch.save(model.state_dict(), filename)
 
 
