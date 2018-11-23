@@ -12,3 +12,16 @@ Result:
 (...)
 tf_server_client_connect_timeout_stf_server_client_read_timeout_stf_server_client_write_timeout_stf_server_stats_spew_interval_sdota_suggest_spew_pregame_itemsdota_suggest_spew_win_probabilitydota_suggest_spew_win_probability_chatdota_suggest_pregame_items_reductiondota_suggest_pregame_items_thresholddota_suggest_item_sequence_allow_thresholddota_suggest_item_sequence_threshold_startdota_suggest_item_sequence_threshold_fulldota_suggest_item_sequence_other_option_multiplierdota_suggest_item_sequence_dupe_multiplierdota_suggest_lane_trilane_penaltydota_suggest_win_probability_interval
 (...)
+
+## Mounting 
+
+# Making the image
+
+# Clear dangling images
+
+
+
+docker rmi $(docker images -f dangling=true -q)
+
+steamid ***REMOVED***
+steampwd ***REMOVED***
