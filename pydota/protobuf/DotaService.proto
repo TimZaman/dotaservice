@@ -1,0 +1,18 @@
+syntax = "proto3";
+
+package dotaservice;
+
+import "protobuf/CMsgBotWorldState.proto";
+import "protobuf/DotaAction.proto";
+
+message Action {
+  DotaAction action = 1;
+}
+
+message Observation {
+  CMsgBotWorldState world_state = 1;
+}
+
+service DotaService {
+  rpc Step (Action) returns (Observation) {}
+}
