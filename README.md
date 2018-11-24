@@ -1,4 +1,4 @@
-# Dotaservice
+# DotaService
 
 _This project is a WIP weekend-project._
 
@@ -15,6 +15,12 @@ module for this (`PyDota`) that mimics typical OpenAI gym APIs.
 ---
 
 # Notes
+
+Create the protos
+
+```sh
+python3 -m grpc_tools.protoc -I. --python_out=. --python_grpc_out=. protobuf/*.proto
+```
 
 Check open sockets:
 ```sh

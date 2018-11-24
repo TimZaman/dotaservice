@@ -13,8 +13,41 @@ import signal
 import subprocess
 import time
 
-import protobuf.CMsgBotWorldState_pb2 as _pb
 import google.protobuf.text_format as txtf
+from grpclib.server import Server
+
+from protobuf.DotaService_grpc import DotaServiceBase
+from protobuf.DotaService_pb2 import Observation
+from protobuf.CMsgBotWorldState_pb2 import CMsgBotWorldState
+
+global_test_var = ''
+
+
+class DotaService(DotaServiceBase):
+
+    async def Step(self, stream):
+        print('DotaService::Step()')
+        request = await stream.recv_message()
+        print('  request={}'.format(request))
+        empty_worldstate = CMsgBotWorldState()
+        await stream.send_message(Observation(world_state=empty_worldstate))
+
+
+async def serve(server, *, host='127.0.0.1', port=50051):
+    await server.start(host, port)
+    print('Serving on {}:{}'.format(host, port))
+    try:
+        await server.wait_closed()
+    except asyncio.CancelledError:
+        server.close()
+        await server.wait_closed()
+
+
+async def grpc_main():
+    server = Server([DotaService()], loop=asyncio.get_event_loop())
+    await serve(server)
+
+
 
 TICKS_PER_SECOND = 30
 DOTA_PATH = '/Users/tzaman/Library/Application Support/Steam/SteamApps/common/dota 2 beta/game'
@@ -71,6 +104,7 @@ async def run_dota():
 
 
 async def worldstate_listener(port):
+    global global_test_var
     print('creating worldstate_listener @ port %s' % port)
     await asyncio.sleep(5)
     reader, writer = await asyncio.open_connection('127.0.0.1', port)#, loop=loop)
@@ -87,15 +121,17 @@ async def worldstate_listener(port):
             parsed_data.ParseFromString(data)
             dotatime = parsed_data.dota_time
             tick = dotatime_to_tick(dotatime)
+            global_test_var = tick
             print('@port{} tick: {}'.format(port, tick))
     except asyncio.CancelledError:
         raise
 
 
 tasks =  asyncio.gather(
-    run_dota(),
-    worldstate_listener(port=PORT_WORLDSTATE_RADIANT),
-    worldstate_listener(port=PORT_WORLDSTATE_DIRE),
+    # run_dota(),
+    grpc_main(),
+    # worldstate_listener(port=PORT_WORLDSTATE_RADIANT),
+    # worldstate_listener(port=PORT_WORLDSTATE_DIRE),
 )
 
 loop = asyncio.get_event_loop()
