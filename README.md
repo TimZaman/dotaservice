@@ -94,3 +94,6 @@ What is the difference between game mod 11 (Mid Only) and 21 (Solo Mid 1 vs 1)?
 With a speed of 300, it takes around 30 seconds to walk from spawn (fountain) to mid ~(0,0)
 
 A mid game without heroes can already be over in 15 minutes by creeps alone taking the tower.
+
+Even with `host_force_frametime_to_equal_tick_interval` set, there is a bug in dotatime, as there
+is an extra tick inserted at 0; e.g.: [-0.034439086914062, -0.0011062622070312, 0, 0.033332824707031].

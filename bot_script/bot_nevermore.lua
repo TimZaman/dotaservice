@@ -40,7 +40,8 @@ PACKET_EVERY_N_TICKS = 4
 ACTION_FOLDER = 'ramdisk/'
 
 function dotatime_to_tick(dotatime)
-    return math.floor(dotatime * TICKS_PER_SECOND)
+    return math.floor(dotatime * TICKS_PER_SECOND + 0.5)  -- 0.5 for rounding
+    -- return math.floor(math.round(dotatime * TICKS_PER_SECOND), 
 end
 
 -- local function http_request(tick, post_data)
@@ -98,7 +99,9 @@ function Think()
     local dotatime = DotaTime()
     local tick = dotatime_to_tick(dotatime)
     print('Think dotatime=', dotatime, ' tick=', tick)
-    if tick >= 0 and tick % 4 == 0 then
+    -- Notice there is a bug in dotatime, as there is an extra tick inserted at 0;
+    -- e.g.: [-0.034439086914062, -0.0011062622070312, 0, 0.033332824707031]
+    if dotatime >= 0 and tick % 4 == 0 then
         query_reponse(tick)
     end
 end
