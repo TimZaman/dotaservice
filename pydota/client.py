@@ -13,7 +13,9 @@ async def main():
 
     dota_action = DotaAction(x=1, y=2, z=3)
     response = await stub.Step(Action(action=dota_action))
-    print('--- Reponse ---\n{}'.format(response))
+
+    print('Response:\ndotatime = ', response.world_state.dota_time)
+    # print('--- Reponse ---\n{}'.format(response))
 
 
 if __name__ == '__main__':
