@@ -1,47 +1,29 @@
 ----------------------------------------------------------------------------------------------------
 
-local offset = 0
-
-function Think()
-    gs = GetGameState()
-    print( "game state: ", gs )
-    
-    if ( gs == GAME_STATE_HERO_SELECTION ) then
-        a = GetGameMode()
-        print( "game mode: ", a);
-        
-        -- if ( a == GAMEMODE_AP ) then 
-        --     print ( "All Pick" )
-            if ( GetTeam() == TEAM_RADIANT ) then
-                    print( "selecting radiant" );
-                if ( IsPlayerInHeroSelectionControl(0) ) then
-                    SelectHero( 0+offset, "npc_dota_hero_nevermore" );
-                end
-                
-                if ( IsPlayerInHeroSelectionControl(2) ) then
-                    SelectHero( 1+offset, "npc_dota_hero_antimage" );
-                end
-                
-                if ( IsPlayerInHeroSelectionControl(3) ) then
-                    SelectHero( 2+offset, "npc_dota_hero_antimage" );
-                end
-                
-                if ( IsPlayerInHeroSelectionControl(4) ) then
-                    SelectHero( 3+offset, "npc_dota_hero_antimage" );
-                end
-                
-                if ( IsPlayerInHeroSelectionControl(5) ) then
-                    SelectHero( 4+offset, "npc_dota_hero_antimage" );
-                end
-            elseif ( GetTeam() == TEAM_DIRE ) then
-                print( "selecting dire" );
-                SelectHero( 5+offset, "npc_dota_hero_antimage" );
-                SelectHero( 6+offset, "npc_dota_hero_antimage" );
-                SelectHero( 7+offset, "npc_dota_hero_antimage" );
-                SelectHero( 8+offset, "npc_dota_hero_antimage" );
-                SelectHero( 9+offset, "npc_dota_hero_antimage" );
-            end
-    end
+function GetBotNames ()
+	return  {"A", "B", "C", "D", "E"}
 end
 
-----------------------------------------------------------------------------------------------------
+local bot_heroes = {"npc_dota_hero_nevermore"}
+
+function Think()
+	-- This gets called (every server tick AND until all heroes are picked).
+	-- This needs to gets called at least once if there is no human.
+    print('hero_selection::Think()')
+    print('game mode:', GetGameMode())
+    local ids = GetTeamPlayers(GetTeam())
+    for i,v in pairs(ids) do
+        -- If the human is in the unassigned slot, the radiant bots start at v = 2
+        -- If the human is in the radiant coach slot, the radiant bots start at v = 2
+        -- If the human is in the first radiant slot, the radiant bots start at v = 0
+        -- If the human is in the second radiant slot, the radiant bots start at v = 1
+        -- If the human is in the third radiant slot, the radiant bots start at v = 2
+		if IsPlayerBot(v) and IsPlayerInHeroSelectionControl(v) then
+            if i == 1 then
+                SelectHero( v, "npc_dota_hero_nevermore" );
+            else
+                SelectHero( v, "npc_dota_hero_wisp" );
+            end
+		end
+	end
+end
