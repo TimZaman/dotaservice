@@ -117,9 +117,9 @@ async def run_dota():
         "-botworldstatetosocket_dire 12121",
         "-botworldstatetosocket_frames 30",
         "-botworldstatetosocket_radiant 12120",
-        "-console,",
+        # "-console,",
         "-dedicated",
-        "-dev",  # Not sure what this does
+        # "-dev",  # Not sure what this does
         "-fill_with_bots",
         "-host_force_frametime_to_equal_tick_interval 1",
         "-insecure",
@@ -175,7 +175,7 @@ async def data_from_reader(reader):
 
 async def worldstate_listener(port):
     # global global_test_var
-    global reader
+    # global reader
     print('creating worldstate_listener @ port %s' % port)
     await asyncio.sleep(5)
     reader, writer = await asyncio.open_connection('127.0.0.1', port)#, loop=loop)
@@ -201,8 +201,8 @@ async def worldstate_listener(port):
 tasks =  asyncio.gather(
     run_dota(),
     grpc_main(),
-    # worldstate_listener(port=PORT_WORLDSTATE_RADIANT),
-    # worldstate_listener(port=PORT_WORLDSTATE_DIRE),
+    worldstate_listener(port=PORT_WORLDSTATE_RADIANT),
+    worldstate_listener(port=PORT_WORLDSTATE_DIRE),
 )
 # exit()
 
