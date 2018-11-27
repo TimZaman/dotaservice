@@ -37,7 +37,7 @@ $ lsof -n -i | grep -e LISTEN -e ESTABLISHED
 >>> dota2     1061 tzaman  215u  IPv4 0x84b2d9c103958a77      0t0  TCP *:12120 (LISTEN)
 ```
 
-DOTA comes with TensorFlow libs, primarily used for dota plus features:
+DOTA comes with TensorFlow libs (on ubuntu gives `failed to dlopen libtensorflow.so error=libtensorflow.so: cannot open shared object file: No such file or directory`), primarily used for dota plus features:
 
 ```sh
 $ cat Steam/steamapps/common/dota\ 2\ beta/game/dota/bin/linuxsteamrt64/libserver.so | grep -a tensorflow
@@ -97,3 +97,14 @@ A mid game without heroes can already be over in 15 minutes by creeps alone taki
 
 Even with `host_force_frametime_to_equal_tick_interval` set, there is a bug in dotatime, as there
 is an extra tick inserted at 0; e.g.: [-0.034439086914062, -0.0011062622070312, 0, 0.033332824707031].
+
+The game is trying to load C++ bot libraries using
+dlopen with mode 6 (`RTLD_LOCAL | RTLD_NOW`); `bots/botcpp_radiant.so` and `bots/botcpp_dire.so`.
+It expects (for what i found using `LD_DEBUG=bindings LD_BIND_NOW=1`) an implemetation of `Init`,
+`Observe`, `Act` and `Shutdown`.
+
+Dota's worldstate server will clog up quickly with a host timescale of 10 and printing out every state
+tick.
+
+The worldstate can be set to be pushed every n ticks (`botworldstatetosocket_frames`) but the
+tick at which it starts pushing is not deterministic.

@@ -3,16 +3,10 @@ package.path = package.path .. ";/Volumes/ramdisk/?.lua"
 
 dkjson = require( "game/dkjson" )
 
+TICKS_PER_OBSERVATION = 30
+
 print(package.path)
 print('LUA version:', _VERSION)
-
--- f = loadfile("../foos")
--- f = loadfile("ramdisk/foos")
--- f = loadfile("/Volumes/ramdisk/foos")
--- f();
--- require('foos')
--- exit();
-
 
 function OnStart()
 	print( "bot_nevermore.OnStart" );
@@ -67,7 +61,6 @@ local function query_reponse(tick)
     local filename = get_action_filename(tick)
     -- print('looking for filename=', filename)
     x = 0
-    --for i = 1, N_READ_RETRIES, 1 do -- Dota roundtrip takes around 70 tries.
     print('looking for loadfile ', filename)
     while true do
         x = x + 1
@@ -75,15 +68,13 @@ local function query_reponse(tick)
         if tickfile ~= nil then break end
     end
     print('loadfile retries=', x)
-    if tickfile == nil then
-        print('tickfile is nil; timed out waiting for the file, or invalid contents')
-        print('skipping tickfile.')
-        data = nil
-    else
-        -- Execute the tickfile; this loads contents into `data`.
-        tickfile()
+    -- Execute the tickfile; this loads contents into `data`.
+    tickfile()
+    print('(lua) data=', data)
+    if data == nil then
+        print('FUCK DATA IS NIL!')
+        -- goto exit
     end
-    print('data=', data)
     local jsonReply, pos, err = dkjson.decode(data, 1, nil)
     if err then
         print("JSON Decode Error: ", err)
@@ -96,12 +87,16 @@ local function query_reponse(tick)
 end
 
 function Think()
+    if GetTeam() == TEAM_RADIANT then
+        -- For now, just focus on radiant. We can add DIRE action files some time later.
+        return
+    end
     local dotatime = DotaTime()
     local tick = dotatime_to_tick(dotatime)
     print('Think dotatime=', dotatime, ' tick=', tick)
     -- Notice there is a bug in dotatime, as there is an extra tick inserted at 0;
     -- e.g.: [-0.034439086914062, -0.0011062622070312, 0, 0.033332824707031]
-    if dotatime >= 0 and tick % 4 == 0 then
+    if dotatime >= 0 and tick % TICKS_PER_OBSERVATION == 0 then
         query_reponse(tick)
     end
 end
