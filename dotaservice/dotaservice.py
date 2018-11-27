@@ -24,10 +24,12 @@ from protobuf.CMsgBotWorldState_pb2 import CMsgBotWorldState
 
 # global_test_var = ''
 
+TICKS_PER_OBSERVATION = 30
 TICKS_PER_SECOND = 30
 DOTA_PATH = '/Users/tzaman/Library/Application Support/Steam/SteamApps/common/dota 2 beta/game'
 PORT_WORLDSTATE_RADIANT = 12120
 PORT_WORLDSTATE_DIRE = 12121
+
 
 if not os.path.exists(DOTA_PATH):
     raise ValueError('dota game path does not exist: {}'.format(DOTA_PATH))
@@ -45,35 +47,55 @@ GAME_ID = 'my_game_id'
 if not os.path.exists(DOTA_PATH):
     raise ValueError('Action folder does not exist. Please mount! ({})'.format(ACTION_FOLDER))
 GAME_ACTION_FOLDER = os.path.join(ACTION_FOLDER, GAME_ID)
-if not os.path.exists(DOTA_PATH):
-    os.mkdir(GAME_ACTION_FOLDER)
+if os.path.exists(GAME_ACTION_FOLDER):
+    # Remove existing actions
+    shutil.rmtree(GAME_ACTION_FOLDER)
+os.mkdir(GAME_ACTION_FOLDER)
+
+
+
+
+# set_fut_on_tick = None
+
+
+def atomic_file_write(filename, data):
+    filename_tmp = "{}_".format(filename)
+    f = open(filename_tmp, 'w')
+    f.write(data)
+    f.flush()
+    os.fsync(f.fileno()) 
+    f.close()
+    os.rename(filename_tmp, filename)
 
 
 class DotaService(DotaServiceBase):
 
     async def Step(self, stream):
         print('DotaService::Step()')
+        # global set_fut_on_tick
+
         request = await stream.recv_message()
         print('  request={}'.format(request))
         # empty_worldstate = CMsgBotWorldState()
 
         # d = {'foo': 1337}
-        tick = 0
-        filename = os.path.join(GAME_ACTION_FOLDER, "{}.lua".format(tick))
+        # tick = 0
+        action_tick = int(request.action.x)
+
+        filename = os.path.join(GAME_ACTION_FOLDER, "{}.lua".format(action_tick))
         data_dict = MessageToDict(request)
-        # print('type(data_js):', type(data_js))
-        # print('data_js:', data_js)
-        # data_js = 
+
         data = "data = '{}'".format(json.dumps(data_dict, separators=(',',':')))
-        print('data=', data)
-        with open(filename, 'w') as f:
-            f.write(data)
+        print('(python) action data=', data)
 
-        # Somehow i need the world state from the bot here
+        atomic_file_write(filename, data)
 
-        # data = await data_from_reader(reader=reader)
-        data = CMsgBotWorldState()  # Dummy
-        # print('data=', data)
+        # set_fut_on_tick = action_tick + TICKS_PER_OBSERVATION
+
+        # data = CMsgBotWorldState()  # Dummy
+        data = await fut
+        print('Received future from tick {}'.format(set_fut_on_tick))
+        print('Returning observation from future as response..')
         await stream.send_message(Observation(world_state=data))
 
 
@@ -96,7 +118,7 @@ async def grpc_main():
 
 
 def dotatime_to_tick(dotatime):
-    return math.floor(dotatime * TICKS_PER_SECOND)
+    return math.floor(dotatime * TICKS_PER_SECOND + 0.5)  # 0.5 for rounding
 
 
 def kill_processes_and_children(pid, sig=signal.SIGTERM):
@@ -115,7 +137,7 @@ async def run_dota():
         script_path,
         # "-botworldstatesocket_threaded",
         "-botworldstatetosocket_dire 12121",
-        "-botworldstatetosocket_frames 30",
+        "-botworldstatetosocket_frames {}".format(TICKS_PER_OBSERVATION),
         "-botworldstatetosocket_radiant 12120",
         # "-console,",
         "-dedicated",
@@ -157,43 +179,38 @@ async def run_dota():
 
 async def data_from_reader(reader):
     port = None  # HACK
-    print('data_from_reader')
+    print('data_from_reader()')
     # Receive the package length.
-    data = await asyncio.wait_for(reader.read(4), timeout=5.0)
+    data = await reader.read(4)
     # eternity(), timeout=1.0)
     n_bytes = unpack("@I", data)[0]
+    # print('n_bytes=', n_bytes)
     # Receive the payload given the length.
     data = await asyncio.wait_for(reader.read(n_bytes), timeout=5.0)
     # Decode the payload.
+    # print('data=', data)
     parsed_data = CMsgBotWorldState()
     parsed_data.ParseFromString(data)
     dotatime = parsed_data.dota_time
     tick = dotatime_to_tick(dotatime)
     # global_test_var = tick
-    print('@port{} tick: {}'.format(port, tick))
-    return parsed_data
+    # print('worlstate recevied dotatime=', dotatime)
+    print('worldstate received @dotatime={} @tick={}'.format(dotatime, tick))
+    return tick, parsed_data
 
 async def worldstate_listener(port):
     # global global_test_var
-    # global reader
+    global reader
     print('creating worldstate_listener @ port %s' % port)
-    await asyncio.sleep(5)
+    await asyncio.sleep(3)
+    print('opening reader..!')
     reader, writer = await asyncio.open_connection('127.0.0.1', port)#, loop=loop)
+    print('reader opened!')
     try:
         while True:
-            # Receive the package length.
-            data = await asyncio.wait_for(reader.read(4), timeout=5.0)
-            # eternity(), timeout=1.0)
-            n_bytes = unpack("@I", data)[0]
-            # Receive the payload given the length.
-            data = await asyncio.wait_for(reader.read(n_bytes), timeout=5.0)
-            # Decode the payload.
-            parsed_data = _pb.CMsgBotWorldState()
-            parsed_data.ParseFromString(data)
-            dotatime = parsed_data.dota_time
-            tick = dotatime_to_tick(dotatime)
-            global_test_var = tick
-            print('@port{} tick: {}'.format(port, tick))
+            tick, parsed_data = await data_from_reader(reader)
+            # if tick == set_fut_on_tick:
+            #     fut.set_result(parsed_data)
     except asyncio.CancelledError:
         raise
 
@@ -202,11 +219,12 @@ tasks =  asyncio.gather(
     run_dota(),
     grpc_main(),
     worldstate_listener(port=PORT_WORLDSTATE_RADIANT),
-    worldstate_listener(port=PORT_WORLDSTATE_DIRE),
+    # worldstate_listener(port=PORT_WORLDSTATE_DIRE),
 )
-# exit()
+
 
 loop = asyncio.get_event_loop()
+fut = loop.create_future()
 
 try:
     loop.run_until_complete(tasks)
