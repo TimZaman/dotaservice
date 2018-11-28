@@ -11,11 +11,10 @@ async def main():
     channel = Channel('127.0.0.1', 50051, loop=loop)
     stub = DotaServiceStub(channel)
 
-    dota_action = DotaAction(x=1, y=2, z=3)
+    dota_action = DotaAction(x=146, y=2, z=3)
     response = await stub.Step(Action(action=dota_action))
 
     print('Response:\ndotatime = ', response.world_state.dota_time)
-    # print('--- Reponse ---\n{}'.format(response))
 
 
 if __name__ == '__main__':
