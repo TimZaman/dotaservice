@@ -75,6 +75,7 @@ Mid 1v1 mode skips the 30s strategy; `+dota_force_gamemode 11 +dota_1v1_skip_str
 
 Saving replays is impossibe by dedicated servers: need SourceTV (tv_*), `27020` is the default SourceTV port.
 Clients can just connect with console command `connect ip:27020` and drop into the game.
+Notice SourceTV is considered a Player and BOT, and usually gets the first index (1).
 
 ```sh
 # /root/Steam/steamapps/common/dota\ 2\ beta/game/dota.sh -dedicated +map dota +sv_lan 1 +sv_hibernate_when_empty 0 +dota_auto_surrender_all_disconnected_timeout 180 +tv_enable 1 +tv_autorecord 1 +tv_dota_auto_record_stressbots 1 +tv_delay 0 +dota_force_gamemode 11 +dota_force_upload_match_stats 1
@@ -96,7 +97,10 @@ With a speed of 300, it takes around 30 seconds to walk from spawn (fountain) to
 A mid game without heroes can already be over in 15 minutes by creeps alone taking the tower.
 
 Even with `host_force_frametime_to_equal_tick_interval` set, there is a bug in dotatime, as there
-is an extra tick inserted at 0; e.g.: [-0.034439086914062, -0.0011062622070312, 0, 0.033332824707031].
+is an extra tick inserted at 0; e.g.: `[-0.034439086914062, -0.0011062622070312, 0, 0.033332824707031]`.
+The corresponding gamestates are `[4, 4, 5, 5]`, so the tick at exactly 0 is the `DOTA_GAMERULES_STATE_GAME_IN_PROGRESS`.
+This is also a problem with the botworldstate; e.g. if you have a state every n frames, when it wraps
+around zero time, it will add another tick there.
 
 The game is trying to load C++ bot libraries using
 dlopen with mode 6 (`RTLD_LOCAL | RTLD_NOW`); `bots/botcpp_radiant.so` and `bots/botcpp_dire.so`.
@@ -108,3 +112,17 @@ tick.
 
 The worldstate can be set to be pushed every n ticks (`botworldstatetosocket_frames`) but the
 tick at which it starts pushing is not deterministic.
+
+The worldstate server starts even before the gameplay starts and bot Think's begin;
+E.g. the states roll in at  dotatime `-75` (probably state `DOTA_GAMERULES_STATE_HERO_SELECTION`);
+then jumps to `-59.97` after entering state `DOTA_GAMERULES_STATE_WAIT_FOR_MAP_TO_LOAD`.
+Once it enters state 'DOTA_GAMERULES_STATE_PRE_GAME' it resets to dotatime `-90`.
+
+The bot scripts are reloaded entirely with every game, not just once when booting dota.
+
+---
+
+Acknowledgements for insights and inspiration:
+https://github.com/Nostrademous
+http://karpathy.github.io/2016/05/31/rl/
+Jan Ivanecky

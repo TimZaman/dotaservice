@@ -5,6 +5,7 @@ from __future__ import print_function
 from struct import unpack
 import asyncio
 import atexit
+import json
 import math
 import os
 import psutil
@@ -12,7 +13,8 @@ import shutil
 import signal
 import subprocess
 import time
-import json
+import uuid
+import glob
 
 import google.protobuf.text_format as txtf
 from grpclib.server import Server
@@ -22,41 +24,72 @@ from protobuf.DotaService_grpc import DotaServiceBase
 from protobuf.DotaService_pb2 import Observation
 from protobuf.CMsgBotWorldState_pb2 import CMsgBotWorldState
 
-# global_test_var = ''
-
-TICKS_PER_OBSERVATION = 30
+TICKS_PER_OBSERVATION = 1000
 TICKS_PER_SECOND = 30
 DOTA_PATH = '/Users/tzaman/Library/Application Support/Steam/SteamApps/common/dota 2 beta/game'
 PORT_WORLDSTATE_RADIANT = 12120
 PORT_WORLDSTATE_DIRE = 12121
+PORT_REST = 13337
+
+# An enum from the game (should have been in the proto though).
+DOTA_GAMERULES_STATE_PRE_GAME = 4
+DOTA_GAMERULES_STATE_GAME_IN_PROGRESS = 5
 
 
 if not os.path.exists(DOTA_PATH):
     raise ValueError('dota game path does not exist: {}'.format(DOTA_PATH))
 
-BOT_PATH = os.path.join(DOTA_PATH, 'dota', 'scripts', 'vscripts', 'bots')
+BOTS_FOLDER_NAME = 'bots'
+DOTA_BOT_PATH = os.path.join(DOTA_PATH, 'dota', 'scripts', 'vscripts', 'bots')
 
-if os.path.exists(BOT_PATH):
-    shutil.rmtree(BOT_PATH)
-shutil.copytree('../bot_script', BOT_PATH)
+# Remove the dota bot directory
+if os.path.exists(DOTA_BOT_PATH) or os.path.islink(DOTA_BOT_PATH):
+    if os.path.isdir(DOTA_BOT_PATH) and not os.path.islink(DOTA_BOT_PATH):
+        raise ValueError(
+            'There is already a bots directory ({})! Please remove manually.'.format(DOTA_BOT_PATH))
+    os.remove(DOTA_BOT_PATH)
 
-reader = None
+GAME_ID = uuid.uuid1()
+print('GAME_ID=', GAME_ID)
 
-ACTION_FOLDER = '/Volumes/ramdisk/'
-GAME_ID = 'my_game_id'
-if not os.path.exists(DOTA_PATH):
-    raise ValueError('Action folder does not exist. Please mount! ({})'.format(ACTION_FOLDER))
-GAME_ACTION_FOLDER = os.path.join(ACTION_FOLDER, GAME_ID)
-if os.path.exists(GAME_ACTION_FOLDER):
-    # Remove existing actions
-    shutil.rmtree(GAME_ACTION_FOLDER)
-os.mkdir(GAME_ACTION_FOLDER)
+ACTION_FOLDER_ROOT = '/Volumes/ramdisk/'
+if not os.path.exists(ACTION_FOLDER_ROOT):
+    raise ValueError('Action folder does not exist. Please mount! ({})'.format(ACTION_FOLDER_ROOT))
 
+SESSION_FOLDER = os.path.join(ACTION_FOLDER_ROOT, str(GAME_ID))
+os.mkdir(SESSION_FOLDER)
 
+BOT_PATH = os.path.join(SESSION_FOLDER, BOTS_FOLDER_NAME)
+os.mkdir(BOT_PATH)
 
+ACTION_SUBFOLDER_NAME = 'actions'
+ACTION_FOLDER = os.path.join(BOT_PATH, ACTION_SUBFOLDER_NAME)
+os.mkdir(ACTION_FOLDER)
 
-# set_fut_on_tick = None
+# Copy all the bot files into the action folder
+for filename in glob.glob('../bot_script/*.lua'):
+    shutil.copy(filename, BOT_PATH)
 
+# Symlink DOTA to this folder
+os.symlink(src=BOT_PATH, dst=DOTA_BOT_PATH)
+
+# Write the config file to a lua file, so that it can be imported from multiple .lua files.
+SETTINGS_FILE = os.path.join(BOT_PATH, 'config_auto.lua')
+settings = {
+    'game_id': str(GAME_ID),
+    'ticks_per_observation': TICKS_PER_OBSERVATION,
+    'action_subfolder_name': ACTION_SUBFOLDER_NAME,
+    'ticks_per_second': TICKS_PER_SECOND,
+    'port_rest': PORT_REST,
+}
+
+settings_data = """
+-- THIS FILE IS AUTO GENERATED
+return '{}'
+""".format(json.dumps(settings, separators=(',',':')))
+
+with open(SETTINGS_FILE, 'w') as f:
+    f.write(settings_data)
 
 def atomic_file_write(filename, data):
     filename_tmp = "{}_".format(filename)
@@ -67,12 +100,13 @@ def atomic_file_write(filename, data):
     f.close()
     os.rename(filename_tmp, filename)
 
+fut = None
 
 class DotaService(DotaServiceBase):
 
     async def Step(self, stream):
         print('DotaService::Step()')
-        # global set_fut_on_tick
+        global fut
 
         request = await stream.recv_message()
         print('  request={}'.format(request))
@@ -82,7 +116,7 @@ class DotaService(DotaServiceBase):
         # tick = 0
         action_tick = int(request.action.x)
 
-        filename = os.path.join(GAME_ACTION_FOLDER, "{}.lua".format(action_tick))
+        filename = os.path.join(ACTION_FOLDER, "{}.lua".format(action_tick))
         data_dict = MessageToDict(request)
 
         data = "data = '{}'".format(json.dumps(data_dict, separators=(',',':')))
@@ -90,11 +124,14 @@ class DotaService(DotaServiceBase):
 
         atomic_file_write(filename, data)
 
+        fut = asyncio.get_event_loop().create_future()
+
         # set_fut_on_tick = action_tick + TICKS_PER_OBSERVATION
 
         # data = CMsgBotWorldState()  # Dummy
         data = await fut
-        print('Received future from tick {}'.format(set_fut_on_tick))
+        fut = None
+        # print('Received future from tick {}'.format(set_fut_on_tick))
         print('Returning observation from future as response..')
         await stream.send_message(Observation(world_state=data))
 
@@ -109,8 +146,8 @@ async def serve(server, *, host='127.0.0.1', port=50051):
         await server.wait_closed()
 
 
-async def grpc_main():
-    server = Server([DotaService()], loop=asyncio.get_event_loop())
+async def grpc_main(loop):
+    server = Server([DotaService()], loop=loop)
     await serve(server)
 
 
@@ -139,7 +176,7 @@ async def run_dota():
         "-botworldstatetosocket_dire 12121",
         "-botworldstatetosocket_frames {}".format(TICKS_PER_OBSERVATION),
         "-botworldstatetosocket_radiant 12120",
-        # "-console,",
+        "-console,",
         "-dedicated",
         # "-dev",  # Not sure what this does
         "-fill_with_bots",
@@ -192,39 +229,78 @@ async def data_from_reader(reader):
     parsed_data = CMsgBotWorldState()
     parsed_data.ParseFromString(data)
     dotatime = parsed_data.dota_time
+    gamestate = parsed_data.game_state
     tick = dotatime_to_tick(dotatime)
-    # global_test_var = tick
     # print('worlstate recevied dotatime=', dotatime)
-    print('worldstate received @dotatime={} @tick={}'.format(dotatime, tick))
+    print('worldstate received @dotatime={} @tick={} @gamestate={}'.format(dotatime, tick, gamestate))
     return tick, parsed_data
 
+
 async def worldstate_listener(port):
-    # global global_test_var
-    global reader
     print('creating worldstate_listener @ port %s' % port)
-    await asyncio.sleep(3)
+    await asyncio.sleep(2)
     print('opening reader..!')
+    # global reader
     reader, writer = await asyncio.open_connection('127.0.0.1', port)#, loop=loop)
     print('reader opened!')
     try:
         while True:
             tick, parsed_data = await data_from_reader(reader)
-            # if tick == set_fut_on_tick:
-            #     fut.set_result(parsed_data)
+            # We will receive world states from all game states. We are only interested in the ones
+            # pre/during/post game.
+            if not worldstate_calibration_tick_future.done() and \
+                parsed_data.game_state == DOTA_GAMERULES_STATE_PRE_GAME:
+                # On the first occurance of the pre game worldstate, send the calibration tick.
+                worldstate_calibration_tick_future.set_result(tick)
+            
+            # Next, we want to know what the next state is on that we're actionable.
+            # Maybe the bot can do a POST, indicating it's waiting for an action with a specific
+            # tick.
+            if fut is not None:
+                print('setting result on future')
+                fut.set_result(parsed_data)  # Maybe just always set the latest data?
+                print('END setting result on future')
+
     except asyncio.CancelledError:
         raise
 
 
+
+from aiohttp import web
+async def handler(request):
+    print("@handler(request={})".format(request))
+    # print('request=', request)
+    # print('request=', request.query)
+    # print('request=', request.path)
+    # return web.Response(text="@slash\n")
+    settings = {
+        'calibration_tick': await worldstate_calibration_tick_future
+        }
+    return web.json_response(data=settings)
+async def rest_api(loop):
+    server = web.Server(handler)
+    await loop.create_server(server, "127.0.0.1", PORT_REST)
+    print("======= Serving on http://127.0.0.1:{}/ ======".format(PORT_REST))
+
+    # pause here for very long time by serving HTTP requests and
+    # waiting for keyboard interruption
+    # await asyncio.sleep(100*3600)
+
+
+loop = asyncio.get_event_loop()
+
+worldstate_calibration_tick_future = loop.create_future()
+
 tasks =  asyncio.gather(
+    rest_api(loop),
     run_dota(),
-    grpc_main(),
+    grpc_main(loop),
     worldstate_listener(port=PORT_WORLDSTATE_RADIANT),
     # worldstate_listener(port=PORT_WORLDSTATE_DIRE),
 )
 
 
-loop = asyncio.get_event_loop()
-fut = loop.create_future()
+# fut = loop.create_future()
 
 try:
     loop.run_until_complete(tasks)

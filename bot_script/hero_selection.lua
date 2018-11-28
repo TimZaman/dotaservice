@@ -1,7 +1,20 @@
-----------------------------------------------------------------------------------------------------
+local config = require("bots/config")
+
+function TeamToChar()
+    -- TEAM_RADIANT==2 TEAM_DIRE==3. Makes total sense!
+    print('getteam=', GetTeam())
+    if GetTeam() == TEAM_RADIANT then return 'R' else return 'D' end
+end
 
 function GetBotNames ()
-	return  {"A", "B", "C", "D", "E"}
+    truncated_team_id = string.sub(config.game_id, 1, 8) .. "_" .. TeamToChar()
+	return  {
+        truncated_team_id .. "0",
+        truncated_team_id .. "1",
+        truncated_team_id .. "2",
+        truncated_team_id .. "3",
+        truncated_team_id .. "4",
+    }
 end
 
 local bot_heroes = {"npc_dota_hero_nevermore"}
@@ -9,8 +22,6 @@ local bot_heroes = {"npc_dota_hero_nevermore"}
 function Think()
 	-- This gets called (every server tick AND until all heroes are picked).
 	-- This needs to gets called at least once if there is no human.
-    print('hero_selection::Think()')
-    print('game mode:', GetGameMode())
     local ids = GetTeamPlayers(GetTeam())
     for i,v in pairs(ids) do
         -- If the human is in the unassigned slot, the radiant bots start at v = 2
