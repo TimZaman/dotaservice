@@ -2,14 +2,18 @@ local dkjson = require( "game/dkjson" )
 local config = require("bots/config")
 
 live_config = nil
+
+
+
 local function get_live_config()
     -- This function requests a live configuration, other than the static one we had already
     -- imported.
-    local req = CreateRemoteHTTPRequest('127.0.0.1:'.. tostring(config.port_rest) ..'/foo')
+    local ip = '127.0.0.1:'.. tostring(config.port_rest) ..'/calibration'
+    local req = CreateRemoteHTTPRequest(ip)
     -- local post_data = '{"foo":5}'
     -- req:SetHTTPRequestRawPostBody("application/json", post_data)
     sent = req:Send(function(result)
-        -- print('-> callback result=', result)
+        print('-> callback result=', result)
         -- print('-> callback result=', result['Body'])
         -- local data = result['Body']
         local data, pos, err = dkjson.decode(result['Body'], 1, nil)
@@ -26,6 +30,15 @@ local function get_live_config()
 end
 
 get_live_config()
+
+
+local function request_step(tick)
+    local ip = '127.0.0.1:'.. tostring(config.port_rest) ..'/step?tick=' .. tostring(tick)
+    local req = CreateRemoteHTTPRequest(ip)
+    sent = req:Send(function(result)
+        -- ?
+    end )
+end
 
 
 
@@ -61,6 +74,8 @@ local function query_reponse(tick)
     return data
 end
 
+first_step_requested = false
+
 function Think()
     if GetTeam() == TEAM_RADIANT then
         -- For now, just focus on radiant. We can add DIRE action files some time later.
@@ -86,6 +101,10 @@ function Think()
     end
 
     if ((tick - tickoffset) % config.ticks_per_observation) == 0 then
+        if first_step_requested == false then
+            request_step(tick)
+            first_step_requested = true
+        end
         query_reponse(tick)
     end
 

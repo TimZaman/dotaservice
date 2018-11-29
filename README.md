@@ -120,6 +120,8 @@ Once it enters state 'DOTA_GAMERULES_STATE_PRE_GAME' it resets to dotatime `-90`
 
 The bot scripts are reloaded entirely with every game, not just once when booting dota.
 
+Can i use HTTP requests from LUA when steam is active!? I had steam off and the request gave me nil.
+
 ---
 
 Acknowledgements for insights and inspiration:

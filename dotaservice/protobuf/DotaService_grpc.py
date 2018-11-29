@@ -14,13 +14,23 @@ import protobuf.DotaService_pb2
 class DotaServiceBase(abc.ABC):
 
     @abc.abstractmethod
-    async def Step(self, stream):
+    async def reset(self, stream):
+        pass
+
+    @abc.abstractmethod
+    async def step(self, stream):
         pass
 
     def __mapping__(self):
         return {
-            '/dotaservice.DotaService/Step': grpclib.const.Handler(
-                self.Step,
+            '/dotaservice.DotaService/reset': grpclib.const.Handler(
+                self.reset,
+                grpclib.const.Cardinality.UNARY_UNARY,
+                protobuf.DotaService_pb2.Config,
+                protobuf.DotaService_pb2.Observation,
+            ),
+            '/dotaservice.DotaService/step': grpclib.const.Handler(
+                self.step,
                 grpclib.const.Cardinality.UNARY_UNARY,
                 protobuf.DotaService_pb2.Action,
                 protobuf.DotaService_pb2.Observation,
@@ -31,9 +41,15 @@ class DotaServiceBase(abc.ABC):
 class DotaServiceStub:
 
     def __init__(self, channel: grpclib.client.Channel) -> None:
-        self.Step = grpclib.client.UnaryUnaryMethod(
+        self.reset = grpclib.client.UnaryUnaryMethod(
             channel,
-            '/dotaservice.DotaService/Step',
+            '/dotaservice.DotaService/reset',
+            protobuf.DotaService_pb2.Config,
+            protobuf.DotaService_pb2.Observation,
+        )
+        self.step = grpclib.client.UnaryUnaryMethod(
+            channel,
+            '/dotaservice.DotaService/step',
             protobuf.DotaService_pb2.Action,
             protobuf.DotaService_pb2.Observation,
         )
