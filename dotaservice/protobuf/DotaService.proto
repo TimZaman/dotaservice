@@ -13,6 +13,11 @@ message Observation {
   CMsgBotWorldState world_state = 1;
 }
 
+message Config {
+  // Intentionally empty.
+}
+
 service DotaService {
-  rpc Step (Action) returns (Observation) {}
+  rpc reset (Config) returns (Observation) {}
+  rpc step (Action) returns (Observation) {}
 }

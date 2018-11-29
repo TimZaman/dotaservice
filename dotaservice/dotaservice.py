@@ -5,7 +5,9 @@ from __future__ import print_function
 from struct import unpack
 import asyncio
 import atexit
+import glob
 import json
+import logging
 import math
 import os
 import psutil
@@ -14,17 +16,21 @@ import signal
 import subprocess
 import time
 import uuid
-import glob
 
-import google.protobuf.text_format as txtf
-from grpclib.server import Server
+from aiohttp import web
 from google.protobuf.json_format import MessageToDict
+from grpclib.server import Server
+import google.protobuf.text_format as txtf
 
+from protobuf.CMsgBotWorldState_pb2 import CMsgBotWorldState
 from protobuf.DotaService_grpc import DotaServiceBase
 from protobuf.DotaService_pb2 import Observation
-from protobuf.CMsgBotWorldState_pb2 import CMsgBotWorldState
 
-TICKS_PER_OBSERVATION = 1000
+# logging.basicConfig(level=logging.DEBUG)
+routes = web.RouteTableDef()
+
+
+TICKS_PER_OBSERVATION = 9
 TICKS_PER_SECOND = 30
 DOTA_PATH = '/Users/tzaman/Library/Application Support/Steam/SteamApps/common/dota 2 beta/game'
 PORT_WORLDSTATE_RADIANT = 12120
@@ -100,23 +106,52 @@ def atomic_file_write(filename, data):
     f.close()
     os.rename(filename_tmp, filename)
 
-fut = None
+
+# fut = asyncio.get_event_loop().create_future()
+
+first_tick_future = asyncio.get_event_loop().create_future()
 
 class DotaService(DotaServiceBase):
 
-    async def Step(self, stream):
-        print('DotaService::Step()')
-        global fut
+    tick = None
+
+    async def reset(self, stream):
+        """reset method.
+
+        This method should start up the dota game and the other required services.
+        """
+        print('DotaService::reset()')
+        
+        # Create all the processes here. 
+
+        # TODO(tzaman)
+
+        # We then have to wait for the first tick to come in
+        first_tick = await first_tick_future
+        print('(py) DotaService::reset, first_tick=', first_tick)
+
+        # Then we search through out worldstate queue we receive for the corresponding tick
+        while True:
+            print('(py) DotaService::reset, queue size=', worldstate_queue.qsize())
+            data = await worldstate_queue.get()
+            tick = dotatime_to_tick(data.dota_time)
+            if tick == first_tick:
+                print('(py) DotaService::reset, FOUND IT!')
+                break
+        self.tick = tick
+
+        # Return the reponse
+        await stream.send_message(Observation(world_state=data))
+
+    async def step(self, stream):
+        print('DotaService::step()')
+        # global fut
 
         request = await stream.recv_message()
         print('  request={}'.format(request))
-        # empty_worldstate = CMsgBotWorldState()
+        # data = CMsgBotWorldState()
 
-        # d = {'foo': 1337}
-        # tick = 0
-        action_tick = int(request.action.x)
-
-        filename = os.path.join(ACTION_FOLDER, "{}.lua".format(action_tick))
+        filename = os.path.join(ACTION_FOLDER, "{}.lua".format(self.tick))
         data_dict = MessageToDict(request)
 
         data = "data = '{}'".format(json.dumps(data_dict, separators=(',',':')))
@@ -124,16 +159,20 @@ class DotaService(DotaServiceBase):
 
         atomic_file_write(filename, data)
 
-        fut = asyncio.get_event_loop().create_future()
+        # We've started to assume our queue will only have 1 item.
+        data = await worldstate_queue.get()
+        tick = dotatime_to_tick(data.dota_time)
 
-        # set_fut_on_tick = action_tick + TICKS_PER_OBSERVATION
+        # Update the tick
+        self.tick = tick
 
-        # data = CMsgBotWorldState()  # Dummy
-        data = await fut
-        fut = None
-        # print('Received future from tick {}'.format(set_fut_on_tick))
-        print('Returning observation from future as response..')
+        # Make sure indeed the queue is empty and we're entirely in sync.
+        assert worldstate_queue.qsize() == 0
+
+        # Return the reponse.
         await stream.send_message(Observation(world_state=data))
+
+
 
 
 async def serve(server, *, host='127.0.0.1', port=50051):
@@ -236,6 +275,8 @@ async def data_from_reader(reader):
     return tick, parsed_data
 
 
+
+
 async def worldstate_listener(port):
     print('creating worldstate_listener @ port %s' % port)
     await asyncio.sleep(2)
@@ -245,49 +286,63 @@ async def worldstate_listener(port):
     print('reader opened!')
     try:
         while True:
+            # This reader is always going to need to keep going
+
             tick, parsed_data = await data_from_reader(reader)
+            # print('received workstate tick=', tick)
             # We will receive world states from all game states. We are only interested in the ones
             # pre/during/post game.
             if not worldstate_calibration_tick_future.done() and \
                 parsed_data.game_state == DOTA_GAMERULES_STATE_PRE_GAME:
                 # On the first occurance of the pre game worldstate, send the calibration tick.
                 worldstate_calibration_tick_future.set_result(tick)
-            
-            # Next, we want to know what the next state is on that we're actionable.
-            # Maybe the bot can do a POST, indicating it's waiting for an action with a specific
-            # tick.
-            if fut is not None:
-                print('setting result on future')
-                fut.set_result(parsed_data)  # Maybe just always set the latest data?
-                print('END setting result on future')
+
+            print('py) worldstate_listener, putting in queue (tick):', dotatime_to_tick(parsed_data.dota_time))
+            worldstate_queue.put_nowait(parsed_data)
+            print('(py) worldstate_listener, queue size=', worldstate_queue.qsize())
+
+            # # Next, we want to know what the next state is on that we're actionable.
+            # # Maybe the bot can do a POST, indicating it's waiting for an action with a specific
+            # # tick.
+            # if fut is not None:
+            #     print('setting result on future')
+            #     fut.set_result(parsed_data)  # Maybe just always set the latest data?
+            #     print('END setting result on future')
 
     except asyncio.CancelledError:
         raise
 
 
 
-from aiohttp import web
+
+
+@routes.post('/calibration')
 async def handler(request):
-    print("@handler(request={})".format(request))
-    # print('request=', request)
-    # print('request=', request.query)
-    # print('request=', request.path)
-    # return web.Response(text="@slash\n")
     settings = {
         'calibration_tick': await worldstate_calibration_tick_future
         }
     return web.json_response(data=settings)
-async def rest_api(loop):
-    server = web.Server(handler)
-    await loop.create_server(server, "127.0.0.1", PORT_REST)
-    print("======= Serving on http://127.0.0.1:{}/ ======".format(PORT_REST))
 
-    # pause here for very long time by serving HTTP requests and
-    # waiting for keyboard interruption
-    # await asyncio.sleep(100*3600)
+@routes.post('/step')
+async def handler(request):
+    tick = request.query['tick']
+    # Now give this tick to dotaservice.reset somehow..
+    first_tick_future.set_result(int(tick))
+    return web.Response()
+
+
+async def rest_api(loop):
+    app = web.Application()#loop=loop)
+    app.router.add_routes(routes)
+    runner = web.AppRunner(app)
+    await runner.setup()
+    site = web.TCPSite(runner, '127.0.0.1', PORT_REST)
+    await site.start()
 
 
 loop = asyncio.get_event_loop()
+
+worldstate_queue = asyncio.Queue(loop=loop)
 
 worldstate_calibration_tick_future = loop.create_future()
 
@@ -300,7 +355,6 @@ tasks =  asyncio.gather(
 )
 
 
-# fut = loop.create_future()
 
 try:
     loop.run_until_complete(tasks)

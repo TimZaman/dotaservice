@@ -21,7 +21,7 @@ DESCRIPTOR = _descriptor.FileDescriptor(
   package='dotaservice',
   syntax='proto3',
   serialized_options=None,
-  serialized_pb=_b('\n\x1aprotobuf/DotaService.proto\x12\x0b\x64otaservice\x1a protobuf/CMsgBotWorldState.proto\x1a\x19protobuf/DotaAction.proto\"%\n\x06\x41\x63tion\x12\x1b\n\x06\x61\x63tion\x18\x01 \x01(\x0b\x32\x0b.DotaAction\"6\n\x0bObservation\x12\'\n\x0bworld_state\x18\x01 \x01(\x0b\x32\x12.CMsgBotWorldState2F\n\x0b\x44otaService\x12\x37\n\x04Step\x12\x13.dotaservice.Action\x1a\x18.dotaservice.Observation\"\x00\x62\x06proto3')
+  serialized_pb=_b('\n\x1aprotobuf/DotaService.proto\x12\x0b\x64otaservice\x1a protobuf/CMsgBotWorldState.proto\x1a\x19protobuf/DotaAction.proto\"%\n\x06\x41\x63tion\x12\x1b\n\x06\x61\x63tion\x18\x01 \x01(\x0b\x32\x0b.DotaAction\"6\n\x0bObservation\x12\'\n\x0bworld_state\x18\x01 \x01(\x0b\x32\x12.CMsgBotWorldState\"\x08\n\x06\x43onfig2\x80\x01\n\x0b\x44otaService\x12\x38\n\x05reset\x12\x13.dotaservice.Config\x1a\x18.dotaservice.Observation\"\x00\x12\x37\n\x04step\x12\x13.dotaservice.Action\x1a\x18.dotaservice.Observation\"\x00\x62\x06proto3')
   ,
   dependencies=[protobuf_dot_CMsgBotWorldState__pb2.DESCRIPTOR,protobuf_dot_DotaAction__pb2.DESCRIPTOR,])
 
@@ -89,10 +89,35 @@ _OBSERVATION = _descriptor.Descriptor(
   serialized_end=197,
 )
 
+
+_CONFIG = _descriptor.Descriptor(
+  name='Config',
+  full_name='dotaservice.Config',
+  filename=None,
+  file=DESCRIPTOR,
+  containing_type=None,
+  fields=[
+  ],
+  extensions=[
+  ],
+  nested_types=[],
+  enum_types=[
+  ],
+  serialized_options=None,
+  is_extendable=False,
+  syntax='proto3',
+  extension_ranges=[],
+  oneofs=[
+  ],
+  serialized_start=199,
+  serialized_end=207,
+)
+
 _ACTION.fields_by_name['action'].message_type = protobuf_dot_DotaAction__pb2._DOTAACTION
 _OBSERVATION.fields_by_name['world_state'].message_type = protobuf_dot_CMsgBotWorldState__pb2._CMSGBOTWORLDSTATE
 DESCRIPTOR.message_types_by_name['Action'] = _ACTION
 DESCRIPTOR.message_types_by_name['Observation'] = _OBSERVATION
+DESCRIPTOR.message_types_by_name['Config'] = _CONFIG
 _sym_db.RegisterFileDescriptor(DESCRIPTOR)
 
 Action = _reflection.GeneratedProtocolMessageType('Action', (_message.Message,), dict(
@@ -109,6 +134,13 @@ Observation = _reflection.GeneratedProtocolMessageType('Observation', (_message.
   ))
 _sym_db.RegisterMessage(Observation)
 
+Config = _reflection.GeneratedProtocolMessageType('Config', (_message.Message,), dict(
+  DESCRIPTOR = _CONFIG,
+  __module__ = 'protobuf.DotaService_pb2'
+  # @@protoc_insertion_point(class_scope:dotaservice.Config)
+  ))
+_sym_db.RegisterMessage(Config)
+
 
 
 _DOTASERVICE = _descriptor.ServiceDescriptor(
@@ -117,13 +149,22 @@ _DOTASERVICE = _descriptor.ServiceDescriptor(
   file=DESCRIPTOR,
   index=0,
   serialized_options=None,
-  serialized_start=199,
-  serialized_end=269,
+  serialized_start=210,
+  serialized_end=338,
   methods=[
   _descriptor.MethodDescriptor(
-    name='Step',
-    full_name='dotaservice.DotaService.Step',
+    name='reset',
+    full_name='dotaservice.DotaService.reset',
     index=0,
+    containing_service=None,
+    input_type=_CONFIG,
+    output_type=_OBSERVATION,
+    serialized_options=None,
+  ),
+  _descriptor.MethodDescriptor(
+    name='step',
+    full_name='dotaservice.DotaService.step',
+    index=1,
     containing_service=None,
     input_type=_ACTION,
     output_type=_OBSERVATION,
