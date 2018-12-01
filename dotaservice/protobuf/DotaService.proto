@@ -7,6 +7,7 @@ import "protobuf/DotaAction.proto";
 
 message Action {
   DotaAction action = 1;
+  string dota_time = 3; // should be float
 }
 
 message Observation {

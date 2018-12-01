@@ -2,7 +2,6 @@ local config = require("bots/config")
 
 function TeamToChar()
     -- TEAM_RADIANT==2 TEAM_DIRE==3. Makes total sense!
-    print('getteam=', GetTeam())
     if GetTeam() == TEAM_RADIANT then return 'R' else return 'D' end
 end
 
@@ -30,7 +29,7 @@ function Think()
         -- If the human is in the second radiant slot, the radiant bots start at v = 1
         -- If the human is in the third radiant slot, the radiant bots start at v = 2
 		if IsPlayerBot(v) and IsPlayerInHeroSelectionControl(v) then
-            if i == 1 then
+            if i == 1 and GetTeam() == TEAM_RADIANT then
                 SelectHero( v, "npc_dota_hero_nevermore" );
             else
                 SelectHero( v, "npc_dota_hero_wisp" );

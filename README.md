@@ -120,7 +120,25 @@ Once it enters state 'DOTA_GAMERULES_STATE_PRE_GAME' it resets to dotatime `-90`
 
 The bot scripts are reloaded entirely with every game, not just once when booting dota.
 
-Can i use HTTP requests from LUA when steam is active!? I had steam off and the request gave me nil.
+The `CreateRemoteHTTPRequest` from the LUA api does not work when steam is off on my mac OS-X.
+If I run in offline mode and/or take out my internet cable it works, but once the Steam client is
+turned off, the HTTP request does not work anymore (returns `nil`). I wonder what the stability of
+this part of the API is, should maybe avoid using.
+
+
+The tick-to-dotatime relation is inaccurate, ticks aren't given in the worldstate too. Probably
+an issue with float/double etc. So move away from ticks, and use time as %.2f integers, or time*30,
+or just cut off until %.2f and then floor. On an hour long game, there were 29.981 ticks/s, which
+makes me thing the ticks and s are unreliable, even with `host_force_frametime_to_equal_tick_interval` on,
+which doesn't seem to help at all.
+
+All the output from the lua console isn't flushed upon redicretion in python (or piping or tee).
+
+The official proto for the botscript can be found here:
+https://github.com/SteamDatabase/Protobufs/blob/master/dota2/dota_gcmessages_common_bot_script.proto
+
+Source has options for streaming logs using udp `-log on` but none of that actually seems to work
+with dota.
 
 ---
 

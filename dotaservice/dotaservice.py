@@ -11,6 +11,7 @@ import logging
 import math
 import os
 import psutil
+import re
 import shutil
 import signal
 import subprocess
@@ -26,12 +27,16 @@ from protobuf.CMsgBotWorldState_pb2 import CMsgBotWorldState
 from protobuf.DotaService_grpc import DotaServiceBase
 from protobuf.DotaService_pb2 import Observation
 
-# logging.basicConfig(level=logging.DEBUG)
+
+
+
+# logging.basicConfig(level=logging.DEBUG)  # This logging is a bit bananas
 routes = web.RouteTableDef()
 
+os.system("ps | grep dota2 | awk '{print $1}' | xargs kill -9")
 
-TICKS_PER_OBSERVATION = 9
-TICKS_PER_SECOND = 30
+CONSOLE_LOG_FILENAME = 'console.log'
+TICKS_PER_OBSERVATION = 5
 DOTA_PATH = '/Users/tzaman/Library/Application Support/Steam/SteamApps/common/dota 2 beta/game'
 PORT_WORLDSTATE_RADIANT = 12120
 PORT_WORLDSTATE_DIRE = 12121
@@ -68,10 +73,6 @@ os.mkdir(SESSION_FOLDER)
 BOT_PATH = os.path.join(SESSION_FOLDER, BOTS_FOLDER_NAME)
 os.mkdir(BOT_PATH)
 
-ACTION_SUBFOLDER_NAME = 'actions'
-ACTION_FOLDER = os.path.join(BOT_PATH, ACTION_SUBFOLDER_NAME)
-os.mkdir(ACTION_FOLDER)
-
 # Copy all the bot files into the action folder
 for filename in glob.glob('../bot_script/*.lua'):
     shutil.copy(filename, BOT_PATH)
@@ -79,23 +80,27 @@ for filename in glob.glob('../bot_script/*.lua'):
 # Symlink DOTA to this folder
 os.symlink(src=BOT_PATH, dst=DOTA_BOT_PATH)
 
-# Write the config file to a lua file, so that it can be imported from multiple .lua files.
-SETTINGS_FILE = os.path.join(BOT_PATH, 'config_auto.lua')
-settings = {
+
+def write_bot_data_file(filename_stem, data, atomic=False):
+    filename = os.path.join(BOT_PATH, '{}.lua'.format(filename_stem))
+    data = """
+    -- THIS FILE IS AUTO GENERATED
+    return '{data}'
+    """.format(data=json.dumps(data, separators=(',',':')))
+    if atomic:
+        atomic_file_write(filename, data)
+    else:
+        with open(filename, 'w') as f:
+            f.write(data)
+
+
+config = {
     'game_id': str(GAME_ID),
     'ticks_per_observation': TICKS_PER_OBSERVATION,
-    'action_subfolder_name': ACTION_SUBFOLDER_NAME,
-    'ticks_per_second': TICKS_PER_SECOND,
     'port_rest': PORT_REST,
 }
+write_bot_data_file(filename_stem='config_auto', data=config)
 
-settings_data = """
--- THIS FILE IS AUTO GENERATED
-return '{}'
-""".format(json.dumps(settings, separators=(',',':')))
-
-with open(SETTINGS_FILE, 'w') as f:
-    f.write(settings_data)
 
 def atomic_file_write(filename, data):
     filename_tmp = "{}_".format(filename)
@@ -107,13 +112,9 @@ def atomic_file_write(filename, data):
     os.rename(filename_tmp, filename)
 
 
-# fut = asyncio.get_event_loop().create_future()
-
-first_tick_future = asyncio.get_event_loop().create_future()
-
 class DotaService(DotaServiceBase):
 
-    tick = None
+    prev_time = None
 
     async def reset(self, stream):
         """reset method.
@@ -127,52 +128,72 @@ class DotaService(DotaServiceBase):
         # TODO(tzaman)
 
         # We then have to wait for the first tick to come in
-        first_tick = await first_tick_future
-        print('(py) DotaService::reset, first_tick=', first_tick)
+        # first_tick = await first_tick_future
+        print('(py) DotaService::reset')#, first_tick=', first_tick)
 
-        # Then we search through out worldstate queue we receive for the corresponding tick
-        while True:
-            print('(py) DotaService::reset, queue size=', worldstate_queue.qsize())
-            data = await worldstate_queue.get()
-            tick = dotatime_to_tick(data.dota_time)
-            if tick == first_tick:
-                print('(py) DotaService::reset, FOUND IT!')
-                break
-        self.tick = tick
+        # We first wait for the lua config,
+        print('(py) reset is awaiting lua config')
+        lua_config = await lua_config_future
+        print('(py) lua config received=', lua_config)
+
+        # Cycle through the queue until its empty, then only using the latest worldstate.
+        data = None
+        try:
+            while True:
+                data = await asyncio.wait_for(worldstate_queue.get(), timeout=0.2)
+        except asyncio.TimeoutError:
+            pass
+
+        if data is None:
+            raise ValueError('Worldstate queue empty while lua bot is ready!')
+
+        self.prev_time = dotatime_to_ms(data.dota_time)
+
+        # Now write the calibration file.
+        config = {
+            'calibration_ms': dotatime_to_ms(data.dota_time),
+        }
+        print('(py) writing live config=', config)
+        write_bot_data_file(filename_stem='live_config_auto', data=config, atomic=True)
 
         # Return the reponse
         await stream.send_message(Observation(world_state=data))
 
     async def step(self, stream):
         print('DotaService::step()')
-        # global fut
 
         request = await stream.recv_message()
-        print('  request={}'.format(request))
-        # data = CMsgBotWorldState()
+        # print('  request={}'.format(request))
 
-        filename = os.path.join(ACTION_FOLDER, "{}.lua".format(self.tick))
+        # If we did not set a specific dota time, we're using the last one.
+        if not request.dota_time:
+            request.dota_time = self.prev_time
+
+        # filename = os.path.join(ACTION_FOLDER, "{}.lua".format(self.tick))
+        # filename = os.path.join(ACTION_FOLDER, "action.lua")
         data_dict = MessageToDict(request)
 
-        data = "data = '{}'".format(json.dumps(data_dict, separators=(',',':')))
-        print('(python) action data=', data)
+        # data = "data = '{}'".format(json.dumps(data_dict, separators=(',',':')))
+        print('(python) action data=', data_dict)
 
-        atomic_file_write(filename, data)
+        # # atomic_file_write(filename, data)
+        # with open(filename, 'w') as f:
+        #     f.write(data)
+
+        write_bot_data_file(filename_stem='action', data=data_dict)
 
         # We've started to assume our queue will only have 1 item.
         data = await worldstate_queue.get()
-        tick = dotatime_to_tick(data.dota_time)
+        # tick = dotatime_to_ms(data.dota_time)
 
         # Update the tick
-        self.tick = tick
+        self.prev_time = dotatime_to_ms(data.dota_time)
 
         # Make sure indeed the queue is empty and we're entirely in sync.
         assert worldstate_queue.qsize() == 0
-
+        
         # Return the reponse.
         await stream.send_message(Observation(world_state=data))
-
-
 
 
 async def serve(server, *, host='127.0.0.1', port=50051):
@@ -190,11 +211,8 @@ async def grpc_main(loop):
     await serve(server)
 
 
-
-
-
-def dotatime_to_tick(dotatime):
-    return math.floor(dotatime * TICKS_PER_SECOND + 0.5)  # 0.5 for rounding
+def dotatime_to_ms(dotatime):
+    return "{:09d}".format(math.floor(dotatime * 1000))
 
 
 def kill_processes_and_children(pid, sig=signal.SIGTERM):
@@ -207,20 +225,37 @@ def kill_processes_and_children(pid, sig=signal.SIGTERM):
         process.send_signal(sig)
 
 
+async def monitor_log():
+    p = re.compile(r'LUARDY[ \t](\{.*\})')
+    while True:
+        filename = os.path.join(BOT_PATH, CONSOLE_LOG_FILENAME)
+        if os.path.exists(filename):
+            with open(filename) as f:
+                for line in f:
+                    m = p.search(line)
+                    if m:
+                        found = m.group(1)
+                        lua_config = json.loads(found)
+                        print('(py) lua_config = ', lua_config)
+                        lua_config_future.set_result(lua_config)
+                        return
+        await asyncio.sleep(0.2)
+
+
 async def run_dota():
     script_path = os.path.join(DOTA_PATH, 'dota.sh')
     args = [
         script_path,
-        # "-botworldstatesocket_threaded",
+        "-botworldstatesocket_threaded",
         "-botworldstatetosocket_dire 12121",
         "-botworldstatetosocket_frames {}".format(TICKS_PER_OBSERVATION),
         "-botworldstatetosocket_radiant 12120",
-        "-console,",
+        "-con_logfile scripts/vscripts/bots/{}".format(CONSOLE_LOG_FILENAME),
+        "-con_timestamp",
         "-dedicated",
-        # "-dev",  # Not sure what this does
         "-fill_with_bots",
-        "-host_force_frametime_to_equal_tick_interval 1",
         "-insecure",
+        "-noip",
         "-nowatchdog",  # WatchDog will quit the game if e.g. the lua api takes a few seconds.
         "+clientport 27006",  # Relates to steam client.
         "+dota_1v1_skip_strategy 1",  # doesn't work icm `-fill_with_bots`
@@ -229,15 +264,20 @@ async def run_dota():
         "+dota_force_gamemode 11",  # Mid Only -> doesn't work icm `-fill_with_bots`
         "+dota_start_ai_game 1",
         "+dota_surrender_on_disconnect 0",
+        "+host_force_frametime_to_equal_tick_interval 1",
         "+host_timescale 10",
+        "+host_writeconfig 1",
+        "+hostname dotaservice",
         "+map start",  # the `start` map works with replays when dedicated, map `dota` doesn't.
         "+sv_cheats 1",
         "+sv_hibernate_when_empty 0",
         "+sv_lan 1",
         "+tv_autorecord 1",
         "+tv_delay 0 ",
-        "+tv_dota_auto_record_stressbots 1",
         "+tv_enable 1",
+        "+tv_title {}".format(GAME_ID),
+        # "-console,",
+        # "-dev",  # Not sure what this does
     ]
     create = asyncio.create_subprocess_exec(
         *args,
@@ -245,17 +285,20 @@ async def run_dota():
         # stdout=asyncio.subprocess.PIPE,
         # stderr=asyncio.subprocess.PIPE,
     )
-    proc = await create
+    process = await create
+
+    task1 = asyncio.create_task(monitor_log())
+
     try:
-        await proc.wait()
+        await process.wait()
     except asyncio.CancelledError:
-        kill_processes_and_children(pid=proc.pid)
+        kill_processes_and_children(pid=process.pid)
         raise
 
 
 async def data_from_reader(reader):
     port = None  # HACK
-    print('data_from_reader()')
+    # print('data_from_reader()')
     # Receive the package length.
     data = await reader.read(4)
     # eternity(), timeout=1.0)
@@ -269,75 +312,21 @@ async def data_from_reader(reader):
     parsed_data.ParseFromString(data)
     dotatime = parsed_data.dota_time
     gamestate = parsed_data.game_state
-    tick = dotatime_to_tick(dotatime)
-    # print('worlstate recevied dotatime=', dotatime)
-    print('worldstate received @dotatime={} @tick={} @gamestate={}'.format(dotatime, tick, gamestate))
-    return tick, parsed_data
-
-
+    ms = dotatime_to_ms(dotatime)
+    print('(py) worldstate @dotatime={} @ms={} @gamestate={}'.format(dotatime, ms, gamestate))
+    return parsed_data
 
 
 async def worldstate_listener(port):
-    print('creating worldstate_listener @ port %s' % port)
     await asyncio.sleep(2)
-    print('opening reader..!')
-    # global reader
     reader, writer = await asyncio.open_connection('127.0.0.1', port)#, loop=loop)
-    print('reader opened!')
     try:
         while True:
-            # This reader is always going to need to keep going
-
-            tick, parsed_data = await data_from_reader(reader)
-            # print('received workstate tick=', tick)
-            # We will receive world states from all game states. We are only interested in the ones
-            # pre/during/post game.
-            if not worldstate_calibration_tick_future.done() and \
-                parsed_data.game_state == DOTA_GAMERULES_STATE_PRE_GAME:
-                # On the first occurance of the pre game worldstate, send the calibration tick.
-                worldstate_calibration_tick_future.set_result(tick)
-
-            print('py) worldstate_listener, putting in queue (tick):', dotatime_to_tick(parsed_data.dota_time))
+            # This reader is always going to need to keep going to keep the buffers clean.
+            parsed_data = await data_from_reader(reader)
             worldstate_queue.put_nowait(parsed_data)
-            print('(py) worldstate_listener, queue size=', worldstate_queue.qsize())
-
-            # # Next, we want to know what the next state is on that we're actionable.
-            # # Maybe the bot can do a POST, indicating it's waiting for an action with a specific
-            # # tick.
-            # if fut is not None:
-            #     print('setting result on future')
-            #     fut.set_result(parsed_data)  # Maybe just always set the latest data?
-            #     print('END setting result on future')
-
     except asyncio.CancelledError:
         raise
-
-
-
-
-
-@routes.post('/calibration')
-async def handler(request):
-    settings = {
-        'calibration_tick': await worldstate_calibration_tick_future
-        }
-    return web.json_response(data=settings)
-
-@routes.post('/step')
-async def handler(request):
-    tick = request.query['tick']
-    # Now give this tick to dotaservice.reset somehow..
-    first_tick_future.set_result(int(tick))
-    return web.Response()
-
-
-async def rest_api(loop):
-    app = web.Application()#loop=loop)
-    app.router.add_routes(routes)
-    runner = web.AppRunner(app)
-    await runner.setup()
-    site = web.TCPSite(runner, '127.0.0.1', PORT_REST)
-    await site.start()
 
 
 loop = asyncio.get_event_loop()
@@ -346,8 +335,9 @@ worldstate_queue = asyncio.Queue(loop=loop)
 
 worldstate_calibration_tick_future = loop.create_future()
 
+lua_config_future = loop.create_future()
+
 tasks =  asyncio.gather(
-    rest_api(loop),
     run_dota(),
     grpc_main(loop),
     worldstate_listener(port=PORT_WORLDSTATE_RADIANT),
