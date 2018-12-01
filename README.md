@@ -4,6 +4,25 @@ _This project is a WIP weekend-project._
 
 DotaService exposes Dota 2 as a service. It provides an observe-act loop, to play in an object-oriented way.
 
+Example:
+
+```py
+from grpclib.client import Channel
+from protobuf.DotaService_grpc import DotaServiceStub
+from protobuf.DotaService_pb2 import Action
+from protobuf.DotaService_pb2 import Config
+
+# Connect to the DotaService.
+env = DotaServiceStub(Channel('127.0.0.1', 50051))
+
+# Get the initial observation.
+observation = await env.reset(Config())
+for i in range(8):
+    action = Action(x=1, y=2, z=3)
+    # Take an action, returning the resulting observation.
+    observation = await env.step(action)
+```
+
 This is very useful to provide an environment for reinforcement learning, and service aspect of it makes it
 especially useful for distributed training. I am planning to provide a client python
 module for this (`PyDota`) that mimics typical OpenAI gym APIs.
