@@ -1,3 +1,5 @@
 .DS_Store
 *.pyc
 *.h5
+*.so
+*passwords*

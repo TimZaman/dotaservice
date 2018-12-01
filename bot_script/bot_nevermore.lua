@@ -1,112 +1,141 @@
 local dkjson = require( "game/dkjson" )
 local config = require("bots/config")
 
-live_config = nil
+local LIVE_CONFIG_FILENAME = 'bots/live_config_auto'
 
+local live_config = nil
 
-
-local function get_live_config()
-    -- This function requests a live configuration, other than the static one we had already
-    -- imported.
-    local ip = '127.0.0.1:'.. tostring(config.port_rest) ..'/calibration'
-    local req = CreateRemoteHTTPRequest(ip)
-    -- local post_data = '{"foo":5}'
-    -- req:SetHTTPRequestRawPostBody("application/json", post_data)
-    sent = req:Send(function(result)
-        print('-> callback result=', result)
-        -- print('-> callback result=', result['Body'])
-        -- local data = result['Body']
-        local data, pos, err = dkjson.decode(result['Body'], 1, nil)
-        if err then
-            print("(lua) JSON Decode Error: ", err, " on data: ", result)
-        else
-            print('Received session settings.')
-            live_config = data
-            print('live_config=', live_config)
-            print('live_config.calibration_tick=', live_config.calibration_tick)
-            assert(live_config.calibration_tick < 0)
-        end
-    end )
+local function dotatime_to_ms(dotatime)
+    return string.format("%09d", math.floor(dotatime*1000))
 end
 
-get_live_config()
+-- local function get_action_filename(tick)
+--     -- return 'bots/' .. config.action_subfolder_name .. '/' .. tostring(tick)
+--     return 'bots/' .. config.action_subfolder_name .. '/action'
+-- end
 
+ACTION_FILENAME = 'bots/' .. '/action'
 
-local function request_step(tick)
-    local ip = '127.0.0.1:'.. tostring(config.port_rest) ..'/step?tick=' .. tostring(tick)
-    local req = CreateRemoteHTTPRequest(ip)
-    sent = req:Send(function(result)
-        -- ?
-    end )
-end
-
-
-
-function dotatime_to_tick(dotatime)
-    return math.floor(dotatime * config.ticks_per_second + 0.5)  -- 0.5 for rounding
-end
-
-
-local function get_action_filename(tick)
-    return 'bots/' .. config.action_subfolder_name .. '/' .. tostring(tick)
-end
-
-
-local function query_reponse(tick)
-    -- Get the response from a file
-    local filename = get_action_filename(tick)
-    x = 0
-    print('(lua) looking for loadfile ', filename)
+local function get_new_action(time_ms)
+    print('(lua) get_new_action ', time_ms)
+    local file_fn = nil
     while true do
-        x = x + 1
-        tickfile = loadfile(filename)
-        if tickfile ~= nil then break end
+        -- Try to load the file first
+        while true do
+            file_fn = loadfile(ACTION_FILENAME)
+            if file_fn ~= nil then break end
+        end
+        -- Execute the file_fn; this loads contents into `data`.
+        local data = file_fn()
+        if data ~= nil then
+            -- print('data=', data)
+            local data, pos, err = dkjson.decode(data, 1, nil)
+            if err then
+                print("(lua) JSON Decode Error=", err, " at pos=", pos)
+            -- else
+            --     print('(lua) received data:', dump(data))
+            end
+            if data.dotaTime == time_ms then
+                -- print("yay found")
+                return data
+            end
+        end
     end
-    -- print('loadfile retries=', x)
-    -- Execute the tickfile; this loads contents into `data`.
-    tickfile()
+end
+
+
+
+local function data_from_file(filename)
+    -- Get the response from a file, while waiting for the file.
+    print('(lua) looking for loadfile =', filename)
+    local file_fn = nil
+    while true do
+        file_fn = loadfile(filename)
+        if file_fn ~= nil then break end
+    end
+    -- Execute the file_fn; this loads contents into `data`.
+    local data = file_fn()
+    -- print('data=', data)
     local data, pos, err = dkjson.decode(data, 1, nil)
     if err then
         print("(lua) JSON Decode Error=", err " at pos=", pos)
-    else
-        print('(lua) received action:', data)
+    -- else
+    --     print('(lua) received data:', dump(data))
     end
     return data
 end
 
-first_step_requested = false
+
+function dump(o)
+    if type(o) == 'table' then
+       local s = '{ '
+       for k,v in pairs(o) do
+          if type(k) ~= 'number' then k = '"'..k..'"' end
+          s = s .. '['..k..'] = ' .. dump(v) .. ','
+       end
+       return s .. '} '
+    else
+       return tostring(o)
+    end
+ end
+
+
+local step = 0
+
+-- This table keeps track of which time corresponds to which fn_call. 
+local dotatime_to_step_map = {}
+local worldstate_step_offset = nil
 
 function Think()
-    if GetTeam() == TEAM_RADIANT then
+    step = step + 1
+    if GetTeam() == TEAM_DIRE then
         -- For now, just focus on radiant. We can add DIRE action files some time later.
-        return
+        do return end
     end
+
     local dotatime = DotaTime()
-    local tick = dotatime_to_tick(dotatime)
+    local time_ms = dotatime_to_ms(dotatime)
     local gamestate = GetGameState()
-    print('(lua) Think() dotatime=', dotatime, ' tick=', tick, 'gamestate=', gamestate)
-    -- Notice there is a bug in dotatime, as there is an extra tick inserted at 0;
-    -- e.g.: [-0.034439086914062, -0.0011062622070312, 0, 0.033332824707031]
 
-    -- We need to wait until we have the live config for the calibration tick offset.
+    -- Only keep track of this for calibration purposes.
     if live_config == nil then
-        return
+        dotatime_to_step_map[time_ms] = step
+        -- print('dotatime_to_step_map=', dump(dotatime_to_step_map))
     end
 
-    local calibration_tick = live_config.calibration_tick  --  -2671
-    
-    local tickoffset = calibration_tick % config.ticks_per_observation
-    if dotatime > 0 then
-        tickoffset = tickoffset -1
+    -- print('(lua) Think() dotatime=', dotatime, ' time_ms=', time_ms, 'gamestate=', gamestate, 'step=', step)
+
+    -- To guarantee the dotaservice has received a worldstate, skip this function that amount
+    -- of times on first run.
+    if step == config.ticks_per_observation then
+        -- When we went through exactly this amount calls, it's guaranteed the dotaservice has
+        -- received at least one tick, from which we can calibrate.
+
+        local status = {}
+        status.dotatime = dotatime
+        status.step = step
+        print('LUARDY', json.encode(status))
+
+        -- The live configuration gives us back the last time at which dota sent out a 
+        -- world state signal.
+        live_config = data_from_file(LIVE_CONFIG_FILENAME)
+        print('(lua) live_config =', dump(live_config))
+
+        -- We now relate when this was sent out, to the step we were at.
+        worldstate_step_offset = dotatime_to_step_map[live_config.calibration_ms]
     end
 
-    if ((tick - tickoffset) % config.ticks_per_observation) == 0 then
-        if first_step_requested == false then
-            request_step(tick)
-            first_step_requested = true
-        end
-        query_reponse(tick)
+    if worldstate_step_offset == nil then
+        do return end
     end
+
+    if ((step - worldstate_step_offset) % config.ticks_per_observation) == 0 then
+        print('(lua) Expecting state @ step=', step, ' @ ms=', time_ms)
+        -- TODO(tzaman): read the action file here, and check that it contains an
+        -- action with the right timestep.
+        local action = get_new_action(time_ms)
+        print('(lua) action =', dump(action))
+    end
+
 
 end
-
