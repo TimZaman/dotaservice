@@ -9,7 +9,7 @@ especially useful for distributed training. I am planning to provide a client py
 module for this (`PyDota`) that mimics typical OpenAI gym APIs.
 
 <div style="text-align:center">
-<img src="dotaservice.png" alt="dotaservice connections" width="520"/>
+<img src="dotaservice.png" alt="dotaservice connections" width="680"/>
 </div>
 
 ---
