@@ -158,28 +158,19 @@ class DotaService(DotaServiceBase):
         print('DotaService::step()')
 
         request = await stream.recv_message()
-        # print('  request={}'.format(request))
 
-        # If we did not set a specific dota time, we're using the last one.
-        if not request.dota_time:
-            request.dota_time = self.prev_time
-
-        # filename = os.path.join(ACTION_FOLDER, "{}.lua".format(self.tick))
-        # filename = os.path.join(ACTION_FOLDER, "action.lua")
         data_dict = MessageToDict(request)
 
-        # data = "data = '{}'".format(json.dumps(data_dict, separators=(',',':')))
-        print('(python) action data=', data_dict)
+        # Add the dotatime to the dict for verification.
+        if not request.dota_time:
+            data_dict['dota_time'] = self.prev_time
 
-        # # atomic_file_write(filename, data)
-        # with open(filename, 'w') as f:
-        #     f.write(data)
+        print('(python) action data=', data_dict)
 
         write_bot_data_file(filename_stem='action', data=data_dict)
 
         # We've started to assume our queue will only have 1 item.
         data = await worldstate_queue.get()
-        # tick = dotatime_to_ms(data.dota_time)
 
         # Update the tick
         self.prev_time = dotatime_to_ms(data.dota_time)
