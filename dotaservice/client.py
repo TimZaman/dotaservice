@@ -9,24 +9,9 @@ from protobuf.DotaService_pb2 import Action
 from protobuf.DotaService_pb2 import Config
 # from protobuf.DotaAction_pb2 import DotaAction
 
-
 from protobuf.dota_gcmessages_common_bot_script_pb2 import CMsgBotWorldState
 from protobuf.dota_gcmessages_common_bot_script_pb2 import CMsgBotWorldState
 
-# data = CMsgBotWorldState()
-# print('data=', data)
-# print(MessageToDict(data))
-
-# # from protobuf.dota_gcmessages_common_bot_script_pb2 import Action
-
-# data = CMsgBotWorldState.Action()
-
-# data.actionType = 2
-
-# print('data=', data)
-# print(MessageToDict(data))
-
-# exit()
 
 async def main():
     loop = asyncio.get_event_loop()
@@ -38,10 +23,18 @@ async def main():
     start_dotatime = response.world_state.dota_time
 
     start = time.time()
-    nsteps = 1000
-    for i in range(nsteps):
-        action = CMsgBotWorldState.Action()#x=i, y=2, z=3)
-        action.actionType = 2
+    nsteps = 100000
+    # for i in range(nsteps):
+    while True:
+        action = CMsgBotWorldState.Action()
+        action.actionType = CMsgBotWorldState.Action.Type.Value('DOTA_UNIT_ORDER_MOVE_TO_POSITION')
+        m = CMsgBotWorldState.Action.MoveToLocation()
+        m.location.x = 5
+        m.location.y = 6
+        m.location.z = 7
+        action.moveToLocation.CopyFrom(m)
+
+        print('action=', action)
         observation = await env.step(Action(action=action))
 
         print('(client) sent action for dotatime=', observation.world_state.dota_time)

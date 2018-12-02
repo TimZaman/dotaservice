@@ -11,6 +11,13 @@ local function dotatime_to_ms(dotatime)
 end
 
 
+local function act(action)
+    print('(lua) act')
+    local npcBot = GetBot()
+    npcBot:Action_MoveToLocation(Vector(0, 0))
+end
+
+
 local function get_new_action(time_ms)
     print('(lua) get_new_action ', time_ms)
     local file_fn = nil
@@ -122,5 +129,6 @@ function Think()
         -- action with the right timestep.
         local action = get_new_action(time_ms)
         print('(lua) action =', dump(action))
+        act(action)
     end
 end

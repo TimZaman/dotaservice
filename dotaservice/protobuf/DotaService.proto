@@ -5,9 +5,7 @@ package dotaservice;
 import "protobuf/dota_gcmessages_common_bot_script.proto";
 
 message Action {
-  // DotaAction action = 1;
   required CMsgBotWorldState.Action action = 1;
-  optional string dota_time = 2; // should be float
 }
 
 message Observation {
