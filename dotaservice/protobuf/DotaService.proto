@@ -1,18 +1,17 @@
-syntax = "proto3";
+// syntax = "proto3";
 
 package dotaservice;
 
 import "protobuf/dota_gcmessages_common_bot_script.proto";
-// import "protobuf/CMsgBotWorldState.proto";
-import "protobuf/DotaAction.proto";
 
 message Action {
-  DotaAction action = 1;
-  string dota_time = 3; // should be float
+  // DotaAction action = 1;
+  required CMsgBotWorldState.Action action = 1;
+  optional string dota_time = 2; // should be float
 }
 
 message Observation {
-  CMsgBotWorldState world_state = 1;
+  required CMsgBotWorldState world_state = 1;
 }
 
 message Config {

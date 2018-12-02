@@ -24,7 +24,6 @@ from grpclib.server import Server
 import google.protobuf.text_format as txtf
 
 from protobuf.dota_gcmessages_common_bot_script_pb2 import CMsgBotWorldState
-# from protobuf.dota_gcmessages_common_bot_script import CMsgBotWorldState
 from protobuf.DotaService_grpc import DotaServiceBase
 from protobuf.DotaService_pb2 import Observation
 
