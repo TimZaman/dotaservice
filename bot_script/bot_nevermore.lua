@@ -6,11 +6,6 @@ local ACTION_FILENAME = 'bots/action'
 local live_config = nil
 
 
-local function dotatime_to_ms(dotatime)
-    return string.format("%09d", math.floor(dotatime*1000))
-end
-
-
 local function act(action)
     print('(lua) act')
     local npcBot = GetBot()
@@ -18,8 +13,8 @@ local function act(action)
 end
 
 
-local function get_new_action(time_ms)
-    print('(lua) get_new_action ', time_ms)
+local function get_new_action(dota_time)
+    print('(lua) get_new_action @', dota_time)
     local file_fn = nil
     while true do
         -- Try to load the file first
@@ -34,7 +29,7 @@ local function get_new_action(time_ms)
             if err then
                 print("(lua) JSON Decode Error=", err, " at pos=", pos)
             end
-            if data.dota_time == time_ms then
+            if data.dota_time == dota_time then
                 return data
             end
         end
@@ -75,7 +70,7 @@ end
 
 
 -- This table keeps track of which time corresponds to which fn_call. 
-local dotatime_to_step_map = {}
+local dota_time_to_step_map = {}
 local worldstate_step_offset = nil
 local step = 0
 
@@ -87,17 +82,15 @@ function Think()
         do return end
     end
 
-    local dotatime = DotaTime()
-    local time_ms = dotatime_to_ms(dotatime)
-    local gamestate = GetGameState()
+    local dota_time = DotaTime()
+    local game_state = GetGameState()
 
     -- Only keep track of this for calibration purposes.
     if live_config == nil then
-        dotatime_to_step_map[time_ms] = step
-        -- print('dotatime_to_step_map=', dump(dotatime_to_step_map))
+        dota_time_to_step_map[dota_time] = step
     end
 
-    -- print('(lua) Think() dotatime=', dotatime, ' time_ms=', time_ms, 'gamestate=', gamestate, 'step=', step)
+    -- print('(lua) Think() dota_time=', dota_time, 'game_state=', game_state, 'step=', step)
 
     -- To guarantee the dotaservice has received a worldstate, skip this function that amount
     -- of times on first run.
@@ -106,7 +99,7 @@ function Think()
         -- received at least one tick, from which we can calibrate.
 
         local status = {}
-        status.dotatime = dotatime
+        status.dota_time = dota_time
         status.step = step
         print('LUARDY', json.encode(status))
 
@@ -116,7 +109,7 @@ function Think()
         print('(lua) live_config =', dump(live_config))
 
         -- We now relate when this was sent out, to the step we were at.
-        worldstate_step_offset = dotatime_to_step_map[live_config.calibration_ms]
+        worldstate_step_offset = dota_time_to_step_map[live_config.calibration_dota_time]
     end
 
     if worldstate_step_offset == nil then
@@ -124,10 +117,10 @@ function Think()
     end
 
     if ((step - worldstate_step_offset) % config.ticks_per_observation) == 0 then
-        print('(lua) Expecting state @ step=', step, ' @ ms=', time_ms)
+        print('(lua) Expecting state @ step=', step, 'dota_time=', dota_time)
         -- TODO(tzaman): read the action file here, and check that it contains an
         -- action with the right timestep.
-        local action = get_new_action(time_ms)
+        local action = get_new_action(dota_time)
         print('(lua) action =', dump(action))
         act(action)
     end

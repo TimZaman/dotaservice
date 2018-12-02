@@ -109,7 +109,7 @@ def atomic_file_write(filename, data):
 
 class DotaService(DotaServiceBase):
 
-    prev_time = None
+    dota_time = None
 
     async def reset(self, stream):
         """reset method.
@@ -142,11 +142,11 @@ class DotaService(DotaServiceBase):
         if data is None:
             raise ValueError('Worldstate queue empty while lua bot is ready!')
 
-        self.prev_time = dotatime_to_ms(data.dota_time)
+        self.dota_time = data.dota_time
 
         # Now write the calibration file.
         config = {
-            'calibration_ms': dotatime_to_ms(data.dota_time),
+            'calibration_dota_time': data.dota_time,
         }
         print('(py) writing live config=', config)
         write_bot_data_file(filename_stem='live_config_auto', data=config, atomic=True)
@@ -162,7 +162,7 @@ class DotaService(DotaServiceBase):
         action = MessageToDict(request.action)
 
         # Add the dotatime to the dict for verification.
-        action['dota_time'] = self.prev_time
+        action['dota_time'] = self.dota_time
 
         print('(python) action=', action)
 
@@ -172,7 +172,7 @@ class DotaService(DotaServiceBase):
         data = await worldstate_queue.get()
 
         # Update the tick
-        self.prev_time = dotatime_to_ms(data.dota_time)
+        self.dota_time = data.dota_time
 
         # Make sure indeed the queue is empty and we're entirely in sync.
         assert worldstate_queue.qsize() == 0
@@ -194,10 +194,6 @@ async def serve(server, *, host='127.0.0.1', port=50051):
 async def grpc_main(loop):
     server = Server([DotaService()], loop=loop)
     await serve(server)
-
-
-def dotatime_to_ms(dotatime):
-    return "{:09d}".format(math.floor(dotatime * 1000))
 
 
 def kill_processes_and_children(pid, sig=signal.SIGTERM):
@@ -279,7 +275,7 @@ async def run_dota():
     process = await create
 
 
-    task_record_replay = asyncio.create_task(begin(process=process))
+    task_record_replay = asyncio.create_task(record_replay(process=process))
 
     task_monitor_log = asyncio.create_task(monitor_log())
 
@@ -301,8 +297,7 @@ async def data_from_reader(reader):
     parsed_data.ParseFromString(data)
     dotatime = parsed_data.dota_time
     gamestate = parsed_data.game_state
-    ms = dotatime_to_ms(dotatime)
-    print('(py) worldstate @dotatime={} @ms={} @gamestate={}'.format(dotatime, ms, gamestate))
+    print('(py) worldstate @ dotatime={}, gamestate={}'.format(dotatime, gamestate))
     return parsed_data
 
 
@@ -321,8 +316,6 @@ async def worldstate_listener(port):
 loop = asyncio.get_event_loop()
 
 worldstate_queue = asyncio.Queue(loop=loop)
-
-worldstate_calibration_tick_future = loop.create_future()
 
 lua_config_future = loop.create_future()
 
