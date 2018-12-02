@@ -44,7 +44,7 @@ async def main():
         action.actionType = 2
         observation = await env.step(Action(action=action))
 
-        print('step observation:\ndotatime = ', observation.world_state.dota_time)
+        print('(client) sent action for dotatime=', observation.world_state.dota_time)
     end = time.time()
     dt = end-start
     print('dt= {} s'.format(end - start))

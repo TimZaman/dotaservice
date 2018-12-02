@@ -2,19 +2,14 @@ local dkjson = require( "game/dkjson" )
 local config = require("bots/config")
 
 local LIVE_CONFIG_FILENAME = 'bots/live_config_auto'
-
+local ACTION_FILENAME = 'bots/action'
 local live_config = nil
+
 
 local function dotatime_to_ms(dotatime)
     return string.format("%09d", math.floor(dotatime*1000))
 end
 
--- local function get_action_filename(tick)
---     -- return 'bots/' .. config.action_subfolder_name .. '/' .. tostring(tick)
---     return 'bots/' .. config.action_subfolder_name .. '/action'
--- end
-
-ACTION_FILENAME = 'bots/' .. '/action'
 
 local function get_new_action(time_ms)
     print('(lua) get_new_action ', time_ms)
@@ -28,21 +23,16 @@ local function get_new_action(time_ms)
         -- Execute the file_fn; this loads contents into `data`.
         local data = file_fn()
         if data ~= nil then
-            -- print('data=', data)
             local data, pos, err = dkjson.decode(data, 1, nil)
             if err then
                 print("(lua) JSON Decode Error=", err, " at pos=", pos)
-            -- else
-            --     print('(lua) received data:', dump(data))
             end
-            if data.dotaTime == time_ms then
-                -- print("yay found")
+            if data.dota_time == time_ms then
                 return data
             end
         end
     end
 end
-
 
 
 local function data_from_file(filename)
@@ -55,12 +45,9 @@ local function data_from_file(filename)
     end
     -- Execute the file_fn; this loads contents into `data`.
     local data = file_fn()
-    -- print('data=', data)
     local data, pos, err = dkjson.decode(data, 1, nil)
     if err then
         print("(lua) JSON Decode Error=", err " at pos=", pos)
-    -- else
-    --     print('(lua) received data:', dump(data))
     end
     return data
 end
@@ -77,14 +64,14 @@ function dump(o)
     else
        return tostring(o)
     end
- end
+end
 
-
-local step = 0
 
 -- This table keeps track of which time corresponds to which fn_call. 
 local dotatime_to_step_map = {}
 local worldstate_step_offset = nil
+local step = 0
+
 
 function Think()
     step = step + 1
@@ -136,6 +123,4 @@ function Think()
         local action = get_new_action(time_ms)
         print('(lua) action =', dump(action))
     end
-
-
 end
