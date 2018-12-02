@@ -181,7 +181,7 @@ class DotaService(DotaServiceBase):
         await stream.send_message(Observation(world_state=data))
 
 
-async def serve(server, *, host='127.0.0.1', port=50051):
+async def serve(server, *, host='127.0.0.1', port=13337):
     await server.start(host, port)
     print('Serving on {}:{}'.format(host, port))
     try:
@@ -225,7 +225,7 @@ async def monitor_log():
 
 async def record_replay(process):
     print("Starting to wait.")
-    await asyncio.sleep(5)  # TODO(tzaman): just invoke after LUARDY signal.
+    await asyncio.sleep(5)  # TODO(tzaman): just invoke after LUARDY signal?
     print('writing to stdin!')
     process.stdin.write(b"tv_record scripts/vscripts/bots/replay\n")
     await process.stdin.drain()
@@ -264,6 +264,7 @@ async def run_dota():
         "+sv_lan 1",
         "+tv_delay 0 ",
         "+tv_enable 1",
+        "+jointeam spec",
         "+tv_title {}".format(GAME_ID),
     ]
     create = asyncio.create_subprocess_exec(
@@ -302,8 +303,14 @@ async def data_from_reader(reader):
 
 
 async def worldstate_listener(port):
-    await asyncio.sleep(2)
-    reader, writer = await asyncio.open_connection('127.0.0.1', port)#, loop=loop)
+    while True:  # TODO(tzaman): finite retries.
+        try:
+            await asyncio.sleep(0.5)
+            reader, writer = await asyncio.open_connection('127.0.0.1', port)
+        except ConnectionRefusedError:
+            pass
+        else:
+            break
     try:
         while True:
             # This reader is always going to need to keep going to keep the buffers clean.

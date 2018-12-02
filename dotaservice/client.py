@@ -15,7 +15,7 @@ from protobuf.dota_gcmessages_common_bot_script_pb2 import CMsgBotWorldState
 
 async def main():
     loop = asyncio.get_event_loop()
-    channel = Channel('127.0.0.1', 50051, loop=loop)
+    channel = Channel('127.0.0.1', 13337, loop=loop)
     env = DotaServiceStub(channel)
 
     response = await env.reset(Config())
