@@ -2,7 +2,8 @@ syntax = "proto3";
 
 package dotaservice;
 
-import "protobuf/CMsgBotWorldState.proto";
+import "protobuf/dota_gcmessages_common_bot_script.proto";
+// import "protobuf/CMsgBotWorldState.proto";
 import "protobuf/DotaAction.proto";
 
 message Action {

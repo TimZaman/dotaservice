@@ -11,5 +11,4 @@ else
 end
 assert(config.ticks_per_observation ~= nil)
 assert(config.game_id ~= nil)
-assert(config.port_rest ~= nil)
 return config

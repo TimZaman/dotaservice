@@ -6,7 +6,7 @@ import abc
 import grpclib.const
 import grpclib.client
 
-import protobuf.CMsgBotWorldState_pb2
+import protobuf.dota_gcmessages_common_bot_script_pb2
 import protobuf.DotaAction_pb2
 import protobuf.DotaService_pb2
 
