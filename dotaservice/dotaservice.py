@@ -23,12 +23,10 @@ from google.protobuf.json_format import MessageToDict
 from grpclib.server import Server
 import google.protobuf.text_format as txtf
 
-from protobuf.CMsgBotWorldState_pb2 import CMsgBotWorldState
+from protobuf.dota_gcmessages_common_bot_script_pb2 import CMsgBotWorldState
+# from protobuf.dota_gcmessages_common_bot_script import CMsgBotWorldState
 from protobuf.DotaService_grpc import DotaServiceBase
 from protobuf.DotaService_pb2 import Observation
-
-
-
 
 # logging.basicConfig(level=logging.DEBUG)  # This logging is a bit bananas
 routes = web.RouteTableDef()
@@ -36,11 +34,10 @@ routes = web.RouteTableDef()
 os.system("ps | grep dota2 | awk '{print $1}' | xargs kill -9")
 
 CONSOLE_LOG_FILENAME = 'console.log'
-TICKS_PER_OBSERVATION = 5
+TICKS_PER_OBSERVATION = 30
 DOTA_PATH = '/Users/tzaman/Library/Application Support/Steam/SteamApps/common/dota 2 beta/game'
 PORT_WORLDSTATE_RADIANT = 12120
 PORT_WORLDSTATE_DIRE = 12121
-PORT_REST = 13337
 
 # An enum from the game (should have been in the proto though).
 DOTA_GAMERULES_STATE_PRE_GAME = 4
@@ -97,7 +94,6 @@ def write_bot_data_file(filename_stem, data, atomic=False):
 config = {
     'game_id': str(GAME_ID),
     'ticks_per_observation': TICKS_PER_OBSERVATION,
-    'port_rest': PORT_REST,
 }
 write_bot_data_file(filename_stem='config_auto', data=config)
 

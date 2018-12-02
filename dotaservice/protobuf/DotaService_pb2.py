@@ -12,7 +12,7 @@ from google.protobuf import symbol_database as _symbol_database
 _sym_db = _symbol_database.Default()
 
 
-from protobuf import CMsgBotWorldState_pb2 as protobuf_dot_CMsgBotWorldState__pb2
+from protobuf import dota_gcmessages_common_bot_script_pb2 as protobuf_dot_dota__gcmessages__common__bot__script__pb2
 from protobuf import DotaAction_pb2 as protobuf_dot_DotaAction__pb2
 
 
@@ -21,9 +21,9 @@ DESCRIPTOR = _descriptor.FileDescriptor(
   package='dotaservice',
   syntax='proto3',
   serialized_options=None,
-  serialized_pb=_b('\n\x1aprotobuf/DotaService.proto\x12\x0b\x64otaservice\x1a protobuf/CMsgBotWorldState.proto\x1a\x19protobuf/DotaAction.proto\"8\n\x06\x41\x63tion\x12\x1b\n\x06\x61\x63tion\x18\x01 \x01(\x0b\x32\x0b.DotaAction\x12\x11\n\tdota_time\x18\x03 \x01(\t\"6\n\x0bObservation\x12\'\n\x0bworld_state\x18\x01 \x01(\x0b\x32\x12.CMsgBotWorldState\"\x08\n\x06\x43onfig2\x80\x01\n\x0b\x44otaService\x12\x38\n\x05reset\x12\x13.dotaservice.Config\x1a\x18.dotaservice.Observation\"\x00\x12\x37\n\x04step\x12\x13.dotaservice.Action\x1a\x18.dotaservice.Observation\"\x00\x62\x06proto3')
+  serialized_pb=_b('\n\x1aprotobuf/DotaService.proto\x12\x0b\x64otaservice\x1a\x30protobuf/dota_gcmessages_common_bot_script.proto\x1a\x19protobuf/DotaAction.proto\"8\n\x06\x41\x63tion\x12\x1b\n\x06\x61\x63tion\x18\x01 \x01(\x0b\x32\x0b.DotaAction\x12\x11\n\tdota_time\x18\x03 \x01(\t\"6\n\x0bObservation\x12\'\n\x0bworld_state\x18\x01 \x01(\x0b\x32\x12.CMsgBotWorldState\"\x08\n\x06\x43onfig2\x80\x01\n\x0b\x44otaService\x12\x38\n\x05reset\x12\x13.dotaservice.Config\x1a\x18.dotaservice.Observation\"\x00\x12\x37\n\x04step\x12\x13.dotaservice.Action\x1a\x18.dotaservice.Observation\"\x00\x62\x06proto3')
   ,
-  dependencies=[protobuf_dot_CMsgBotWorldState__pb2.DESCRIPTOR,protobuf_dot_DotaAction__pb2.DESCRIPTOR,])
+  dependencies=[protobuf_dot_dota__gcmessages__common__bot__script__pb2.DESCRIPTOR,protobuf_dot_DotaAction__pb2.DESCRIPTOR,])
 
 
 
@@ -61,8 +61,8 @@ _ACTION = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=104,
-  serialized_end=160,
+  serialized_start=120,
+  serialized_end=176,
 )
 
 
@@ -92,8 +92,8 @@ _OBSERVATION = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=162,
-  serialized_end=216,
+  serialized_start=178,
+  serialized_end=232,
 )
 
 
@@ -116,12 +116,12 @@ _CONFIG = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=218,
-  serialized_end=226,
+  serialized_start=234,
+  serialized_end=242,
 )
 
 _ACTION.fields_by_name['action'].message_type = protobuf_dot_DotaAction__pb2._DOTAACTION
-_OBSERVATION.fields_by_name['world_state'].message_type = protobuf_dot_CMsgBotWorldState__pb2._CMSGBOTWORLDSTATE
+_OBSERVATION.fields_by_name['world_state'].message_type = protobuf_dot_dota__gcmessages__common__bot__script__pb2._CMSGBOTWORLDSTATE
 DESCRIPTOR.message_types_by_name['Action'] = _ACTION
 DESCRIPTOR.message_types_by_name['Observation'] = _OBSERVATION
 DESCRIPTOR.message_types_by_name['Config'] = _CONFIG
@@ -156,8 +156,8 @@ _DOTASERVICE = _descriptor.ServiceDescriptor(
   file=DESCRIPTOR,
   index=0,
   serialized_options=None,
-  serialized_start=229,
-  serialized_end=357,
+  serialized_start=245,
+  serialized_end=373,
   methods=[
   _descriptor.MethodDescriptor(
     name='reset',
