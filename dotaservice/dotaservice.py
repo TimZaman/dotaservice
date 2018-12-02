@@ -159,15 +159,14 @@ class DotaService(DotaServiceBase):
 
         request = await stream.recv_message()
 
-        data_dict = MessageToDict(request)
+        action = MessageToDict(request.action)
 
         # Add the dotatime to the dict for verification.
-        if not request.dota_time:
-            data_dict['dota_time'] = self.prev_time
+        action['dota_time'] = self.prev_time
 
-        print('(python) action data=', data_dict)
+        print('(python) action=', action)
 
-        write_bot_data_file(filename_stem='action', data=data_dict)
+        write_bot_data_file(filename_stem='action', data=action)
 
         # We've started to assume our queue will only have 1 item.
         data = await worldstate_queue.get()
@@ -212,13 +211,14 @@ def kill_processes_and_children(pid, sig=signal.SIGTERM):
 
 
 async def monitor_log():
-    p = re.compile(r'LUARDY[ \t](\{.*\})')
+    # p_demo = re.compile(r'LUARDY[ \t](\{.*\})')
+    p_luardy = re.compile(r'LUARDY[ \t](\{.*\})')
     while True:
         filename = os.path.join(BOT_PATH, CONSOLE_LOG_FILENAME)
         if os.path.exists(filename):
             with open(filename) as f:
                 for line in f:
-                    m = p.search(line)
+                    m = p_luardy.search(line)
                     if m:
                         found = m.group(1)
                         lua_config = json.loads(found)
@@ -226,6 +226,16 @@ async def monitor_log():
                         lua_config_future.set_result(lua_config)
                         return
         await asyncio.sleep(0.2)
+
+
+
+async def begin(process):
+    print("Starting to wait.")
+    await asyncio.sleep(5)  # TODO(tzaman): just invoke after LUARDY signal.
+    print('writing to stdin!')
+    process.stdin.write(b"tv_record scripts/vscripts/bots/replay\n")
+    await process.stdin.drain()
+
 
 
 async def run_dota():
@@ -242,6 +252,7 @@ async def run_dota():
         "-fill_with_bots",
         "-insecure",
         "-noip",
+        "-console",
         "-nowatchdog",  # WatchDog will quit the game if e.g. the lua api takes a few seconds.
         "+clientport 27006",  # Relates to steam client.
         "+dota_1v1_skip_strategy 1",  # doesn't work icm `-fill_with_bots`
@@ -258,12 +269,9 @@ async def run_dota():
         "+sv_cheats 1",
         "+sv_hibernate_when_empty 0",
         "+sv_lan 1",
-        "+tv_autorecord 1",
-        "+tv_delay 0 ",
         "+tv_enable 1",
+        "+tv_delay 0 ",
         "+tv_title {}".format(GAME_ID),
-        # "-console,",
-        # "-dev",  # Not sure what this does
     ]
     create = asyncio.create_subprocess_exec(
         *args,
@@ -272,6 +280,10 @@ async def run_dota():
         # stderr=asyncio.subprocess.PIPE,
     )
     process = await create
+
+
+    task2 = asyncio.create_task(begin(process=process))
+
 
     task1 = asyncio.create_task(monitor_log())
 
@@ -283,17 +295,12 @@ async def run_dota():
 
 
 async def data_from_reader(reader):
-    port = None  # HACK
-    # print('data_from_reader()')
     # Receive the package length.
     data = await reader.read(4)
-    # eternity(), timeout=1.0)
     n_bytes = unpack("@I", data)[0]
-    # print('n_bytes=', n_bytes)
     # Receive the payload given the length.
     data = await asyncio.wait_for(reader.read(n_bytes), timeout=5.0)
     # Decode the payload.
-    # print('data=', data)
     parsed_data = CMsgBotWorldState()
     parsed_data.ParseFromString(data)
     dotatime = parsed_data.dota_time
