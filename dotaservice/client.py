@@ -1,5 +1,6 @@
 import asyncio
 import time
+import math
 
 from grpclib.client import Channel
 from google.protobuf.json_format import MessageToDict
@@ -17,9 +18,9 @@ async def main():
     channel = Channel('127.0.0.1', 13337, loop=loop)
     env = DotaServiceStub(channel)
 
-    response = await env.reset(Config())
-    print('reset response:\ndotatime = ', response.world_state.dota_time)
-    start_dotatime = response.world_state.dota_time
+    observation = await env.reset(Config())
+    print('reset observation:\ndotatime = ', observation.world_state.dota_time)
+    start_dotatime = observation.world_state.dota_time
 
     start = time.time()
     nsteps = 100000
@@ -28,9 +29,9 @@ async def main():
         action = CMsgBotWorldState.Action()
         action.actionType = CMsgBotWorldState.Action.Type.Value('DOTA_UNIT_ORDER_MOVE_TO_POSITION')
         m = CMsgBotWorldState.Action.MoveToLocation()
-        m.location.x = 5
-        m.location.y = 6
-        m.location.z = 7
+        m.location.x = math.sin(observation.world_state.dota_time) * 500 -1000
+        m.location.y = math.cos(observation.world_state.dota_time) * 500 -1000
+        m.location.z = 0
         action.moveToLocation.CopyFrom(m)
 
         print('action=', action)

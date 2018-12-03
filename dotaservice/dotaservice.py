@@ -68,6 +68,7 @@ class DotaGame(object):
         self._dota_time = None
         self.game_id = uuid.uuid1()
         self.bot_path = self._create_bot_path(game_id=str(self.game_id))
+        self.render = True
 
         # Write out the game configuration.
         config = {
@@ -83,29 +84,24 @@ class DotaGame(object):
     @dota_time.setter
     def dota_time(self, value):
         # TODO(tzaman): check that new value is larger than old one.
+        if self._dota_time is not None and value < self._dota_time:
+            raise ValueError('New dota time {} is larger than the old one {}'.format(
+                value, self._dota_time))
         self._dota_time = value
 
-    @staticmethod
-    def atomic_file_write(filename, data):
-        filename_tmp = "{}_".format(filename)
-        f = open(filename_tmp, 'w')
-        f.write(data)
-        f.flush()
-        os.fsync(f.fileno()) 
-        f.close()
-        os.rename(filename_tmp, filename)
+    def write_bot_data_file(self, filename_stem, data):
+        """Write a file to lua to that the bot can read it.
 
-    def write_bot_data_file(self, filename_stem, data, atomic=False):
+        Although writing atomicly would prevent bad reads, we just catch the bad reads in the
+        dota bot client.
+        """
         filename = os.path.join(self.bot_path, '{}.lua'.format(filename_stem))
         data = """
         -- THIS FILE IS AUTO GENERATED
         return '{data}'
         """.format(data=json.dumps(data, separators=(',',':')))
-        if atomic:
-            atomic_file_write(filename, data)
-        else:
-            with open(filename, 'w') as f:
-                f.write(data)
+        with open(filename, 'w') as f:
+            f.write(data)
 
     @staticmethod
     def _create_bot_path(game_id):
@@ -146,13 +142,15 @@ class DotaGame(object):
                             return
             await asyncio.sleep(0.2)
 
-    @staticmethod
-    async def record_replay(process):
+    async def record_replay(self, process):
         """Starts the stdin command.
         """
         print('@record_replay')
         await asyncio.sleep(5)  # TODO(tzaman): just invoke after LUARDY signal?
         process.stdin.write(b"tv_record scripts/vscripts/bots/replay\n")
+        if self.render:
+            # If we want to render, let the 'render player' join the spectator team.
+            process.stdin.write(b"jointeam spec\n")
         await process.stdin.drain()
 
     async def run(self):
@@ -172,7 +170,6 @@ class DotaGame(object):
             "-con_logfile scripts/vscripts/bots/{}".format(CONSOLE_LOG_FILENAME),
             "-con_timestamp",
             "-console",
-            "-dedicated",  # If not dedicated, join the spectator team with `jointeam spec`,
             "-fill_with_bots",
             "-insecure",
             "-noip",
@@ -196,6 +193,8 @@ class DotaGame(object):
             "+tv_enable 1",
             "+tv_title {}".format(self.game_id),
         ]
+        if not self.render:
+            args.append('-dedicated')
         create = asyncio.create_subprocess_exec(
             *args,
             stdin=asyncio.subprocess.PIPE,
