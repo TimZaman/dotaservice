@@ -112,7 +112,7 @@ class DotaGame(object):
         data = """
         -- THIS FILE IS AUTO GENERATED
         return '{data}'
-        """.format(data=json.dumps(data, separators=(',',':')))
+        """.format(data=json.dumps(data, separators=(',', ':')))
         with open(filename, 'w') as f:
             f.write(data)
 
@@ -122,8 +122,8 @@ class DotaGame(object):
         print('(py) create_bot_path(game_id=', game_id)
         if os.path.exists(DOTA_BOT_PATH) or os.path.islink(DOTA_BOT_PATH):
             if os.path.isdir(DOTA_BOT_PATH) and not os.path.islink(DOTA_BOT_PATH):
-                raise ValueError(
-                    'There is already a bots directory ({})! Please remove manually.'.format(DOTA_BOT_PATH))
+                raise ValueError('There is already a bots directory ({})! Please remove manually.'.
+                                 format(DOTA_BOT_PATH))
             os.remove(DOTA_BOT_PATH)
         SESSION_FOLDER = os.path.join(ACTION_FOLDER_ROOT, str(game_id))
         os.mkdir(SESSION_FOLDER)
@@ -286,7 +286,7 @@ class DotaService(DotaServiceBase):
             ticks_per_observation=config.ticks_per_observation,
             render=config.render,
             game_id=config.game_id,
-            )
+        )
 
         # Start dota.
         asyncio.create_task(self.dota_game.run())
@@ -341,7 +341,7 @@ class DotaService(DotaServiceBase):
 
         # Make sure indeed the queue is empty and we're entirely in sync.
         assert self.dota_game.worldstate_queue.qsize() == 0
-        
+
         # Return the reponse.
         await stream.send_message(Observation(world_state=data))
 
@@ -377,10 +377,12 @@ def main():
             if "exception" not in context \
             or not isinstance(context["exception"], asyncio.CancelledError):
                 loop.default_exception_handler(context)
+
         loop.set_exception_handler(shutdown_exception_handler)
 
         # Handle shutdown gracefully by waiting for all tasks to be cancelled
-        tasks = asyncio.gather(*asyncio.Task.all_tasks(loop=loop), loop=loop, return_exceptions=True)
+        tasks = asyncio.gather(
+            *asyncio.Task.all_tasks(loop=loop), loop=loop, return_exceptions=True)
         tasks.add_done_callback(lambda t: loop.stop())
         tasks.cancel()
 
@@ -390,6 +392,7 @@ def main():
             loop.run_forever()
     finally:
         loop.close()
-  
-if __name__== "__main__":
-  main()
+
+
+if __name__ == "__main__":
+    main()
