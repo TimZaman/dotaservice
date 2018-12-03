@@ -30,51 +30,26 @@ from protobuf.DotaService_pb2 import Observation
 # logging.basicConfig(level=logging.DEBUG)  # This logging is a bit bananas
 routes = web.RouteTableDef()
 
-os.system("ps | grep dota2 | awk '{print $1}' | xargs kill -9")
-
-CONSOLE_LOG_FILENAME = 'console.log'
-TICKS_PER_OBSERVATION = 30
-DOTA_PATH = '/Users/tzaman/Library/Application Support/Steam/SteamApps/common/dota 2 beta/game'
-PORT_WORLDSTATE_RADIANT = 12120
-PORT_WORLDSTATE_DIRE = 12121
-
-# An enum from the game (should have been in the proto though).
+# An enum from the game (should have been in the proto [dota_gcmessages_common.proto?] though).
 DOTA_GAMERULES_STATE_PRE_GAME = 4
 DOTA_GAMERULES_STATE_GAME_IN_PROGRESS = 5
 
+# Static environment variables.
+DOTA_PATH = '/Users/tzaman/Library/Application Support/Steam/SteamApps/common/dota 2 beta/game'
+BOTS_FOLDER_NAME = 'bots'
+DOTA_BOT_PATH = os.path.join(DOTA_PATH, 'dota', 'scripts', 'vscripts', BOTS_FOLDER_NAME)
+ACTION_FOLDER_ROOT = '/Volumes/ramdisk/'
+TICKS_PER_OBSERVATION = 30
+CONSOLE_LOG_FILENAME = 'console.log'
+PORT_WORLDSTATE_RADIANT = 12120
+PORT_WORLDSTATE_DIRE = 12121
 
+# Initial environment assertions.
 if not os.path.exists(DOTA_PATH):
     raise ValueError('dota game path does not exist: {}'.format(DOTA_PATH))
 
-BOTS_FOLDER_NAME = 'bots'
-DOTA_BOT_PATH = os.path.join(DOTA_PATH, 'dota', 'scripts', 'vscripts', 'bots')
-
-# Remove the dota bot directory
-if os.path.exists(DOTA_BOT_PATH) or os.path.islink(DOTA_BOT_PATH):
-    if os.path.isdir(DOTA_BOT_PATH) and not os.path.islink(DOTA_BOT_PATH):
-        raise ValueError(
-            'There is already a bots directory ({})! Please remove manually.'.format(DOTA_BOT_PATH))
-    os.remove(DOTA_BOT_PATH)
-
-GAME_ID = uuid.uuid1()
-print('GAME_ID=', GAME_ID)
-
-ACTION_FOLDER_ROOT = '/Volumes/ramdisk/'
 if not os.path.exists(ACTION_FOLDER_ROOT):
     raise ValueError('Action folder does not exist. Please mount! ({})'.format(ACTION_FOLDER_ROOT))
-
-SESSION_FOLDER = os.path.join(ACTION_FOLDER_ROOT, str(GAME_ID))
-os.mkdir(SESSION_FOLDER)
-
-BOT_PATH = os.path.join(SESSION_FOLDER, BOTS_FOLDER_NAME)
-os.mkdir(BOT_PATH)
-
-# Copy all the bot files into the action folder
-for filename in glob.glob('../bot_script/*.lua'):
-    shutil.copy(filename, BOT_PATH)
-
-# Symlink DOTA to this folder
-os.symlink(src=BOT_PATH, dst=DOTA_BOT_PATH)
 
 
 def kill_processes_and_children(pid, sig=signal.SIGTERM):
@@ -87,154 +62,195 @@ def kill_processes_and_children(pid, sig=signal.SIGTERM):
         process.send_signal(sig)
 
 
-def write_bot_data_file(filename_stem, data, atomic=False):
-    filename = os.path.join(BOT_PATH, '{}.lua'.format(filename_stem))
-    data = """
-    -- THIS FILE IS AUTO GENERATED
-    return '{data}'
-    """.format(data=json.dumps(data, separators=(',',':')))
-    if atomic:
-        atomic_file_write(filename, data)
-    else:
-        with open(filename, 'w') as f:
-            f.write(data)
+class DotaGame(object):
 
+    def __init__(self):
+        self._dota_time = None
+        self.game_id = uuid.uuid1()
+        self.bot_path = self._create_bot_path(game_id=str(self.game_id))
 
-config = {
-    'game_id': str(GAME_ID),
-    'ticks_per_observation': TICKS_PER_OBSERVATION,
-}
-write_bot_data_file(filename_stem='config_auto', data=config)
+        # Write out the game configuration.
+        config = {
+            'game_id': str(self.game_id),
+            'ticks_per_observation': TICKS_PER_OBSERVATION,
+        }
+        self.write_bot_data_file(filename_stem='config_auto', data=config)
 
+    @property
+    def dota_time(self):
+        return self._dota_time
 
-def atomic_file_write(filename, data):
-    filename_tmp = "{}_".format(filename)
-    f = open(filename_tmp, 'w')
-    f.write(data)
-    f.flush()
-    os.fsync(f.fileno()) 
-    f.close()
-    os.rename(filename_tmp, filename)
+    @dota_time.setter
+    def dota_time(self, value):
+        # TODO(tzaman): check that new value is larger than old one.
+        self._dota_time = value
 
+    @staticmethod
+    def atomic_file_write(filename, data):
+        filename_tmp = "{}_".format(filename)
+        f = open(filename_tmp, 'w')
+        f.write(data)
+        f.flush()
+        os.fsync(f.fileno()) 
+        f.close()
+        os.rename(filename_tmp, filename)
 
-async def monitor_log():
-    p = re.compile(r'LUARDY[ \t](\{.*\})')
-    while True:
-        filename = os.path.join(BOT_PATH, CONSOLE_LOG_FILENAME)
-        if os.path.exists(filename):
-            with open(filename) as f:
-                for line in f:
-                    m = p.search(line)
-                    if m:
-                        found = m.group(1)
-                        lua_config = json.loads(found)
-                        print('(py) lua_config = ', lua_config)
-                        lua_config_future.set_result(lua_config)
-                        return
-        await asyncio.sleep(0.2)
-
-
-async def record_replay(process):
-    await asyncio.sleep(5)  # TODO(tzaman): just invoke after LUARDY signal?
-    process.stdin.write(b"tv_record scripts/vscripts/bots/replay\n")
-    await process.stdin.drain()
-
-
-
-async def run_dota():
-    script_path = os.path.join(DOTA_PATH, 'dota.sh')
-    args = [
-        script_path,
-        "-botworldstatesocket_threaded",
-        "-botworldstatetosocket_dire 12121",
-        "-botworldstatetosocket_frames {}".format(TICKS_PER_OBSERVATION),
-        "-botworldstatetosocket_radiant 12120",
-        "-con_logfile scripts/vscripts/bots/{}".format(CONSOLE_LOG_FILENAME),
-        "-con_timestamp",
-        "-console",
-        "-dedicated",  # If not dedicated, join the spectator team with `jointeam spec`,
-        "-fill_with_bots",
-        "-insecure",
-        "-noip",
-        "-nowatchdog",  # WatchDog will quit the game if e.g. the lua api takes a few seconds.
-        "+clientport 27006",  # Relates to steam client.
-        "+dota_1v1_skip_strategy 1",  # doesn't work icm `-fill_with_bots`
-        "+dota_auto_surrender_all_disconnected_timeout 0",  # Used when `dota_surrender_on_disconnect` is 1
-        "+dota_bot_practice_gamemode 11",  # Mid Only -> doesn't work icm `-fill_with_bots`
-        "+dota_force_gamemode 11",  # Mid Only -> doesn't work icm `-fill_with_bots`
-        "+dota_start_ai_game 1",
-        "+dota_surrender_on_disconnect 0",
-        "+host_force_frametime_to_equal_tick_interval 1",
-        "+host_timescale 1",
-        "+host_writeconfig 1",
-        "+hostname dotaservice",
-        "+map start",  # the `start` map works with replays when dedicated, map `dota` doesn't.
-        "+sv_cheats 1",
-        "+sv_hibernate_when_empty 0",
-        "+sv_lan 1",
-        "+tv_delay 0 ",
-        "+tv_enable 1",
-        "+tv_title {}".format(GAME_ID),
-    ]
-    create = asyncio.create_subprocess_exec(
-        *args,
-        stdin=asyncio.subprocess.PIPE,
-        # stdout=asyncio.subprocess.PIPE,
-        # stderr=asyncio.subprocess.PIPE,
-    )
-    process = await create
-
-    task_record_replay = asyncio.create_task(record_replay(process=process))
-
-    task_monitor_log = asyncio.create_task(monitor_log())
-
-    try:
-        await process.wait()
-    except asyncio.CancelledError:
-        kill_processes_and_children(pid=process.pid)
-        raise
-
-
-async def data_from_reader(reader):
-    # Receive the package length.
-    data = await reader.read(4)
-    n_bytes = unpack("@I", data)[0]
-    # Receive the payload given the length.
-    data = await asyncio.wait_for(reader.read(n_bytes), timeout=5.0)
-    # Decode the payload.
-    parsed_data = CMsgBotWorldState()
-    parsed_data.ParseFromString(data)
-    dotatime = parsed_data.dota_time
-    gamestate = parsed_data.game_state
-    print('(py) worldstate @ dotatime={}, gamestate={}'.format(dotatime, gamestate))
-    return parsed_data
-
-
-async def worldstate_listener(port):
-    while True:  # TODO(tzaman): finite retries.
-        try:
-            await asyncio.sleep(0.5)
-            reader, writer = await asyncio.open_connection('127.0.0.1', port)
-        except ConnectionRefusedError:
-            pass
+    def write_bot_data_file(self, filename_stem, data, atomic=False):
+        filename = os.path.join(self.bot_path, '{}.lua'.format(filename_stem))
+        data = """
+        -- THIS FILE IS AUTO GENERATED
+        return '{data}'
+        """.format(data=json.dumps(data, separators=(',',':')))
+        if atomic:
+            atomic_file_write(filename, data)
         else:
-            break
-    try:
-        while True:
-            # This reader is always going to need to keep going to keep the buffers clean.
-            parsed_data = await data_from_reader(reader)
-            worldstate_queue.put_nowait(parsed_data)
-    except asyncio.CancelledError:
-        raise
+            with open(filename, 'w') as f:
+                f.write(data)
 
+    @staticmethod
+    def _create_bot_path(game_id):
+        """Remove DOTA's bots subdirectory or symlink and update it with our own."""
+        print('(py) create_bot_path(game_id=', game_id)
+        if os.path.exists(DOTA_BOT_PATH) or os.path.islink(DOTA_BOT_PATH):
+            if os.path.isdir(DOTA_BOT_PATH) and not os.path.islink(DOTA_BOT_PATH):
+                raise ValueError(
+                    'There is already a bots directory ({})! Please remove manually.'.format(DOTA_BOT_PATH))
+            os.remove(DOTA_BOT_PATH)
+        SESSION_FOLDER = os.path.join(ACTION_FOLDER_ROOT, str(game_id))
+        os.mkdir(SESSION_FOLDER)
+        bot_path = os.path.join(SESSION_FOLDER, BOTS_FOLDER_NAME)
+        os.mkdir(bot_path)
 
+        # Copy all the bot files into the action folder.
+        for filename in glob.glob('../bot_script/*.lua'):
+            shutil.copy(filename, bot_path)
 
+        # Finally, symlink DOTA to this folder.
+        os.symlink(src=bot_path, dst=DOTA_BOT_PATH)
+        return bot_path
 
+    async def monitor_log(self):
+        print('@monitor_log')
+        p = re.compile(r'LUARDY[ \t](\{.*\})')
+        while True:  # TODO(tzaman): probably just retry 10x sleep(0.5) then bust?
+            filename = os.path.join(self.bot_path, CONSOLE_LOG_FILENAME)
+            if os.path.exists(filename):
+                with open(filename) as f:
+                    for line in f:
+                        m = p.search(line)
+                        if m:
+                            found = m.group(1)
+                            lua_config = json.loads(found)
+                            print('(py) lua_config = ', lua_config)
+                            lua_config_future.set_result(lua_config)
+                            return
+            await asyncio.sleep(0.2)
+
+    @staticmethod
+    async def record_replay(process):
+        """Starts the stdin command.
+        """
+        print('@record_replay')
+        await asyncio.sleep(5)  # TODO(tzaman): just invoke after LUARDY signal?
+        process.stdin.write(b"tv_record scripts/vscripts/bots/replay\n")
+        await process.stdin.drain()
+
+    async def run(self):
+        # Start the worldstate listener(s).
+        asyncio.create_task(self._run_dota())
+        asyncio.create_task(self._worldstate_listener(port=PORT_WORLDSTATE_RADIANT))
+        # asyncio.create_task(self.worldstate_listener(port=PORT_WORLDSTATE_DIRE))
+
+    async def _run_dota(self):
+        script_path = os.path.join(DOTA_PATH, 'dota.sh')
+        args = [
+            script_path,
+            "-botworldstatesocket_threaded",
+            "-botworldstatetosocket_dire {}".format(PORT_WORLDSTATE_RADIANT),
+            "-botworldstatetosocket_frames {}".format(TICKS_PER_OBSERVATION),
+            "-botworldstatetosocket_radiant {}".format(PORT_WORLDSTATE_RADIANT),
+            "-con_logfile scripts/vscripts/bots/{}".format(CONSOLE_LOG_FILENAME),
+            "-con_timestamp",
+            "-console",
+            "-dedicated",  # If not dedicated, join the spectator team with `jointeam spec`,
+            "-fill_with_bots",
+            "-insecure",
+            "-noip",
+            "-nowatchdog",  # WatchDog will quit the game if e.g. the lua api takes a few seconds.
+            "+clientport 27006",  # Relates to steam client.
+            "+dota_1v1_skip_strategy 1",  # doesn't work icm `-fill_with_bots`
+            "+dota_auto_surrender_all_disconnected_timeout 0",  # Used when `dota_surrender_on_disconnect` is 1
+            "+dota_bot_practice_gamemode 11",  # Mid Only -> doesn't work icm `-fill_with_bots`
+            "+dota_force_gamemode 11",  # Mid Only -> doesn't work icm `-fill_with_bots`
+            "+dota_start_ai_game 1",
+            "+dota_surrender_on_disconnect 0",
+            "+host_force_frametime_to_equal_tick_interval 1",
+            "+host_timescale 1",
+            "+host_writeconfig 1",
+            "+hostname dotaservice",
+            "+map start",  # the `start` map works with replays when dedicated, map `dota` doesn't.
+            "+sv_cheats 1",
+            "+sv_hibernate_when_empty 0",
+            "+sv_lan 1",
+            "+tv_delay 0 ",
+            "+tv_enable 1",
+            "+tv_title {}".format(self.game_id),
+        ]
+        create = asyncio.create_subprocess_exec(
+            *args,
+            stdin=asyncio.subprocess.PIPE,
+            # stdout=asyncio.subprocess.PIPE,
+            # stderr=asyncio.subprocess.PIPE,
+        )
+        process = await create
+
+        task_record_replay = asyncio.create_task(self.record_replay(process=process))
+        task_monitor_log = asyncio.create_task(self.monitor_log())
+
+        await process.wait()
+
+        try:
+            await process.wait()
+        except asyncio.CancelledError:
+            kill_processes_and_children(pid=process.pid)
+            raise
+
+    @staticmethod
+    async def _data_from_reader(reader):
+        # Receive the package length.
+        data = await reader.read(4)
+        n_bytes = unpack("@I", data)[0]
+        # Receive the payload given the length.
+        data = await asyncio.wait_for(reader.read(n_bytes), timeout=5.0)
+        # Decode the payload.
+        parsed_data = CMsgBotWorldState()
+        parsed_data.ParseFromString(data)
+        dotatime = parsed_data.dota_time
+        gamestate = parsed_data.game_state
+        print('(py) worldstate @ dotatime={}, gamestate={}'.format(dotatime, gamestate))
+        return parsed_data
+
+    async def _worldstate_listener(self, port):
+        while True:  # TODO(tzaman): finite retries.
+            try:
+                await asyncio.sleep(0.5)
+                reader, writer = await asyncio.open_connection('127.0.0.1', port)
+            except ConnectionRefusedError:
+                pass
+            else:
+                break
+        try:
+            while True:
+                # This reader is always going to need to keep going to keep the buffers clean.
+                parsed_data = await self._data_from_reader(reader)
+                worldstate_queue.put_nowait(parsed_data)
+        except asyncio.CancelledError:
+            raise
 
 
 class DotaService(DotaServiceBase):
 
-    dota_time = None
+    dota_game = None
 
     async def reset(self, stream):
         """reset method.
@@ -243,18 +259,15 @@ class DotaService(DotaServiceBase):
         """
         print('DotaService::reset()')
         
-        # Create all the processes here. 
+        # Kill any previously running dota processes. # TODO(tzaman): do this cleanly.
+        os.system("ps | grep dota2 | awk '{print $1}' | xargs kill -9")
 
-        # TODO(tzaman): Start run_dota.
-        asyncio.create_task(run_dota())
+        # Create a new dota game instance.
+        # TODO(tzaman): kill previous dota game? or implicit through __del__?
+        self.dota_game = DotaGame()
 
-        # TODO(tzaman): Start the worldstate listener(s).
-        asyncio.create_task(worldstate_listener(port=PORT_WORLDSTATE_RADIANT))
-
-
-        # We then have to wait for the first tick to come in
-        # first_tick = await first_tick_future
-        print('(py) DotaService::reset')#, first_tick=', first_tick)
+        # Start dota.
+        asyncio.create_task(self.dota_game.run())
 
         # We first wait for the lua config,
         print('(py) reset is awaiting lua config')
@@ -272,14 +285,14 @@ class DotaService(DotaServiceBase):
         if data is None:
             raise ValueError('Worldstate queue empty while lua bot is ready!')
 
-        self.dota_time = data.dota_time
+        self.dota_game.dota_time = data.dota_time
 
         # Now write the calibration file.
         config = {
             'calibration_dota_time': data.dota_time,
         }
         print('(py) writing live config=', config)
-        write_bot_data_file(filename_stem='live_config_auto', data=config, atomic=True)
+        self.dota_game.write_bot_data_file(filename_stem='live_config_auto', data=config)
 
         # Return the reponse
         await stream.send_message(Observation(world_state=data))
@@ -292,17 +305,17 @@ class DotaService(DotaServiceBase):
         action = MessageToDict(request.action)
 
         # Add the dotatime to the dict for verification.
-        action['dota_time'] = self.dota_time
+        action['dota_time'] = self.dota_game.dota_time
 
         print('(python) action=', action)
 
-        write_bot_data_file(filename_stem='action', data=action)
+        self.dota_game.write_bot_data_file(filename_stem='action', data=action)
 
         # We've started to assume our queue will only have 1 item.
         data = await worldstate_queue.get()
 
         # Update the tick
-        self.dota_time = data.dota_time
+        self.dota_game.dota_time = data.dota_time
 
         # Make sure indeed the queue is empty and we're entirely in sync.
         assert worldstate_queue.qsize() == 0
