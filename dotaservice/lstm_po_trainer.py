@@ -28,8 +28,6 @@ writer = SummaryWriter()
 if writer:
     log_dir = writer.file_writer.get_logdir()
 
-
-
 pretrained_model = None
 # pretrained_model = "/Users/tzaman/Drive/code/dotabot/many_to_one_proto_rnn/runs/Nov11_16-18-17_ngvpn01-175-39.dyn.scz.us.nvidia.com/model_000000700_r6.88.pt"
 
@@ -38,8 +36,10 @@ pretrained_model = None
 
 Example = recordtype('Example', ['depth', 'key_enum', 'value'])
 
+
 class DictDataset():
     max_value = 80
+
     def next(self):
         n_samples = np.random.randint(low=0, high=4)
         x = np.random.uniform(low=-self.max_value, high=self.max_value)
@@ -54,7 +54,8 @@ class DictExampleDataset():
     keys = ['x', 'y']  # TODO(tzaman): get from proto
     input_size = len(keys) + 1 + 1
     # input_size = 1
-    output_size = 2# + 1 + 1
+    output_size = 2  # + 1 + 1
+
     def __init__(self, dict_dataset):
         self.dict_dataset = dict_dataset
 
@@ -71,9 +72,9 @@ class DictExampleDataset():
         tensor = torch.zeros(self.input_size)
         tensor[example.key_enum] = 1 - 0.5
         tensor[-2] = example.depth
-        tensor[-1] = example.value / 100. # normalize
+        tensor[-1] = example.value / 100.  # normalize
         # print('tensor', tensor)
-        return tensor#.unsqueeze(0)
+        return tensor  #.unsqueeze(0)
 
     @classmethod
     def dict_to_examples(self, x):
@@ -98,8 +99,8 @@ dataset = DictExampleDataset(dict_dataset=DictDataset())
 # print(dataset.next())
 # print(dataset.next())
 
+
 class Action(object):
- 
     def __init__(self, head, prob):
         self.head = head
         self.prob = prob
@@ -108,7 +109,6 @@ class Action(object):
         self.logprob = m.log_prob(self.sample)
         # self.logprob = -(1 - self.prob[self.sample])
         # print('logprob:', self.logprob)
-
 
 
 class Head(object):
@@ -138,10 +138,10 @@ class Policy(nn.Module):
 
         self.fc1 = nn.Linear(4, 128)
 
-        self.rnn = nn.LSTM(input_size=128, hidden_size=128,
-                           num_layers=1)#, dropout=0.05)
+        self.rnn = nn.LSTM(input_size=128, hidden_size=128, num_layers=1)  #, dropout=0.05)
 
-        for head in self._heads: head.create_head()
+        for head in self._heads:
+            head.create_head()
 
         self.head1 = self._heads[0].head  # HACK
         self.head2 = self._heads[1].head  # HACK
@@ -160,7 +160,7 @@ class Policy(nn.Module):
         # print('x =', x)
         # x = x.view(1, -1)
         # print('x =', x)
-        x = F.relu(self.fc1(x))#.unsqueeze(1)
+        x = F.relu(self.fc1(x))  #.unsqueeze(1)
         # print('relu(fc(x))=', x)
 
         return x
@@ -191,7 +191,7 @@ class Policy(nn.Module):
 #     def forward(self, x, hidden=None):
 #         # print('')
 #         # print('x=', x)
-#         # xhat = 
+#         # xhat =
 #         x = self.fc1(x)
 #         # print("fc(x)=", x)
 #         # x = self.fc1(x)
@@ -213,8 +213,6 @@ class Policy(nn.Module):
 #     def init_hidden(self):
 #         return torch.zeros(1, 1, self.hidden_size)
 
-
-
 head_x = Head(name='x')
 head_y = Head(name='y')
 
@@ -223,7 +221,8 @@ heads = [head_x, head_y]
 model = Policy(heads=heads)
 print(model)
 
-optimizer = optim.Adam(model.parameters(), lr=1e-3)#, weight_decay=1e-5)
+optimizer = optim.Adam(model.parameters(), lr=1e-3)  #, weight_decay=1e-5)
+
 
 def encode_and_policy(instances):
     # print('instances=', instances)
@@ -232,18 +231,17 @@ def encode_and_policy(instances):
     for example in instances:
         example_tensor = dataset.example_to_tensor(example)
         output, hidden = model.forward_rnn(example_tensor, hidden=hidden)
-    
 
     # example_tensor = torch.stack([dataset.example_to_tensor(instances[0])[-1], dataset.example_to_tensor(instances[1])[-1]])
     # # print('example_tensor', example_tensor)
     # output = model.forward_mlp(example_tensor)
-    
 
     actions = model.forward_heads(output)
 
     # print('actions=', [actions[0].prob, actions[0].prob])
 
     return actions
+
 
 def update_state(instances, actions):
     # Notice `instances` is changed in-place
@@ -266,6 +264,7 @@ def update_state(instances, actions):
 
 batch_size = 32
 
+
 def train(episode_number, dataset):
 
     all_discounted_rewards = []  # rewards
@@ -278,7 +277,7 @@ def train(episode_number, dataset):
         # reward = -1
         nsteps = 10
         # print('')
-        # print("(x={x},y={y})".format(x=instances[0].value, y=instances[1].value))    
+        # print("(x={x},y={y})".format(x=instances[0].value, y=instances[1].value))
         for i in range(nsteps):
             # print('')
             actions = encode_and_policy(instances)
@@ -288,7 +287,7 @@ def train(episode_number, dataset):
             # Update the state given the action.
             instances = update_state(instances=instances, actions=actions)
             actions_steps.append(actions)
-            
+
             if hypot(instances[0].value, instances[1].value) < 20:
                 rewards.append(1)
             else:
@@ -312,13 +311,12 @@ def train(episode_number, dataset):
         discounted_rewards = []
         R = 0
         gamma = 0.99
-        
+
         for r in rewards[::-1]:
             R = r + gamma * R
             discounted_rewards.insert(0, R)
         # print('disc;', discounted_rewards)
         all_discounted_rewards.extend(discounted_rewards)
-
 
     rewards_norm = torch.tensor(all_discounted_rewards)
     rewards_norm = (rewards_norm - rewards_norm.mean()) / (rewards_norm.std() + eps)
@@ -340,7 +338,7 @@ def train(episode_number, dataset):
     head_losses = torch.stack(head_losses)
     loss = torch.sum(head_losses) / batch_size
 
-    optimizer.zero_grad()             
+    optimizer.zero_grad()
     loss.backward()
     optimizer.step()
 
@@ -355,7 +353,6 @@ def train(episode_number, dataset):
 if pretrained_model:
     model.load_state_dict(torch.load(pretrained_model))
 
-
 # SUMMARY_EVER_N_STEPS = 1
 
 all_rewards = []
@@ -366,20 +363,18 @@ for i in range(100000000):
     # running_avg_reward = np.mean(all_rewards[-200:-1])
     # if i % SUMMARY_EVER_N_STEPS == 0:
     #     print('%.3f' % reward)
-        # if writer:
-        # print('  loss=%.2f pred=%s' % (l, o))
+    # if writer:
+    # print('  loss=%.2f pred=%s' % (l, o))
 
     if writer and i % 100 == 0:
         filename = os.path.join(log_dir, "model_%09d.pt" % i)
         torch.save(model.state_dict(), filename)
-
 
 # def evaluate(line_tensor):
 #     hidden = None
 #     for i in range(line_tensor.size()[0]):
 #         output, hidden = model(line_tensor[i], hidden=hidden)
 #     return output
-
 
 # # output = evaluate(lineToTensor("?"))
 # # print(categoryFromOutput(output))
