@@ -165,6 +165,12 @@ fast but it will complicate resetting many states. Q: Are all the botscripts cal
 When watching a 5v5 bot game live, you will have full for of war because you're not on a team,
 so you need to do `jointeam spec` to see the map.
 
+When running without `-dedicated`, the console doesn't show VSript (lua) stdout/stderr anymore.
+
+Auto-saving replays might be a good way to go as it records everything. I didn't find any options
+how to specify where to save the auto-replay. A workaround it to use a `record $filename` command
+in console.
+
 ---
 
 Acknowledgements for insights and inspiration:
