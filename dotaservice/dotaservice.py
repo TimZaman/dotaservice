@@ -68,7 +68,10 @@ class DotaGame(object):
         self._dota_time = None
         self.game_id = uuid.uuid1()
         self.bot_path = self._create_bot_path(game_id=str(self.game_id))
-        self.render = True
+        self.render = False
+
+        self.worldstate_queue = asyncio.Queue(loop=asyncio.get_event_loop())
+        self.lua_config_future = asyncio.get_event_loop().create_future()
 
         # Write out the game configuration.
         config = {
@@ -138,7 +141,7 @@ class DotaGame(object):
                             found = m.group(1)
                             lua_config = json.loads(found)
                             print('(py) lua_config = ', lua_config)
-                            lua_config_future.set_result(lua_config)
+                            self.lua_config_future.set_result(lua_config)
                             return
             await asyncio.sleep(0.2)
 
@@ -242,7 +245,7 @@ class DotaGame(object):
             while True:
                 # This reader is always going to need to keep going to keep the buffers clean.
                 parsed_data = await self._data_from_reader(reader)
-                worldstate_queue.put_nowait(parsed_data)
+                self.worldstate_queue.put_nowait(parsed_data)
         except asyncio.CancelledError:
             raise
 
@@ -268,16 +271,16 @@ class DotaService(DotaServiceBase):
         # Start dota.
         asyncio.create_task(self.dota_game.run())
 
-        # We first wait for the lua config,
+        # We first wait for the lua config. TODO(tzaman): do this in DotaGame?
         print('(py) reset is awaiting lua config')
-        lua_config = await lua_config_future
+        lua_config = await self.dota_game.lua_config_future
         print('(py) lua config received=', lua_config)
 
         # Cycle through the queue until its empty, then only using the latest worldstate.
         data = None
         try:
             while True:
-                data = await asyncio.wait_for(worldstate_queue.get(), timeout=0.2)
+                data = await asyncio.wait_for(self.dota_game.worldstate_queue.get(), timeout=0.2)
         except asyncio.TimeoutError:
             pass
 
@@ -311,13 +314,13 @@ class DotaService(DotaServiceBase):
         self.dota_game.write_bot_data_file(filename_stem='action', data=action)
 
         # We've started to assume our queue will only have 1 item.
-        data = await worldstate_queue.get()
+        data = await self.dota_game.worldstate_queue.get()
 
         # Update the tick
         self.dota_game.dota_time = data.dota_time
 
         # Make sure indeed the queue is empty and we're entirely in sync.
-        assert worldstate_queue.qsize() == 0
+        assert self.dota_game.worldstate_queue.qsize() == 0
         
         # Return the reponse.
         await stream.send_message(Observation(world_state=data))
@@ -338,36 +341,35 @@ async def grpc_main(loop):
     await serve(server)
 
 
-loop = asyncio.get_event_loop()
+def main():
+    loop = asyncio.get_event_loop()
+    tasks = grpc_main(loop)
 
-worldstate_queue = asyncio.Queue(loop=loop)
+    try:
+        loop.run_until_complete(tasks)
+    except KeyboardInterrupt:
+        # Optionally show a message if the shutdown may take a while
+        print("Attempting graceful shutdown, press Ctrl+C again to exit…", flush=True)
 
-lua_config_future = loop.create_future()
+        # Do not show `asyncio.CancelledError` exceptions during shutdown
+        # (a lot of these may be generated, skip this if you prefer to see them)
+        def shutdown_exception_handler(loop, context):
+            if "exception" not in context \
+            or not isinstance(context["exception"], asyncio.CancelledError):
+                loop.default_exception_handler(context)
+        loop.set_exception_handler(shutdown_exception_handler)
 
-tasks = grpc_main(loop)
+        # Handle shutdown gracefully by waiting for all tasks to be cancelled
+        tasks = asyncio.gather(*asyncio.Task.all_tasks(loop=loop), loop=loop, return_exceptions=True)
+        tasks.add_done_callback(lambda t: loop.stop())
+        tasks.cancel()
 
-try:
-    loop.run_until_complete(tasks)
-except KeyboardInterrupt:
-    # Optionally show a message if the shutdown may take a while
-    print("Attempting graceful shutdown, press Ctrl+C again to exit…", flush=True)
-
-    # Do not show `asyncio.CancelledError` exceptions during shutdown
-    # (a lot of these may be generated, skip this if you prefer to see them)
-    def shutdown_exception_handler(loop, context):
-        if "exception" not in context \
-        or not isinstance(context["exception"], asyncio.CancelledError):
-            loop.default_exception_handler(context)
-    loop.set_exception_handler(shutdown_exception_handler)
-
-    # Handle shutdown gracefully by waiting for all tasks to be cancelled
-    tasks = asyncio.gather(*asyncio.Task.all_tasks(loop=loop), loop=loop, return_exceptions=True)
-    tasks.add_done_callback(lambda t: loop.stop())
-    tasks.cancel()
-
-    # Keep the event loop running until it is either destroyed or all
-    # tasks have really terminated
-    while not tasks.done() and not loop.is_closed():
-        loop.run_forever()
-finally:
-    loop.close()
+        # Keep the event loop running until it is either destroyed or all
+        # tasks have really terminated
+        while not tasks.done() and not loop.is_closed():
+            loop.run_forever()
+    finally:
+        loop.close()
+  
+if __name__== "__main__":
+  main()
