@@ -11,7 +11,25 @@ from protobuf.DotaService_pb2 import Action
 from protobuf.DotaService_pb2 import Config
 
 from protobuf.dota_gcmessages_common_bot_script_pb2 import CMsgBotWorldState
-from protobuf.dota_gcmessages_common_bot_script_pb2 import CMsgBotWorldState
+
+xp_to_reach_level = {1: 0, 2: 230, 3: 600, 4: 1080, 5: 1680, 6: 2300, 7: 2940, 8: 3600, 9: 4280, 10: 5080, 11: 5900, 12: 6740, 13: 7640, 14: 8865, 15: 10115, 16: 11390, 17: 12690, 18: 14015, 19: 15415, 20: 16905, 21: 18405, 22: 20155, 23: 22155, 24: 24405, 25: 26905}
+
+def get_total_xp(level, xp_needed_to_level):
+    if level == 25:
+        return xp_to_reach_level[level]
+    xp_required_for_next_level = xp_to_reach_level[level+1] - xp_to_reach_level[level]
+    missing_xp_for_next_level = (xp_required_for_next_level - xp_needed_to_level)
+    return xp_to_reach_level[level] + missing_xp_for_next_level
+
+
+def get_rewards(observation):
+    """Get the rewards for all heroes."""
+    rewards = {}
+    for unit in observation.world_state.units:
+        if unit.unit_type == CMsgBotWorldState.UnitType.Value('HERO'):
+            reward = get_total_xp(level=unit.level, xp_needed_to_level=unit.xp_needed_to_level)
+            rewards[unit.player_id] = reward
+    return rewards
 
 
 async def main():
@@ -19,38 +37,31 @@ async def main():
     channel = Channel('127.0.0.1', 13337, loop=loop)
     env = DotaServiceStub(channel)
 
-    for host_timescale in [1, 5, 10]:
-        for ticks_per_observation in [1, 5, 10, 30]:
-            config = Config(
-                host_timescale=host_timescale,
-                ticks_per_observation=ticks_per_observation,
-                render=False)
+    config = Config(
+        host_timescale=10,
+        ticks_per_observation=30,
+        render=False,
+    )
 
-            # print('(client) episode: %s' % e)
-            start = time()
-            observation = await env.reset(config)
-            start_dt = time() - start
-            # print('start dt=', time()-start)
-            # print('reset observation:\ndotatime = ', observation.world_state.dota_time)
-            start_dotatime = observation.world_state.dota_time
-            dts = 0.
-            nsteps = 10000
-            for i in range(nsteps):
-                # print('(client) step %s' % i)
-                action = CMsgBotWorldState.Action()
-                action.actionType = CMsgBotWorldState.Action.Type.Value('DOTA_UNIT_ORDER_MOVE_TO_POSITION')
-                m = CMsgBotWorldState.Action.MoveToLocation()
-                m.location.x = math.sin(observation.world_state.dota_time) * 500 -1000
-                m.location.y = math.cos(observation.world_state.dota_time) * 500 -1000
-                m.location.z = 0
-                action.moveToLocation.CopyFrom(m)
-                # print('action=', action)
-                start = time()
-                observation = await env.step(Action(action=action))
-                dts += (time()-start)
-                # print('dt=', time()-start)
-                # print('(client) sent action for dotatime=', observation.world_state.dota_time)
-            print('| {} | {} | {} | {} |'.format(host_timescale, ticks_per_observation, int(start_dt*1000), int(1000.*dts/nsteps)))
+    nsteps = 10000
+    nepisodes = 10
+
+    for e in range(nepisodes):
+        observation = await env.reset(config)
+        rewards = get_rewards(observation)
+
+        for i in range(nsteps):
+            action = CMsgBotWorldState.Action()
+            action.actionType = CMsgBotWorldState.Action.Type.Value('DOTA_UNIT_ORDER_MOVE_TO_POSITION')
+            m = CMsgBotWorldState.Action.MoveToLocation()
+            m.location.x = math.sin(observation.world_state.dota_time) * 500 -1000
+            m.location.y = math.cos(observation.world_state.dota_time) * 500 -1000
+            m.location.z = 0
+            action.moveToLocation.CopyFrom(m)
+            observation = await env.step(Action(action=action))
+            rewards = get_rewards(observation)
+
+            print('t={:.2f}, rewards: {}'.format(observation.world_state.dota_time, rewards))
 
 
 if __name__ == '__main__':
