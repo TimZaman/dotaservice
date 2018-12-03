@@ -1,8 +1,10 @@
 # DotaService
 
-_This project is a WIP weekend-project._
+DotaService is a service to play Dota 2 through gRPC. There are first class python bindings
+and examples, so you can play dota as you would use the OpenAI gym API.
 
-DotaService exposes Dota 2 as a service. It provides an observe-act loop, to play in an object-oriented way.
+It's fully functional and super lightweight. Starting Dota `obs = env.reset()` takes 5 seconds,
+and each `obs = env.step(action)` in the environment takes between 10 and 30 ms.
 
 Example:
 
@@ -18,14 +20,16 @@ env = DotaServiceStub(Channel('127.0.0.1', 50051))
 # Get the initial observation.
 observation = await env.reset(Config())
 for i in range(8):
-    action = Action(x=1, y=2, z=3)
+    # Sample an action from the action protobuf
+    action = Action.MoveToLocation(x=.., y=.., z=..)
     # Take an action, returning the resulting observation.
     observation = await env.step(action)
 ```
 
 This is very useful to provide an environment for reinforcement learning, and service aspect of it makes it
 especially useful for distributed training. I am planning to provide a client python
-module for this (`PyDota`) that mimics typical OpenAI gym APIs.
+module for this (`PyDota`) that mimics typical OpenAI gym APIs. Maybe I won't even make PyDota
+and the gRPC client is enough.
 
 <div style="text-align:center">
 <img src="dotaservice.png" alt="dotaservice connections" width="680"/>
