@@ -192,9 +192,13 @@ in console.
 
 Running dota headless only takes up around 250Mb RAM (woah that's little!).
 
+At dotatime=35s is where the first creeps get killed (by natural causes), so this is when xp can be
+gained.
+
 ---
 
 Acknowledgements for insights and inspiration:
+
 https://github.com/Nostrademous
 http://karpathy.github.io/2016/05/31/rl/
 Jan Ivanecky
