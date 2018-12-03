@@ -28,7 +28,6 @@ from protobuf.DotaService_grpc import DotaServiceBase
 from protobuf.DotaService_pb2 import Observation
 
 # logging.basicConfig(level=logging.DEBUG)  # This logging is a bit bananas
-routes = web.RouteTableDef()
 
 # An enum from the game (should have been in the proto [dota_gcmessages_common.proto?] though).
 DOTA_GAMERULES_STATE_PRE_GAME = 4
@@ -39,7 +38,6 @@ DOTA_PATH = '/Users/tzaman/Library/Application Support/Steam/SteamApps/common/do
 BOTS_FOLDER_NAME = 'bots'
 DOTA_BOT_PATH = os.path.join(DOTA_PATH, 'dota', 'scripts', 'vscripts', BOTS_FOLDER_NAME)
 ACTION_FOLDER_ROOT = '/Volumes/ramdisk/'
-TICKS_PER_OBSERVATION = 30
 CONSOLE_LOG_FILENAME = 'console.log'
 PORT_WORLDSTATE_RADIANT = 12120
 PORT_WORLDSTATE_DIRE = 12121
@@ -64,21 +62,33 @@ def kill_processes_and_children(pid, sig=signal.SIGTERM):
 
 class DotaGame(object):
 
-    def __init__(self):
+    CONFIG_FILENAME = 'config_auto'
+
+    def __init__(self, host_timescale, ticks_per_observation, render, game_id=None):
         self._dota_time = None
-        self.game_id = uuid.uuid1()
+
+        self.host_timescale = host_timescale
+        self.ticks_per_observation = ticks_per_observation
+        self.render = render
+
+        self.game_id = game_id
+        if not self.game_id:
+            self.game_id = uuid.uuid1()
+
         self.bot_path = self._create_bot_path(game_id=str(self.game_id))
-        self.render = False
 
         self.worldstate_queue = asyncio.Queue(loop=asyncio.get_event_loop())
         self.lua_config_future = asyncio.get_event_loop().create_future()
 
+        self._write_config()
+
+    def _write_config(self):
         # Write out the game configuration.
         config = {
             'game_id': str(self.game_id),
-            'ticks_per_observation': TICKS_PER_OBSERVATION,
+            'ticks_per_observation': self.ticks_per_observation,
         }
-        self.write_bot_data_file(filename_stem='config_auto', data=config)
+        self.write_bot_data_file(filename_stem=self.CONFIG_FILENAME, data=config)
 
     @property
     def dota_time(self):
@@ -153,6 +163,8 @@ class DotaGame(object):
         process.stdin.write(b"tv_record scripts/vscripts/bots/replay\n")
         if self.render:
             # If we want to render, let the 'render player' join the spectator team.
+            # TODO(tzaman): does this work at all?
+            await asyncio.sleep(20)  # TODO(tzaman): come up with something smart.
             process.stdin.write(b"jointeam spec\n")
         await process.stdin.drain()
 
@@ -168,7 +180,7 @@ class DotaGame(object):
             script_path,
             "-botworldstatesocket_threaded",
             "-botworldstatetosocket_dire {}".format(PORT_WORLDSTATE_RADIANT),
-            "-botworldstatetosocket_frames {}".format(TICKS_PER_OBSERVATION),
+            "-botworldstatetosocket_frames {}".format(self.ticks_per_observation),
             "-botworldstatetosocket_radiant {}".format(PORT_WORLDSTATE_RADIANT),
             "-con_logfile scripts/vscripts/bots/{}".format(CONSOLE_LOG_FILENAME),
             "-con_timestamp",
@@ -185,7 +197,7 @@ class DotaGame(object):
             "+dota_start_ai_game 1",
             "+dota_surrender_on_disconnect 0",
             "+host_force_frametime_to_equal_tick_interval 1",
-            "+host_timescale 1",
+            "+host_timescale {}".format(self.host_timescale),
             "+host_writeconfig 1",
             "+hostname dotaservice",
             "+map start",  # the `start` map works with replays when dedicated, map `dota` doesn't.
@@ -260,13 +272,21 @@ class DotaService(DotaServiceBase):
         This method should start up the dota game and the other required services.
         """
         print('DotaService::reset()')
-        
+
+        config = await stream.recv_message()
+        print('config=\n', config)
+
         # Kill any previously running dota processes. # TODO(tzaman): do this cleanly.
         os.system("ps | grep dota2 | awk '{print $1}' | xargs kill -9")
 
         # Create a new dota game instance.
         # TODO(tzaman): kill previous dota game? or implicit through __del__?
-        self.dota_game = DotaGame()
+        self.dota_game = DotaGame(
+            host_timescale=config.host_timescale,
+            ticks_per_observation=config.ticks_per_observation,
+            render=config.render,
+            game_id=config.game_id,
+            )
 
         # Start dota.
         asyncio.create_task(self.dota_game.run())

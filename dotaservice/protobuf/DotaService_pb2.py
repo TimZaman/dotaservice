@@ -20,7 +20,7 @@ DESCRIPTOR = _descriptor.FileDescriptor(
   package='dotaservice',
   syntax='proto2',
   serialized_options=None,
-  serialized_pb=_b('\n\x1aprotobuf/DotaService.proto\x12\x0b\x64otaservice\x1a\x30protobuf/dota_gcmessages_common_bot_script.proto\"3\n\x06\x41\x63tion\x12)\n\x06\x61\x63tion\x18\x01 \x02(\x0b\x32\x19.CMsgBotWorldState.Action\"6\n\x0bObservation\x12\'\n\x0bworld_state\x18\x01 \x02(\x0b\x32\x12.CMsgBotWorldState\"\x08\n\x06\x43onfig2\x80\x01\n\x0b\x44otaService\x12\x38\n\x05reset\x12\x13.dotaservice.Config\x1a\x18.dotaservice.Observation\"\x00\x12\x37\n\x04step\x12\x13.dotaservice.Action\x1a\x18.dotaservice.Observation\"\x00')
+  serialized_pb=_b('\n\x1aprotobuf/DotaService.proto\x12\x0b\x64otaservice\x1a\x30protobuf/dota_gcmessages_common_bot_script.proto\"3\n\x06\x41\x63tion\x12)\n\x06\x61\x63tion\x18\x01 \x02(\x0b\x32\x19.CMsgBotWorldState.Action\"6\n\x0bObservation\x12\'\n\x0bworld_state\x18\x01 \x02(\x0b\x32\x12.CMsgBotWorldState\"g\n\x06\x43onfig\x12\x0f\n\x07game_id\x18\x01 \x01(\t\x12\x16\n\x0ehost_timescale\x18\x02 \x02(\r\x12\x1d\n\x15ticks_per_observation\x18\x03 \x02(\r\x12\x15\n\x06render\x18\x04 \x01(\x08:\x05\x66\x61lse2\x80\x01\n\x0b\x44otaService\x12\x38\n\x05reset\x12\x13.dotaservice.Config\x1a\x18.dotaservice.Observation\"\x00\x12\x37\n\x04step\x12\x13.dotaservice.Action\x1a\x18.dotaservice.Observation\"\x00')
   ,
   dependencies=[protobuf_dot_dota__gcmessages__common__bot__script__pb2.DESCRIPTOR,])
 
@@ -96,6 +96,34 @@ _CONFIG = _descriptor.Descriptor(
   file=DESCRIPTOR,
   containing_type=None,
   fields=[
+    _descriptor.FieldDescriptor(
+      name='game_id', full_name='dotaservice.Config.game_id', index=0,
+      number=1, type=9, cpp_type=9, label=1,
+      has_default_value=False, default_value=_b("").decode('utf-8'),
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      serialized_options=None, file=DESCRIPTOR),
+    _descriptor.FieldDescriptor(
+      name='host_timescale', full_name='dotaservice.Config.host_timescale', index=1,
+      number=2, type=13, cpp_type=3, label=2,
+      has_default_value=False, default_value=0,
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      serialized_options=None, file=DESCRIPTOR),
+    _descriptor.FieldDescriptor(
+      name='ticks_per_observation', full_name='dotaservice.Config.ticks_per_observation', index=2,
+      number=3, type=13, cpp_type=3, label=2,
+      has_default_value=False, default_value=0,
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      serialized_options=None, file=DESCRIPTOR),
+    _descriptor.FieldDescriptor(
+      name='render', full_name='dotaservice.Config.render', index=3,
+      number=4, type=8, cpp_type=7, label=1,
+      has_default_value=True, default_value=False,
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      serialized_options=None, file=DESCRIPTOR),
   ],
   extensions=[
   ],
@@ -109,7 +137,7 @@ _CONFIG = _descriptor.Descriptor(
   oneofs=[
   ],
   serialized_start=202,
-  serialized_end=210,
+  serialized_end=305,
 )
 
 _ACTION.fields_by_name['action'].message_type = protobuf_dot_dota__gcmessages__common__bot__script__pb2._CMSGBOTWORLDSTATE_ACTION
@@ -148,8 +176,8 @@ _DOTASERVICE = _descriptor.ServiceDescriptor(
   file=DESCRIPTOR,
   index=0,
   serialized_options=None,
-  serialized_start=213,
-  serialized_end=341,
+  serialized_start=308,
+  serialized_end=436,
   methods=[
   _descriptor.MethodDescriptor(
     name='reset',

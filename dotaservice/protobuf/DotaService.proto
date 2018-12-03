@@ -1,4 +1,4 @@
-// syntax = "proto3";
+syntax = "proto2";
 
 package dotaservice;
 
@@ -14,6 +14,10 @@ message Observation {
 
 message Config {
   // Intentionally empty.
+  optional string game_id = 1;
+  required uint32 host_timescale = 2;
+  required uint32 ticks_per_observation = 3;
+  optional bool render = 4 [default = false];
 }
 
 service DotaService {
