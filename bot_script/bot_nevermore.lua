@@ -11,7 +11,7 @@ local function act(action)
     local bot = GetBot()
     action_type = action.actionType
     if action_type == 'DOTA_UNIT_ORDER_NONE' then
-        return
+        do return end
     elseif  action_type == 'DOTA_UNIT_ORDER_MOVE_TO_POSITION' then
         bot:Action_MoveToLocation(Vector(action.moveToLocation.location.x, action.moveToLocation.location.y))
     else
@@ -49,16 +49,20 @@ local function data_from_file(filename)
     print('(lua) looking for loadfile =', filename)
     local file_fn = nil
     while true do
-        file_fn = loadfile(filename)
-        if file_fn ~= nil then break end
+        while true do
+            file_fn = loadfile(filename)
+            if file_fn ~= nil then break end
+        end
+        -- Execute the file_fn; this loads contents into `data`.
+        local data = file_fn()
+        if data ~= nil then
+            local data, pos, err = dkjson.decode(data, 1, nil)
+            if err then
+                print("(lua) JSON Decode Error=", err " at pos=", pos)
+            end
+            return data
+        end
     end
-    -- Execute the file_fn; this loads contents into `data`.
-    local data = file_fn()
-    local data, pos, err = dkjson.decode(data, 1, nil)
-    if err then
-        print("(lua) JSON Decode Error=", err " at pos=", pos)
-    end
-    return data
 end
 
 
@@ -86,7 +90,7 @@ function Think()
     step = step + 1
     if GetTeam() == TEAM_DIRE then
         -- For now, just focus on radiant. We can add DIRE action files some time later.
-        return
+        do return end
     end
 
     local dota_time = DotaTime()
