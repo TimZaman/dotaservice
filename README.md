@@ -31,7 +31,26 @@ module for this (`PyDota`) that mimics typical OpenAI gym APIs.
 <img src="dotaservice.png" alt="dotaservice connections" width="680"/>
 </div>
 
----
+### Benchmarks
+
+From the benchmarks below you can derive that the dota service adds around 6±1 ms of time to
+each action we take. Notice that Dota runs at a fixed (though not precise) 30 ticks/s.
+
+| `env.reset` (ms) | `env.step` (ms) | `host_timescale` | `ticks_per_observation` |
+| ---              | ---             | ---              | ---                     |
+| 5291             | 11              | 1                | 1                       |
+| 5097             | 44              | 1                | 5                       |
+| 5515             | 85              | 1                | 10                      |
+| 5310             | 252             | 1                | 30                      |
+| 5316             | 10              | 5                | 1                       |
+| 5309             | 21              | 5                | 5                       |
+| 5295             | 35              | 5                | 10                      |
+| 5497             | 93              | 5                | 30                      |
+| 5322             | 10              | 10               | 1                       |
+| 5299             | 20              | 10               | 5                       |
+| 5308             | 32              | 10               | 10                      |
+| 5312             | 87              | 10               | 30                      |
+
 
 # Notes
 
@@ -170,6 +189,8 @@ When running without `-dedicated`, the console doesn't show VSript (lua) stdout/
 Auto-saving replays might be a good way to go as it records everything. I didn't find any options
 how to specify where to save the auto-replay. A workaround it to use a `record $filename` command
 in console.
+
+Running dota headless only takes up around 250Mb RAM (woah that's little!).
 
 ---
 
