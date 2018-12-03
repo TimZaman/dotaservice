@@ -8,8 +8,15 @@ local live_config = nil
 
 local function act(action)
     print('(lua) act')
-    local npcBot = GetBot()
-    npcBot:Action_MoveToLocation(Vector(0, 0))
+    local bot = GetBot()
+    action_type = action.actionType
+    if action_type == 'DOTA_UNIT_ORDER_NONE' then
+        return
+    elseif  action_type == 'DOTA_UNIT_ORDER_MOVE_TO_POSITION' then
+        bot:Action_MoveToLocation(Vector(action.moveToLocation.location.x, action.moveToLocation.location.y))
+    else
+        print('Invalid action_type=', action_type)
+    end
 end
 
 
@@ -79,7 +86,7 @@ function Think()
     step = step + 1
     if GetTeam() == TEAM_DIRE then
         -- For now, just focus on radiant. We can add DIRE action files some time later.
-        do return end
+        return
     end
 
     local dota_time = DotaTime()

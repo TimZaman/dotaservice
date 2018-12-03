@@ -159,6 +159,9 @@ https://github.com/SteamDatabase/Protobufs/blob/master/dota2/dota_gcmessages_com
 Source has options for streaming logs using udp `-log on` but none of that actually seems to work
 with dota.
 
+The `restart` command restarts the game. The `quit` command exits it entirely. `restart` is really
+fast but it will complicate resetting many states. Q: Are all the botscripts called again?
+
 ---
 
 Acknowledgements for insights and inspiration:
