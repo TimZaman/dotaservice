@@ -162,6 +162,9 @@ with dota.
 The `restart` command restarts the game. The `quit` command exits it entirely. `restart` is really
 fast but it will complicate resetting many states. Q: Are all the botscripts called again?
 
+When watching a 5v5 bot game live, you will have full for of war because you're not on a team,
+so you need to do `jointeam spec` to see the map.
+
 ---
 
 Acknowledgements for insights and inspiration:
