@@ -7,7 +7,6 @@ from google.protobuf.json_format import MessageToDict
 from protobuf.DotaService_grpc import DotaServiceStub
 from protobuf.DotaService_pb2 import Action
 from protobuf.DotaService_pb2 import Config
-# from protobuf.DotaAction_pb2 import DotaAction
 
 from protobuf.dota_gcmessages_common_bot_script_pb2 import CMsgBotWorldState
 from protobuf.dota_gcmessages_common_bot_script_pb2 import CMsgBotWorldState

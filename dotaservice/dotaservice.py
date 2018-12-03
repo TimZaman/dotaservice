@@ -77,6 +77,16 @@ for filename in glob.glob('../bot_script/*.lua'):
 os.symlink(src=BOT_PATH, dst=DOTA_BOT_PATH)
 
 
+def kill_processes_and_children(pid, sig=signal.SIGTERM):
+    try:
+        parent = psutil.Process(pid)
+    except psutil.NoSuchProcess:
+        return
+    children = parent.children(recursive=True)
+    for process in children:
+        process.send_signal(sig)
+
+
 def write_bot_data_file(filename_stem, data, atomic=False):
     filename = os.path.join(BOT_PATH, '{}.lua'.format(filename_stem))
     data = """
@@ -107,6 +117,121 @@ def atomic_file_write(filename, data):
     os.rename(filename_tmp, filename)
 
 
+async def monitor_log():
+    p = re.compile(r'LUARDY[ \t](\{.*\})')
+    while True:
+        filename = os.path.join(BOT_PATH, CONSOLE_LOG_FILENAME)
+        if os.path.exists(filename):
+            with open(filename) as f:
+                for line in f:
+                    m = p.search(line)
+                    if m:
+                        found = m.group(1)
+                        lua_config = json.loads(found)
+                        print('(py) lua_config = ', lua_config)
+                        lua_config_future.set_result(lua_config)
+                        return
+        await asyncio.sleep(0.2)
+
+
+async def record_replay(process):
+    await asyncio.sleep(5)  # TODO(tzaman): just invoke after LUARDY signal?
+    process.stdin.write(b"tv_record scripts/vscripts/bots/replay\n")
+    await process.stdin.drain()
+
+
+
+async def run_dota():
+    script_path = os.path.join(DOTA_PATH, 'dota.sh')
+    args = [
+        script_path,
+        "-botworldstatesocket_threaded",
+        "-botworldstatetosocket_dire 12121",
+        "-botworldstatetosocket_frames {}".format(TICKS_PER_OBSERVATION),
+        "-botworldstatetosocket_radiant 12120",
+        "-con_logfile scripts/vscripts/bots/{}".format(CONSOLE_LOG_FILENAME),
+        "-con_timestamp",
+        "-console",
+        "-dedicated",  # If not dedicated, join the spectator team with `jointeam spec`,
+        "-fill_with_bots",
+        "-insecure",
+        "-noip",
+        "-nowatchdog",  # WatchDog will quit the game if e.g. the lua api takes a few seconds.
+        "+clientport 27006",  # Relates to steam client.
+        "+dota_1v1_skip_strategy 1",  # doesn't work icm `-fill_with_bots`
+        "+dota_auto_surrender_all_disconnected_timeout 0",  # Used when `dota_surrender_on_disconnect` is 1
+        "+dota_bot_practice_gamemode 11",  # Mid Only -> doesn't work icm `-fill_with_bots`
+        "+dota_force_gamemode 11",  # Mid Only -> doesn't work icm `-fill_with_bots`
+        "+dota_start_ai_game 1",
+        "+dota_surrender_on_disconnect 0",
+        "+host_force_frametime_to_equal_tick_interval 1",
+        "+host_timescale 1",
+        "+host_writeconfig 1",
+        "+hostname dotaservice",
+        "+map start",  # the `start` map works with replays when dedicated, map `dota` doesn't.
+        "+sv_cheats 1",
+        "+sv_hibernate_when_empty 0",
+        "+sv_lan 1",
+        "+tv_delay 0 ",
+        "+tv_enable 1",
+        "+tv_title {}".format(GAME_ID),
+    ]
+    create = asyncio.create_subprocess_exec(
+        *args,
+        stdin=asyncio.subprocess.PIPE,
+        # stdout=asyncio.subprocess.PIPE,
+        # stderr=asyncio.subprocess.PIPE,
+    )
+    process = await create
+
+    task_record_replay = asyncio.create_task(record_replay(process=process))
+
+    task_monitor_log = asyncio.create_task(monitor_log())
+
+    try:
+        await process.wait()
+    except asyncio.CancelledError:
+        kill_processes_and_children(pid=process.pid)
+        raise
+
+
+async def data_from_reader(reader):
+    # Receive the package length.
+    data = await reader.read(4)
+    n_bytes = unpack("@I", data)[0]
+    # Receive the payload given the length.
+    data = await asyncio.wait_for(reader.read(n_bytes), timeout=5.0)
+    # Decode the payload.
+    parsed_data = CMsgBotWorldState()
+    parsed_data.ParseFromString(data)
+    dotatime = parsed_data.dota_time
+    gamestate = parsed_data.game_state
+    print('(py) worldstate @ dotatime={}, gamestate={}'.format(dotatime, gamestate))
+    return parsed_data
+
+
+async def worldstate_listener(port):
+    while True:  # TODO(tzaman): finite retries.
+        try:
+            await asyncio.sleep(0.5)
+            reader, writer = await asyncio.open_connection('127.0.0.1', port)
+        except ConnectionRefusedError:
+            pass
+        else:
+            break
+    try:
+        while True:
+            # This reader is always going to need to keep going to keep the buffers clean.
+            parsed_data = await data_from_reader(reader)
+            worldstate_queue.put_nowait(parsed_data)
+    except asyncio.CancelledError:
+        raise
+
+
+
+
+
+
 class DotaService(DotaServiceBase):
 
     dota_time = None
@@ -120,7 +245,12 @@ class DotaService(DotaServiceBase):
         
         # Create all the processes here. 
 
-        # TODO(tzaman)
+        # TODO(tzaman): Start run_dota.
+        asyncio.create_task(run_dota())
+
+        # TODO(tzaman): Start the worldstate listener(s).
+        asyncio.create_task(worldstate_listener(port=PORT_WORLDSTATE_RADIANT))
+
 
         # We then have to wait for the first tick to come in
         # first_tick = await first_tick_future
@@ -196,144 +326,13 @@ async def grpc_main(loop):
     await serve(server)
 
 
-def kill_processes_and_children(pid, sig=signal.SIGTERM):
-    try:
-        parent = psutil.Process(pid)
-    except psutil.NoSuchProcess:
-        return
-    children = parent.children(recursive=True)
-    for process in children:
-        process.send_signal(sig)
-
-
-async def monitor_log():
-    p = re.compile(r'LUARDY[ \t](\{.*\})')
-    while True:
-        filename = os.path.join(BOT_PATH, CONSOLE_LOG_FILENAME)
-        if os.path.exists(filename):
-            with open(filename) as f:
-                for line in f:
-                    m = p.search(line)
-                    if m:
-                        found = m.group(1)
-                        lua_config = json.loads(found)
-                        print('(py) lua_config = ', lua_config)
-                        lua_config_future.set_result(lua_config)
-                        return
-        await asyncio.sleep(0.2)
-
-
-async def record_replay(process):
-    print("Starting to wait.")
-    await asyncio.sleep(5)  # TODO(tzaman): just invoke after LUARDY signal?
-    print('writing to stdin!')
-    process.stdin.write(b"tv_record scripts/vscripts/bots/replay\n")
-    await process.stdin.drain()
-
-
-async def run_dota():
-    script_path = os.path.join(DOTA_PATH, 'dota.sh')
-    args = [
-        script_path,
-        "-botworldstatesocket_threaded",
-        "-botworldstatetosocket_dire 12121",
-        "-botworldstatetosocket_frames {}".format(TICKS_PER_OBSERVATION),
-        "-botworldstatetosocket_radiant 12120",
-        "-con_logfile scripts/vscripts/bots/{}".format(CONSOLE_LOG_FILENAME),
-        "-con_timestamp",
-        "-console",
-        "-dedicated",
-        "-fill_with_bots",
-        "-insecure",
-        "-noip",
-        "-nowatchdog",  # WatchDog will quit the game if e.g. the lua api takes a few seconds.
-        "+clientport 27006",  # Relates to steam client.
-        "+dota_1v1_skip_strategy 1",  # doesn't work icm `-fill_with_bots`
-        "+dota_auto_surrender_all_disconnected_timeout 0",  # Used when `dota_surrender_on_disconnect` is 1
-        "+dota_bot_practice_gamemode 11",  # Mid Only -> doesn't work icm `-fill_with_bots`
-        "+dota_force_gamemode 11",  # Mid Only -> doesn't work icm `-fill_with_bots`
-        "+dota_start_ai_game 1",
-        "+dota_surrender_on_disconnect 0",
-        "+host_force_frametime_to_equal_tick_interval 1",
-        "+host_timescale 10",
-        "+host_writeconfig 1",
-        "+hostname dotaservice",
-        "+map start",  # the `start` map works with replays when dedicated, map `dota` doesn't.
-        "+sv_cheats 1",
-        "+sv_hibernate_when_empty 0",
-        "+sv_lan 1",
-        "+tv_delay 0 ",
-        "+tv_enable 1",
-        "+jointeam spec",
-        "+tv_title {}".format(GAME_ID),
-    ]
-    create = asyncio.create_subprocess_exec(
-        *args,
-        stdin=asyncio.subprocess.PIPE,
-        # stdout=asyncio.subprocess.PIPE,
-        # stderr=asyncio.subprocess.PIPE,
-    )
-    process = await create
-
-
-    task_record_replay = asyncio.create_task(record_replay(process=process))
-
-    task_monitor_log = asyncio.create_task(monitor_log())
-
-    try:
-        await process.wait()
-    except asyncio.CancelledError:
-        kill_processes_and_children(pid=process.pid)
-        raise
-
-
-async def data_from_reader(reader):
-    # Receive the package length.
-    data = await reader.read(4)
-    n_bytes = unpack("@I", data)[0]
-    # Receive the payload given the length.
-    data = await asyncio.wait_for(reader.read(n_bytes), timeout=5.0)
-    # Decode the payload.
-    parsed_data = CMsgBotWorldState()
-    parsed_data.ParseFromString(data)
-    dotatime = parsed_data.dota_time
-    gamestate = parsed_data.game_state
-    print('(py) worldstate @ dotatime={}, gamestate={}'.format(dotatime, gamestate))
-    return parsed_data
-
-
-async def worldstate_listener(port):
-    while True:  # TODO(tzaman): finite retries.
-        try:
-            await asyncio.sleep(0.5)
-            reader, writer = await asyncio.open_connection('127.0.0.1', port)
-        except ConnectionRefusedError:
-            pass
-        else:
-            break
-    try:
-        while True:
-            # This reader is always going to need to keep going to keep the buffers clean.
-            parsed_data = await data_from_reader(reader)
-            worldstate_queue.put_nowait(parsed_data)
-    except asyncio.CancelledError:
-        raise
-
-
 loop = asyncio.get_event_loop()
 
 worldstate_queue = asyncio.Queue(loop=loop)
 
 lua_config_future = loop.create_future()
 
-tasks =  asyncio.gather(
-    run_dota(),
-    grpc_main(loop),
-    worldstate_listener(port=PORT_WORLDSTATE_RADIANT),
-    # worldstate_listener(port=PORT_WORLDSTATE_DIRE),
-)
-
-
+tasks = grpc_main(loop)
 
 try:
     loop.run_until_complete(tasks)
