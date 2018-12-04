@@ -1,7 +1,3 @@
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
-
 from struct import unpack
 import asyncio
 import atexit
@@ -26,17 +22,21 @@ from dotaservice.protos.dota_gcmessages_common_bot_script_pb2 import CMsgBotWorl
 from dotaservice.protos.DotaService_grpc import DotaServiceBase
 from dotaservice.protos.DotaService_pb2 import Observation
 
-# logging.basicConfig(level=logging.DEBUG)  # This logging is a bit bananas
+# logging.basicConfig(level=logging.DEBUG)  # This logging is a bit overwhelming
 
 # An enum from the game (should have been in the proto [dota_gcmessages_common.proto?] though).
 DOTA_GAMERULES_STATE_PRE_GAME = 4
 DOTA_GAMERULES_STATE_GAME_IN_PROGRESS = 5
 
-# Static environment variables.
+# TODO(tzaman): Make the following configurable:
 DOTA_PATH = '/Users/tzaman/Library/Application Support/Steam/SteamApps/common/dota 2 beta/game'
+ACTION_FOLDER_ROOT = '/Volumes/ramdisk/'
+grpc_host = '127.0.0.1'
+grpc_port = 13337
+
+# Static environment variables. TODO(tzaman): move this into the classes.
 BOTS_FOLDER_NAME = 'bots'
 DOTA_BOT_PATH = os.path.join(DOTA_PATH, 'dota', 'scripts', 'vscripts', BOTS_FOLDER_NAME)
-ACTION_FOLDER_ROOT = '/Volumes/ramdisk/'
 CONSOLE_LOG_FILENAME = 'console.log'
 PORT_WORLDSTATE_RADIANT = 12120
 PORT_WORLDSTATE_DIRE = 12121
@@ -47,7 +47,8 @@ if not os.path.exists(DOTA_PATH):
     raise ValueError('dota game path does not exist: {}'.format(DOTA_PATH))
 
 if not os.path.exists(ACTION_FOLDER_ROOT):
-    raise ValueError('Action folder does not exist. Please mount! ({})'.format(ACTION_FOLDER_ROOT))
+    raise ValueError('Action folder does not exist. '
+                     'Please mount or create! ({})'.format(ACTION_FOLDER_ROOT))
 
 
 def kill_processes_and_children(pid, sig=signal.SIGTERM):
@@ -348,7 +349,7 @@ class DotaService(DotaServiceBase):
         await stream.send_message(Observation(world_state=data))
 
 
-async def serve(server, *, host='127.0.0.1', port=13337):
+async def serve(server, *, host=grpc_host, port=grpc_port):
     await server.start(host, port)
     print('Serving on {}:{}'.format(host, port))
     try:

@@ -3,3 +3,4 @@
 *.h5
 *.so
 *passwords*
+*egg-info
