@@ -6,11 +6,10 @@ import uuid
 from grpclib.client import Channel
 from google.protobuf.json_format import MessageToDict
 
-from protobuf.DotaService_grpc import DotaServiceStub
-from protobuf.DotaService_pb2 import Action
-from protobuf.DotaService_pb2 import Config
-
-from protobuf.dota_gcmessages_common_bot_script_pb2 import CMsgBotWorldState
+from dotaservice.protos.DotaService_grpc import DotaServiceStub
+from dotaservice.protos.dota_gcmessages_common_bot_script_pb2 import CMsgBotWorldState
+from dotaservice.protos.DotaService_pb2 import Action
+from dotaservice.protos.DotaService_pb2 import Config
 
 xp_to_reach_level = {
     1: 0,

@@ -10,7 +10,7 @@ import json
 import logging
 import math
 import os
-import psutil
+import pkg_resources
 import re
 import shutil
 import signal
@@ -18,14 +18,13 @@ import subprocess
 import time
 import uuid
 
-from aiohttp import web
 from google.protobuf.json_format import MessageToDict
 from grpclib.server import Server
-import google.protobuf.text_format as txtf
+import psutil
 
-from protobuf.dota_gcmessages_common_bot_script_pb2 import CMsgBotWorldState
-from protobuf.DotaService_grpc import DotaServiceBase
-from protobuf.DotaService_pb2 import Observation
+from dotaservice.protos.dota_gcmessages_common_bot_script_pb2 import CMsgBotWorldState
+from dotaservice.protos.DotaService_grpc import DotaServiceBase
+from dotaservice.protos.DotaService_pb2 import Observation
 
 # logging.basicConfig(level=logging.DEBUG)  # This logging is a bit bananas
 
@@ -41,6 +40,7 @@ ACTION_FOLDER_ROOT = '/Volumes/ramdisk/'
 CONSOLE_LOG_FILENAME = 'console.log'
 PORT_WORLDSTATE_RADIANT = 12120
 PORT_WORLDSTATE_DIRE = 12121
+LUA_FILES_GLOB = pkg_resources.resource_filename('dotaservice', 'lua/*.lua')
 
 # Initial environment assertions.
 if not os.path.exists(DOTA_PATH):
@@ -73,9 +73,9 @@ class DotaGame(object):
 
         self.game_id = game_id
         if not self.game_id:
-            self.game_id = uuid.uuid1()
+            self.game_id = str(uuid.uuid1())
 
-        self.bot_path = self._create_bot_path(game_id=str(self.game_id))
+        self.bot_path = self._create_bot_path(game_id=self.game_id)
 
         self.worldstate_queue = asyncio.Queue(loop=asyncio.get_event_loop())
         self.lua_config_future = asyncio.get_event_loop().create_future()
@@ -85,7 +85,7 @@ class DotaGame(object):
     def _write_config(self):
         # Write out the game configuration.
         config = {
-            'game_id': str(self.game_id),
+            'game_id': self.game_id,
             'ticks_per_observation': self.ticks_per_observation,
         }
         self.write_bot_data_file(filename_stem=self.CONFIG_FILENAME, data=config)
@@ -119,7 +119,7 @@ class DotaGame(object):
     @staticmethod
     def _create_bot_path(game_id):
         """Remove DOTA's bots subdirectory or symlink and update it with our own."""
-        print('(py) create_bot_path(game_id=', game_id)
+        print('(py) create_bot_path(game_id=%s', game_id)
         if os.path.exists(DOTA_BOT_PATH) or os.path.islink(DOTA_BOT_PATH):
             if os.path.isdir(DOTA_BOT_PATH) and not os.path.islink(DOTA_BOT_PATH):
                 raise ValueError('There is already a bots directory ({})! Please remove manually.'.
@@ -131,7 +131,9 @@ class DotaGame(object):
         os.mkdir(bot_path)
 
         # Copy all the bot files into the action folder.
-        for filename in glob.glob('../bot_script/*.lua'):
+        lua_files = glob.glob(LUA_FILES_GLOB)
+        assert len(lua_files) == 5
+        for filename in lua_files:
             shutil.copy(filename, bot_path)
 
         # Finally, symlink DOTA to this folder.
@@ -392,7 +394,3 @@ def main():
             loop.run_forever()
     finally:
         loop.close()
-
-
-if __name__ == "__main__":
-    main()

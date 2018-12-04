@@ -1,8 +1,6 @@
 syntax = "proto2";
 
-package dotaservice;
-
-import "protobuf/dota_gcmessages_common_bot_script.proto";
+import "dotaservice/protos/dota_gcmessages_common_bot_script.proto";
 
 message Action {
   required CMsgBotWorldState.Action action = 1;
