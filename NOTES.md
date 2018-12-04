@@ -133,3 +133,6 @@ Running dota headless only takes up around 250Mb RAM (woah that's little!).
 
 At dotatime=35s is where the first creeps get killed (by natural causes), so this is when xp can be
 gained.
+
+Build release `python3 setup.py sdist bdist_wheel`.
+Upload to `pypi`: `twine upload --repository-url https://upload.pypi.org/legacy/ dist/*`.
