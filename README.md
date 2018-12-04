@@ -35,10 +35,36 @@ and the gRPC client is enough.
 <img src="dotaservice.png" alt="dotaservice connections" width="680"/>
 </div>
 
+### Requirements
+
+* Python 3.7
+* Unix: currently only MacOS, working on shipping a Ubuntu-based docker image.
+
+### Installation
+
+Install dotaservice (execute from repository root).
+```sh
+pip3 install .
+```
+
+Run the dotaservice server.
+
+```sh
+pip3 -m dotaservice
+```
+
+(Optional) Build the protos (execute from repository root)
+```sh
+python3 -m grpc_tools.protoc -I. --python_out=. --python_grpc_out=. dotaservice/protos/*.proto
+```
+
 ### Benchmarks
 
 From the benchmarks below you can derive that the dota service adds around 6±1 ms of time to
 each action we take. Notice that Dota runs at a fixed (though not precise) 30 ticks/s.
+When watching with `render=True` it seems that the bot is running faster than realtime even at
+`host_timescale=1`. And below (auto-generated) metrics show that it's running faster than real time
+too. Q: what's going on?
 
 | `env.reset` (ms) | `env.step` (ms) | `host_timescale` | `ticks_per_observation` |
 | ---              | ---             | ---              | ---                     |
@@ -57,13 +83,6 @@ each action we take. Notice that Dota runs at a fixed (though not precise) 30 ti
 
 
 # Notes
-
-
-Create the protos
-
-```sh
-python3 -m grpc_tools.protoc -I. --python_out=. --python_grpc_out=. protobuf/*.proto
-```
 
 Adding things to the Dota bot API's `package.path` in LUA doesn't seem to work. It refuses to
 mount anything outside the `vscripts` directory. The solution is to mount your external disk simply
