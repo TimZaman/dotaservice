@@ -4,3 +4,9 @@
 *.so
 *passwords*
 *egg-info
+build
+dist
+runs
+screenshots
+third_party
+resources

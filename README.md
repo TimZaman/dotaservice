@@ -1,5 +1,9 @@
 # DotaService
 
+<img src="dotaservice-icon.png" alt="dotaservice icon" width="128"/>
+
+---
+
 DotaService is a service to play Dota 2 through gRPC. There are first class python bindings
 and examples, so you can play dota as you would use the OpenAI gym API.
 
