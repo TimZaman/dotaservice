@@ -17,7 +17,6 @@ import uuid
 
 from google.protobuf.json_format import MessageToDict
 from grpclib.server import Server
-import psutil
 
 from dotaservice.protos.dota_gcmessages_common_bot_script_pb2 import CMsgBotWorldState
 from dotaservice.protos.DotaService_grpc import DotaServiceBase
@@ -29,25 +28,20 @@ LUA_FILES_GLOB = pkg_resources.resource_filename('dotaservice', 'lua/*.lua')
 
 
 def kill_processes_and_children(pid, sig=signal.SIGTERM):
-    try:
-        parent = psutil.Process(pid)
-    except psutil.NoSuchProcess:
-        return
-    children = parent.children(recursive=True)
-    for process in children:
-        process.send_signal(sig)
+    # TODO(tzaman): removed problematic `psutil`. Just use `os.$`?
+    pass
 
 
 def verify_game_path(game_path):
     if not os.path.exists(game_path):
-        raise ValueError("Game path {} does not exist.".format(game_path))
+        raise ValueError("Game path '{}' does not exist.".format(game_path))
     if not os.path.isdir(game_path):
-        raise ValueError("Game path {} is not a directory.".format(game_path))
+        raise ValueError("Game path '{}' is not a directory.".format(game_path))
     dota_script = os.path.join(game_path, DotaGame.DOTA_SCRIPT_FILENAME)
     if not os.path.isfile(dota_script):
-        raise ValueError("Dota executable {} is not a file.")
+        raise ValueError("Dota executable '{}' is not a file.".format(dota_script))
     if not os.access(dota_script, os.X_OK):
-        raise ValueError("Dota executable {} is not executable.")
+        raise ValueError("Dota executable '{}' is not executable.".format(dota_script))
 
 
 class DotaGame(object):
@@ -285,6 +279,7 @@ class DotaService(DotaServiceBase):
                         .format(self.action_folder))
 
         self.dota_game = None
+        super().__init__()
 
     async def reset(self, stream):
         """reset method.

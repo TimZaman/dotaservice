@@ -1,12 +1,14 @@
 .DS_Store
-*.pyc
+*.code-workspace
 *.h5
+*.mov
+*.pyc
 *.so
-*passwords*
 *egg-info
+*passwords*
 build
 dist
+resources
 runs
 screenshots
 third_party
-resources

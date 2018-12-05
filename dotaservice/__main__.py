@@ -19,7 +19,7 @@ def get_default_game_path():
 def get_default_action_path():
     action_path = None
     if platform == "linux" or platform == "linux2":
-        action_path = "/tmpfs/"
+        action_path = "/tmp/"
     elif platform == "darwin":
         action_path = "/Volumes/ramdisk/"
     return action_path
@@ -29,7 +29,7 @@ if platform not in ["linux", "linux2", "darwin"]:
     raise EnvironmentError("Platform {} not supported.".format(platform))
 
 parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
-parser.add_argument("--ip", type=str, help="gRPC host ip", default="localhost")
+parser.add_argument("--ip", type=str, help="gRPC host ip", default="")
 parser.add_argument("--port", type=int, help="gRPC port", default=13337)
 parser.add_argument(
     "--game-path",

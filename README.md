@@ -13,7 +13,7 @@ and each `obs = env.step(action)` in the environment takes between 10 and 30 ms.
 You can even set the config of `render=True` and you can watch the game play live. Each game will
 have a uuid and folder associated where there's a Dota demo (replay) and console logs.
 
-## Run DotaService
+## Run DotaService Locally
 
 Run the DotaService so you can connect your client to it later. Only one client per server
 is supported, and only one DotaService per VM (eg local or one per docker container).
@@ -22,6 +22,16 @@ is supported, and only one DotaService per VM (eg local or one per docker contai
 python3 -m dotaservice
 >>> Serving on 127.0.0.1:13337
 ```
+
+## Run DotaService Distributed
+
+See [docker/README.md](docker/README.md). To run one service on port `13337`:
+
+```sh
+docker run -dp 13337:13337 dotaservice --port=13337
+```
+
+You can run as many as you want, until you run out of ports or ip addresses!
 
 ## Client Code
 
@@ -55,7 +65,7 @@ and the gRPC client is enough.
 ### Requirements
 
 * Python 3.7
-* Unix: currently only MacOS, working on shipping a Ubuntu-based docker image.
+* Unix: MacOS, Ubuntu. A dockerfile is also provided see: [docker/README.md](docker/README.md).
 
 ### Installation
 

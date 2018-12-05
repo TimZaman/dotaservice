@@ -1,47 +1,46 @@
-# docker build -t dotabot .
-# docker build -t dotabot . --build-arg user=$STEAM_ID --build-arg pwd=$STEAM_PWD --build-arg guard=
-# docker run -it --tmpfs "/root/Steam/steamapps/common/dota 2 beta/game/dota/scripts/vscripts/bot":size=1024M dotabot
-# You need around 48Gb of disk space for this docker file, due to the dota install.
-
-FROM ubuntu:16.04
+FROM ubuntu:18.04
 MAINTAINER Tim Zaman <timbobel@gmail.com>
 
+# Make sure to install steam and Dota first, as those docker layers will be biggest.
+# Install, update & upgrade packages
+# Create user for the server
+# This also creates the home directory we later need
+# Clean TMP, apt-get cache and other stuff to make the image smaller
 RUN apt-get -q update \
  && apt-get install -y \
+    lib32stdc++6 \
     lib32gcc1 \
-    curl \
-    locales \
- && rm -rf /var/lib/apt/lists/*
+    curl && \
+    apt-get -y upgrade && \
+    apt-get clean autoclean && \
+    apt-get autoremove -y && \
+    rm -rf /var/lib/{apt,dpkg,cache,log}/
 
-RUN mkdir -p /opt/steam \
- && curl --silent --show-error --fail --location --header "Accept: application/tar+gzip, application/gzip, application/octet-stream" -o - \
-        https://steamcdn-a.akamaihd.net/client/installer/steamcmd_linux.tar.gz \
-    | tar --no-same-owner -xz -C /opt/steam/
-
-RUN locale-gen en_US.UTF-8
-ENV LANG en_US.UTF-8  
-ENV LANGUAGE en_US:en  
-ENV LC_ALL en_US.UTF-8     
-
-WORKDIR /root
+# Create Directory for SteamCMD
+# Download SteamCMD
+# Extract and delete archive
+RUN mkdir -p /root/steamcmd \
+ && cd /root/steamcmd \
+ && curl -o steamcmd_linux.tar.gz "https://steamcdn-a.akamaihd.net/client/installer/steamcmd_linux.tar.gz" \
+ && tar zxf steamcmd_linux.tar.gz \
+ && rm steamcmd_linux.tar.gz
 
 ARG user
 ARG pwd
 ARG guard
-
-RUN /opt/steam/steamcmd.sh +login ${user} ${pwd} ${guard} +app_update 570 +quit
-# dota.sh can now be found in "/root/Steam/steamapps/common/dota 2 beta/game"
-
-# Below installation is anything that's not related to the above dota install.
-# This is to make sure the docker layer with the dota install caches nicely.
+RUN /root/steamcmd/steamcmd.sh +login ${user} ${pwd} ${guard} +app_update 570 +quit
 
 RUN apt-get -q update \
- && apt-get install -y --no-install-recommends \
-    gcc \
-    python3 python3-dev python3-pip \
- && rm -rf /var/lib/apt/lists/* \
- && pip3 install pip setuptools --upgrade 
+ && apt-get install -y \
+    python3.7 \
+    python3.7-distutils \
+ && curl -s https://bootstrap.pypa.io/get-pip.py | python3.7
 
-RUN pip3 install \
-    flask \
-    psutil
+WORKDIR /root
+
+CMD mkdir /root/dotaservice
+COPY setup.py README.md /root/dotaservice/
+COPY dotaservice /root/dotaservice/dotaservice/
+RUN pip3.7 install --user -e /root/dotaservice/
+
+ENTRYPOINT ["python3.7", "-m", "dotaservice"]

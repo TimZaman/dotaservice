@@ -31,9 +31,12 @@ setuptools.setup(
         "Topic :: Software Development",
     ],
     install_requires=[
-        'grpcio-tools',
         'grpclib',
         'protobuf',
-        'psutil',
     ],
+    extras_require={
+        'dev': [
+            'grpcio-tools',
+        ],
+    },
 )
