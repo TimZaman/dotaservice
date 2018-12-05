@@ -1,4 +1,5 @@
 from struct import unpack
+from sys import platform
 import asyncio
 import atexit
 import glob
@@ -22,33 +23,9 @@ from dotaservice.protos.dota_gcmessages_common_bot_script_pb2 import CMsgBotWorl
 from dotaservice.protos.DotaService_grpc import DotaServiceBase
 from dotaservice.protos.DotaService_pb2 import Observation
 
-# logging.basicConfig(level=logging.DEBUG)  # This logging is a bit overwhelming
-
-# An enum from the game (should have been in the proto [dota_gcmessages_common.proto?] though).
-DOTA_GAMERULES_STATE_PRE_GAME = 4
-DOTA_GAMERULES_STATE_GAME_IN_PROGRESS = 5
-
-# TODO(tzaman): Make the following configurable:
-DOTA_PATH = '/Users/tzaman/Library/Application Support/Steam/SteamApps/common/dota 2 beta/game'
-ACTION_FOLDER_ROOT = '/Volumes/ramdisk/'
-grpc_host = '127.0.0.1'
-grpc_port = 13337
-
-# Static environment variables. TODO(tzaman): move this into the classes.
-BOTS_FOLDER_NAME = 'bots'
-DOTA_BOT_PATH = os.path.join(DOTA_PATH, 'dota', 'scripts', 'vscripts', BOTS_FOLDER_NAME)
-CONSOLE_LOG_FILENAME = 'console.log'
-PORT_WORLDSTATE_RADIANT = 12120
-PORT_WORLDSTATE_DIRE = 12121
 LUA_FILES_GLOB = pkg_resources.resource_filename('dotaservice', 'lua/*.lua')
 
-# Initial environment assertions.
-if not os.path.exists(DOTA_PATH):
-    raise ValueError('dota game path does not exist: {}'.format(DOTA_PATH))
-
-if not os.path.exists(ACTION_FOLDER_ROOT):
-    raise ValueError('Action folder does not exist. '
-                     'Please mount or create! ({})'.format(ACTION_FOLDER_ROOT))
+# logging.basicConfig(level=logging.DEBUG)  # This logging is a bit overwhelming
 
 
 def kill_processes_and_children(pid, sig=signal.SIGTERM):
@@ -61,26 +38,49 @@ def kill_processes_and_children(pid, sig=signal.SIGTERM):
         process.send_signal(sig)
 
 
+def verify_game_path(game_path):
+    if not os.path.exists(game_path):
+        raise ValueError("Game path {} does not exist.".format(game_path))
+    if not os.path.isdir(game_path):
+        raise ValueError("Game path {} is not a directory.".format(game_path))
+    dota_script = os.path.join(game_path, DotaGame.DOTA_SCRIPT_FILENAME)
+    if not os.path.isfile(dota_script):
+        raise ValueError("Dota executable {} is not a file.")
+    if not os.access(dota_script, os.X_OK):
+        raise ValueError("Dota executable {} is not executable.")
+
+
 class DotaGame(object):
 
+    # Static configuration.
+    BOTS_FOLDER_NAME = 'bots'
     CONFIG_FILENAME = 'config_auto'
+    CONSOLE_LOG_FILENAME = 'console.log'
+    DOTA_SCRIPT_FILENAME = 'dota.sh'
+    PORT_WORLDSTATE_DIRE = 12121
+    PORT_WORLDSTATE_RADIANT = 12120
 
-    def __init__(self, host_timescale, ticks_per_observation, render, game_id=None):
-        self._dota_time = None
-
+    def __init__(self,
+                 dota_path,
+                 action_folder,
+                 host_timescale,
+                 ticks_per_observation,
+                 render,
+                 game_id=None):
+        self.dota_path = dota_path
+        self.action_folder = action_folder
         self.host_timescale = host_timescale
         self.ticks_per_observation = ticks_per_observation
         self.render = render
-
         self.game_id = game_id
         if not self.game_id:
             self.game_id = str(uuid.uuid1())
-
-        self.bot_path = self._create_bot_path(game_id=self.game_id)
-
+        self._dota_time = None
+        self.dota_bot_path = os.path.join(self.dota_path, 'dota', 'scripts', 'vscripts',
+                                          self.BOTS_FOLDER_NAME)
+        self.bot_path = self._create_bot_path()
         self.worldstate_queue = asyncio.Queue(loop=asyncio.get_event_loop())
         self.lua_config_future = asyncio.get_event_loop().create_future()
-
         self._write_config()
 
     def _write_config(self):
@@ -117,18 +117,17 @@ class DotaGame(object):
         with open(filename, 'w') as f:
             f.write(data)
 
-    @staticmethod
-    def _create_bot_path(game_id):
+    def _create_bot_path(self):
         """Remove DOTA's bots subdirectory or symlink and update it with our own."""
-        print('(py) create_bot_path(game_id=%s', game_id)
-        if os.path.exists(DOTA_BOT_PATH) or os.path.islink(DOTA_BOT_PATH):
-            if os.path.isdir(DOTA_BOT_PATH) and not os.path.islink(DOTA_BOT_PATH):
-                raise ValueError('There is already a bots directory ({})! Please remove manually.'.
-                                 format(DOTA_BOT_PATH))
-            os.remove(DOTA_BOT_PATH)
-        SESSION_FOLDER = os.path.join(ACTION_FOLDER_ROOT, str(game_id))
-        os.mkdir(SESSION_FOLDER)
-        bot_path = os.path.join(SESSION_FOLDER, BOTS_FOLDER_NAME)
+        if os.path.exists(self.dota_bot_path) or os.path.islink(self.dota_bot_path):
+            if os.path.isdir(self.dota_bot_path) and not os.path.islink(self.dota_bot_path):
+                raise ValueError(
+                    'There is already a bots directory ({})! Please remove manually.'.format(
+                        self.dota_bot_path))
+            os.remove(self.dota_bot_path)
+        session_folder = os.path.join(self.action_folder, str(self.game_id))
+        os.mkdir(session_folder)
+        bot_path = os.path.join(session_folder, self.BOTS_FOLDER_NAME)
         os.mkdir(bot_path)
 
         # Copy all the bot files into the action folder.
@@ -138,14 +137,13 @@ class DotaGame(object):
             shutil.copy(filename, bot_path)
 
         # Finally, symlink DOTA to this folder.
-        os.symlink(src=bot_path, dst=DOTA_BOT_PATH)
+        os.symlink(src=bot_path, dst=self.dota_bot_path)
         return bot_path
 
     async def monitor_log(self):
-        print('@monitor_log')
         p = re.compile(r'LUARDY[ \t](\{.*\})')
         while True:  # TODO(tzaman): probably just retry 10x sleep(0.5) then bust?
-            filename = os.path.join(self.bot_path, CONSOLE_LOG_FILENAME)
+            filename = os.path.join(self.bot_path, self.CONSOLE_LOG_FILENAME)
             if os.path.exists(filename):
                 with open(filename) as f:
                     for line in f:
@@ -159,8 +157,7 @@ class DotaGame(object):
             await asyncio.sleep(0.2)
 
     async def record_replay(self, process):
-        """Starts the stdin command.
-        """
+        """Starts the stdin command."""
         print('@record_replay')
         await asyncio.sleep(5)  # TODO(tzaman): just invoke after LUARDY signal?
         process.stdin.write(b"tv_record scripts/vscripts/bots/replay\n")
@@ -174,18 +171,18 @@ class DotaGame(object):
     async def run(self):
         # Start the worldstate listener(s).
         asyncio.create_task(self._run_dota())
-        asyncio.create_task(self._worldstate_listener(port=PORT_WORLDSTATE_RADIANT))
-        # asyncio.create_task(self.worldstate_listener(port=PORT_WORLDSTATE_DIRE))
+        asyncio.create_task(self._worldstate_listener(port=self.PORT_WORLDSTATE_RADIANT))
+        # asyncio.create_task(self.worldstate_listener(port=self.PORT_WORLDSTATE_DIRE))
 
     async def _run_dota(self):
-        script_path = os.path.join(DOTA_PATH, 'dota.sh')
+        script_path = os.path.join(self.dota_path, self.DOTA_SCRIPT_FILENAME)
         args = [
             script_path,
             "-botworldstatesocket_threaded",
-            "-botworldstatetosocket_dire {}".format(PORT_WORLDSTATE_RADIANT),
+            "-botworldstatetosocket_dire {}".format(self.PORT_WORLDSTATE_RADIANT),
             "-botworldstatetosocket_frames {}".format(self.ticks_per_observation),
-            "-botworldstatetosocket_radiant {}".format(PORT_WORLDSTATE_RADIANT),
-            "-con_logfile scripts/vscripts/bots/{}".format(CONSOLE_LOG_FILENAME),
+            "-botworldstatetosocket_radiant {}".format(self.PORT_WORLDSTATE_RADIANT),
+            "-con_logfile scripts/vscripts/bots/{}".format(self.CONSOLE_LOG_FILENAME),
             "-con_timestamp",
             "-console",
             "-fill_with_bots",
@@ -266,8 +263,28 @@ class DotaGame(object):
 
 
 class DotaService(DotaServiceBase):
+    def __init__(self, dota_path, action_folder):
+        self.dota_path = dota_path
+        self.action_folder = action_folder
 
-    dota_game = None
+        # Initial assertions.
+        verify_game_path(self.dota_path)
+
+        if not os.path.exists(self.action_folder):
+            if platform == "linux" or platform == "linux2":
+                raise ValueError(
+                    "Action folder '{}' not found.\nYou can create a 2GB ramdisk by executing:"
+                    "`mkdir /tmpfs; mount -t tmpfs -o size=2048M tmpfs /tmpfs`\n"
+                    "With Docker, you can add a tmpfs adding `--mount type=tmpfs,destination=/tmpfs`"
+                    " to its run command.".format(self.action_folder))
+            elif platform == "darwin":
+                if not os.path.exists(self.action_folder):
+                    raise ValueError(
+                        "Action folder '{}' not found.\nYou can create a 2GB ramdisk by executing:"
+                        " `diskutil erasevolume HFS+ 'ramdisk' `hdiutil attach -nomount ram://4194304``"
+                        .format(self.action_folder))
+
+        self.dota_game = None
 
     async def reset(self, stream):
         """reset method.
@@ -285,6 +302,8 @@ class DotaService(DotaServiceBase):
         # Create a new dota game instance.
         # TODO(tzaman): kill previous dota game? or implicit through __del__?
         self.dota_game = DotaGame(
+            dota_path=self.dota_path,
+            action_folder=self.action_folder,
             host_timescale=config.host_timescale,
             ticks_per_observation=config.ticks_per_observation,
             render=config.render,
@@ -349,7 +368,7 @@ class DotaService(DotaServiceBase):
         await stream.send_message(Observation(world_state=data))
 
 
-async def serve(server, *, host=grpc_host, port=grpc_port):
+async def serve(server, *, host, port):
     await server.start(host, port)
     print('Serving on {}:{}'.format(host, port))
     try:
@@ -359,14 +378,20 @@ async def serve(server, *, host=grpc_host, port=grpc_port):
         await server.wait_closed()
 
 
-async def grpc_main(loop):
-    server = Server([DotaService()], loop=loop)
-    await serve(server)
+async def grpc_main(loop, handler, host, port):
+    server = Server([handler], loop=loop)
+    await serve(server, host=host, port=port)
 
 
-def main():
+def main(grpc_host, grpc_port, dota_path, action_folder):
+    dota_service = DotaService(dota_path=dota_path, action_folder=action_folder)
     loop = asyncio.get_event_loop()
-    tasks = grpc_main(loop)
+    tasks = grpc_main(
+        loop=loop,
+        handler=dota_service,
+        host=grpc_host,
+        port=grpc_port,
+    )
 
     try:
         loop.run_until_complete(tasks)

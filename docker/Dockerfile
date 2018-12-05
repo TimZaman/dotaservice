@@ -1,5 +1,5 @@
 # docker build -t dotabot .
-# docker build -t dotabot . --build-arg user=***REMOVED*** --build-arg pwd=***REMOVED*** --build-arg guard=
+# docker build -t dotabot . --build-arg user=$STEAM_ID --build-arg pwd=$STEAM_PWD --build-arg guard=
 # docker run -it --tmpfs "/root/Steam/steamapps/common/dota 2 beta/game/dota/scripts/vscripts/bot":size=1024M dotabot
 # You need around 48Gb of disk space for this docker file, due to the dota install.
 
