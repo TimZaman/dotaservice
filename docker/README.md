@@ -19,8 +19,12 @@ hundred megs. Make sure you have at least ~40GB available.
 Running the service is trivial. Arg `-d` is for detached, `-p` exposes ports and `--port` is one
 of the arguments forwarded into the dotaservice (`ds`)
 
-```
-docker run -dp 13337:13337 ds --port=13337
+To run two dockerservice instances, one on port `13337` and one on `13338`, f.e. run:
+
+```sh
+docker run -dp 13337:13337 ds
+docker run -dp 13338:13337 ds
 ```
 
-You can now open as many dota clients as you want, provided they are on different ports.
+You can now open as many dota clients as you want, provided they expose on different ip:ports
+combinations and they don't collide.

@@ -25,13 +25,17 @@ python3 -m dotaservice
 
 ## Run DotaService Distributed
 
-See [docker/README.md](docker/README.md). To run one service on port `13337`:
+See [docker/README.md](docker/README.md).
+
+To run two dockerservice instances, one on port `13337` and one on `13338`, f.e. run:
 
 ```sh
-docker run -dp 13337:13337 dotaservice --port=13337
+docker run -dp 13337:13337 ds
+docker run -dp 13338:13337 ds
 ```
 
-You can run as many as you want, until you run out of ports or ip addresses!
+You can run as many as you want, until you run out of ports or ip addresses. If you are wearing
+your fancy pants, use Kubernetes to deploy gazillions.
 
 ## Client Code
 
