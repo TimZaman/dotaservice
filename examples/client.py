@@ -222,42 +222,6 @@ async def main():
         writer.add_scalar('mean_reward', avg_reward, episode)
         filename = os.path.join(log_dir, "model_%09d.pt" % episode)
         torch.save(policy.state_dict(), filename)
-        
-
-
-
-# async def main():
-#     loop = asyncio.get_event_loop()
-#     channel = Channel('127.0.0.1', 13337, loop=loop)
-#     env = DotaServiceStub(channel)
-
-#     config = Config(
-#         host_timescale=10,
-#         ticks_per_observation=30,
-#         render=False,
-#     )
-
-#     nsteps = 10000
-#     nepisodes = 10
-
-#     for e in range(nepisodes):
-#         observation = await env.reset(config)
-#         rewards = get_rewards(observation)
-
-#         for i in range(nsteps):
-#             action = CMsgBotWorldState.Action()
-#             action.actionType = CMsgBotWorldState.Action.Type.Value(
-#                 'DOTA_UNIT_ORDER_MOVE_TO_POSITION')
-#             m = CMsgBotWorldState.Action.MoveToLocation()
-#             m.location.x = math.sin(observation.world_state.dota_time) * 500 - 1000
-#             m.location.y = math.cos(observation.world_state.dota_time) * 500 - 1000
-#             m.location.z = 0
-#             action.moveToLocation.CopyFrom(m)
-#             observation = await env.step(Action(action=action))
-#             rewards = get_rewards(observation)
-
-#             print('t={:.2f}, rewards: {}'.format(observation.world_state.dota_time, rewards))
-
 
 if __name__ == '__main__':
     asyncio.run(main())
