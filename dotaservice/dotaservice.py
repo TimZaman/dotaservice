@@ -173,7 +173,7 @@ class DotaGame(object):
         args = [
             script_path,
             "-botworldstatesocket_threaded",
-            "-botworldstatetosocket_dire {}".format(self.PORT_WORLDSTATE_RADIANT),
+            "-botworldstatetosocket_dire {}".format(self.PORT_WORLDSTATE_DIRE),
             "-botworldstatetosocket_frames {}".format(self.ticks_per_observation),
             "-botworldstatetosocket_radiant {}".format(self.PORT_WORLDSTATE_RADIANT),
             "-con_logfile scripts/vscripts/bots/{}".format(self.CONSOLE_LOG_FILENAME),

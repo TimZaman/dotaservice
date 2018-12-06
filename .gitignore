@@ -4,6 +4,7 @@
 *.mov
 *.pyc
 *.so
+*.pt
 *egg-info
 *passwords*
 build

@@ -61,7 +61,6 @@ Playing demo: `playdemo $demfile` looks in `dota 2 beta/game/dota` folder, not i
 Or you just do `playdemo replays/$demfile` and it'll work too.
 Playing the auto-replay of GUI games (bot vs bot, or with human added) works. The auto-replay
 of dedicated games seems to result in a fully black screen.
-
 When you start a game with the GUI, the map is called `+map start`. If you have a dedicated
 server running with `+map dota`, its replay stays black and doesn't seem to work. If you start it
 with `+map start`, it will load with some errors, which are circumvented if you scroll to a certain
@@ -134,6 +133,12 @@ Running dota headless only takes up around 250Mb RAM (woah that's little!).
 At dotatime=35s is where the first creeps get killed (by natural causes), so this is when xp can be
 gained.
 
+Something is up with the host timescale, it sometimes runs 2x faster than it should. E.g. when
+you `render` the bothmatch, and you focus on the screen it goes at 2x the speed. If you then alt-tab
+to another window, it suddenly goes at normal speed. Why? Bisect this issue by toggling some
+dota launch variables.
+
+Investigate again the difference between the maps `start` and `dota`?
 
 # Releasing to PyPI
 
