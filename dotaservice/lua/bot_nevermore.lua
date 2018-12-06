@@ -7,13 +7,13 @@ local live_config = nil
 
 
 local function act(action)
-    print('(lua) act')
+    -- print('(lua) act')
     local bot = GetBot()
     action_type = action.actionType
     if action_type == 'DOTA_UNIT_ORDER_NONE' then
         do return end
     elseif  action_type == 'DOTA_UNIT_ORDER_MOVE_TO_POSITION' then
-        bot:Action_MoveToLocation(Vector(action.moveToLocation.location.x, action.moveToLocation.location.y))
+        bot:Action_MoveDirectly(Vector(action.moveToLocation.location.x, action.moveToLocation.location.y))
     else
         print('Invalid action_type=', action_type)
     end
@@ -21,7 +21,7 @@ end
 
 
 local function get_new_action(dota_time)
-    print('(lua) get_new_action @', dota_time)
+    -- print('(lua) get_new_action @', dota_time)
     local file_fn = nil
     while true do
         -- Try to load the file first
@@ -128,11 +128,11 @@ function Think()
     end
 
     if ((step - worldstate_step_offset) % config.ticks_per_observation) == 0 then
-        print('(lua) Expecting state @ step=', step, 'dota_time=', dota_time)
+        -- print('(lua) Expecting state @ step=', step, 'dota_time=', dota_time)
         -- TODO(tzaman): read the action file here, and check that it contains an
         -- action with the right timestep.
         local action = get_new_action(dota_time)
-        print('(lua) action =', dump(action))
+        -- print('(lua) action =', dump(action))
         act(action)
     end
 end
