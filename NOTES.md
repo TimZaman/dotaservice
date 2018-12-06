@@ -139,7 +139,6 @@ to another window, it suddenly goes at normal speed. Why? Bisect this issue by t
 dota launch variables.
 
 Investigate again the difference between the maps `start` and `dota`?
-=======
 
 The dota game map spans from -7000:7000 and the 0,0 point is just outside the dire tower's range
 near the river, on the radiant high ground.

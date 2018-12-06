@@ -7,6 +7,7 @@ import os
 
 from grpclib.client import Channel
 from google.protobuf.json_format import MessageToDict
+from tensorboardX import SummaryWriter
 
 from dotaservice.protos.DotaService_grpc import DotaServiceStub
 from dotaservice.protos.dota_gcmessages_common_bot_script_pb2 import CMsgBotWorldState
@@ -22,6 +23,10 @@ import torch.optim as optim
 from torch.distributions import Categorical
 
 torch.manual_seed(1337)
+
+writer = SummaryWriter()
+if writer:
+    log_dir = writer.file_writer.get_logdir()
 
 xp_to_reach_level = {
     1: 0,
@@ -86,21 +91,20 @@ class Policy(nn.Module):
         action_scores_a = self.affine2a(x)
         action_scores_b = self.affine2b(x)
         return {'x': F.softmax(action_scores_a, dim=1), 'y': F.softmax(action_scores_b, dim=1)}
-        # return F.softmax(action_scores_a, dim=1)
 
 
 policy = Policy()
 optimizer = optim.Adam(policy.parameters(), lr=1e-2)
 eps = np.finfo(np.float32).eps.item()
 
-pretrained_model = 'model_000000029.pt'
-policy.load_state_dict(torch.load(pretrained_model))
+# pretrained_model = 'model_000000014.pt'
+# policy.load_state_dict(torch.load(pretrained_model))
 
 
 def select_action(state):
     # Preprocess the state
-    state = get_hero_location(state)
-    state = np.array([state.x, state.y]) / 7000
+    state = get_hero_unit(state).location
+    state = np.array([state.x, state.y]) / 7000  # maps the map between [-1 and 1]
 
     state = torch.from_numpy(state).float().unsqueeze(0)
     probs = policy(state)
@@ -113,7 +117,6 @@ def select_action(state):
     action_b = m.sample()
     policy.saved_log_probs_b.append(m.log_prob(action_b))
 
-    # return {'x': action_a.item(), 'y': action_b.item()}
     return action_a.item(), action_b.item()
 
 
@@ -144,21 +147,14 @@ def get_hero_unit(state, id=0):
             return unit
 
 
-def get_hero_location(state, id=0):
-    return get_hero_unit(state, id=id).location
-
-
 async def main():
-    # import gym
-    # env = gym.make('CartPole-v0')
-
     loop = asyncio.get_event_loop()
     channel = Channel('127.0.0.1', 13337, loop=loop)
     env = DotaServiceStub(channel)
 
     config = Config(
         host_timescale=10,
-        ticks_per_observation=120,
+        ticks_per_observation=30,
         render=False,
         # render=True,
     )
@@ -169,53 +165,44 @@ async def main():
     running_reward = 10
 
     for episode in range(1000):
-    # while True:
 
         all_discounted_rewards = []  # rewards
         actions_steps = []
         reward_sum = 0
         for _ in range(batch_size):
             rewards = []
-            # state = env.reset()
+
             state = await env.reset(config)
-            # print(get_hero_location(state))
-            # exit()
 
-
-            for t in range(40):  # take 40 steps
-            
+            for t in range(200):  # take 100 steps
                 action_a, action_b = select_action(state)
-                # state, reward, done, _ = env.step(action)
 
-                print('action_a={} action_b={}'.format(action_a, action_b))
+                # print('action_a={} action_b={}'.format(action_a, action_b))
 
                 action = CMsgBotWorldState.Action()
                 action.actionType = CMsgBotWorldState.Action.Type.Value(
                     'DOTA_UNIT_ORDER_MOVE_TO_POSITION')
                 m = CMsgBotWorldState.Action.MoveToLocation()
-                # m.location.x = math.sin(observation.world_state.dota_time) * 500 - 1000
-                # m.location.y = math.cos(observation.world_state.dota_time) * 500 - 1000
                 hero_unit = get_hero_unit(state)
                 hero_location = hero_unit.location
-                print('hero loc x={}, y={}'.format(hero_location.x, hero_location.y))
-                m.location.x = hero_location.x + 400 if action_a else hero_location.x - 400
-                m.location.y = hero_location.y + 400 if action_b else hero_location.y - 400
+                # print('hero loc x={}, y={}'.format(hero_location.x, hero_location.y))
+                m.location.x = hero_location.x + 100 if action_a else hero_location.x - 100
+                m.location.y = hero_location.y + 100 if action_b else hero_location.y - 100
                 m.location.z = 0
 
                 action.moveToLocation.CopyFrom(m)
                 state = await env.step(Action(action=action))
 
-                reward = get_rewards(state)[0]  # Get reward for hero 0.
+                # Get the reward for hero 0.
+                reward = get_rewards(state)[0]
 
                 # Factor in health.
-                reward *= hero_unit.health_max / hero_unit.health_max
-
-                # reward = hero_location.x
+                reward *= hero_unit.health / hero_unit.health_max
 
                 reward_sum += reward
                 rewards.append(reward)
-            print('last hero loc x={}, y={}'.format(hero_location.x, hero_location.y))
-            # print('rewards=', rewards)
+            print('last hero loc dotatime={}, x={}, y={}'.format(state.world_state.dota_time, hero_location.x, hero_location.y))
+
 
             discounted_rewards = []
             R = 0
@@ -230,8 +217,9 @@ async def main():
 
         finish_episode()
 
+        avg_reward = reward_sum/batch_size
         print('ep={} reward sum={}'.format(episode, reward_sum/batch_size))
-        log_dir = ''
+        writer.add_scalar('mean_reward', avg_reward, episode)
         filename = os.path.join(log_dir, "model_%09d.pt" % episode)
         torch.save(policy.state_dict(), filename)
         
