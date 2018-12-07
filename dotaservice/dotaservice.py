@@ -135,6 +135,7 @@ class DotaGame(object):
         return bot_path
 
     async def monitor_log(self):
+        # TODO(tzaman): catch this line: `playdemo replays/auto-20181206-1840-dota-Dota_2.dem`
         p = re.compile(r'LUARDY[ \t](\{.*\})')
         while True:  # TODO(tzaman): probably just retry 10x sleep(0.5) then bust?
             filename = os.path.join(self.bot_path, self.CONSOLE_LOG_FILENAME)
@@ -153,13 +154,12 @@ class DotaGame(object):
     async def record_replay(self, process):
         """Starts the stdin command."""
         print('@record_replay')
+        # @ TODO(tzaman): rewrite this to use autorecord, and just parse the log
+        # and get the filename that had been assigned. Then when the dota context closes
+        # we move over the file.
+        # Stdin is problematic anyway, as any attachde GUI will block stdin and use dota's console.
         await asyncio.sleep(5)  # TODO(tzaman): just invoke after LUARDY signal?
         process.stdin.write(b"tv_record scripts/vscripts/bots/replay\n")
-        if self.render:
-            # If we want to render, let the 'render player' join the spectator team.
-            # TODO(tzaman): does this work at all?
-            await asyncio.sleep(20)  # TODO(tzaman): come up with something smart.
-            process.stdin.write(b"jointeam spec\n")
         await process.stdin.drain()
 
     async def run(self):
@@ -170,40 +170,42 @@ class DotaGame(object):
 
     async def _run_dota(self):
         script_path = os.path.join(self.dota_path, self.DOTA_SCRIPT_FILENAME)
+        GAME_MODE = 11
+        # TODO(tzaman): all these options should be put in a proto and parsed with gRPC Config.
         args = [
             script_path,
-            "-botworldstatesocket_threaded",
-            "-botworldstatetosocket_dire {}".format(self.PORT_WORLDSTATE_DIRE),
-            "-botworldstatetosocket_frames {}".format(self.ticks_per_observation),
-            "-botworldstatetosocket_radiant {}".format(self.PORT_WORLDSTATE_RADIANT),
-            "-con_logfile scripts/vscripts/bots/{}".format(self.CONSOLE_LOG_FILENAME),
-            "-con_timestamp",
-            "-console",
-            "-fill_with_bots",
-            "-insecure",
-            "-noip",
-            "-nowatchdog",  # WatchDog will quit the game if e.g. the lua api takes a few seconds.
-            "+clientport 27006",  # Relates to steam client.
-            "+dota_1v1_skip_strategy 1",  # doesn't work icm `-fill_with_bots`
-            "+dota_auto_surrender_all_disconnected_timeout 0",  # Used when `dota_surrender_on_disconnect` is 1
-            "+dota_bot_practice_gamemode 11",  # Mid Only -> doesn't work icm `-fill_with_bots`
-            "+dota_force_gamemode 11",  # Mid Only -> doesn't work icm `-fill_with_bots`
-            "+dota_start_ai_game 1",
-            "+dota_surrender_on_disconnect 0",
-            "+host_force_frametime_to_equal_tick_interval 1",
-            "+host_timescale {}".format(self.host_timescale),
-            "+host_writeconfig 1",
-            "+hostname dotaservice",
-            "+map start",  # the `start` map works with replays when dedicated, map `dota` doesn't.
-            "+sv_cheats 1",
-            "+sv_hibernate_when_empty 0",
-            "+sv_lan 1",
-            "+tv_delay 0 ",
-            "+tv_enable 1",
-            "+tv_title {}".format(self.game_id),
+            '-botworldstatesocket_threaded',
+            '-botworldstatetosocket_dire {}'.format(self.PORT_WORLDSTATE_DIRE),
+            '-botworldstatetosocket_frames {}'.format(self.ticks_per_observation),
+            '-botworldstatetosocket_radiant {}'.format(self.PORT_WORLDSTATE_RADIANT),
+            '-con_logfile scripts/vscripts/bots/{}'.format(self.CONSOLE_LOG_FILENAME),
+            '-con_timestamp',
+            '-console',
+            '-insecure',
+            '-noip',
+            '-nowatchdog',  # WatchDog will quit the game if e.g. the lua api takes a few seconds.
+            '+clientport 27006',  # Relates to steam client.
+            '+dota_1v1_skip_strategy 1',
+            '+dota_surrender_on_disconnect 0',
+            '+host_timescale {}'.format(self.host_timescale),
+            '+hostname dotaservice',
+            '+map', 'start gamemode {}'.format(GAME_MODE),
+            '+sv_cheats 1',
+            '+sv_hibernate_when_empty 0',
+            '+sv_lan 1',
+            '+tv_delay 0 ',
+            '+tv_enable 1',
+            '+tv_title {}'.format(self.game_id),
         ]
+        if False:  # The viewer wants to play himself
+            args.append('+dota_start_ai_game 1')
+        else:
+            args.append('-fill_with_bots')
         if not self.render:
             args.append('-dedicated')
+
+        print('args=', args)
+
         create = asyncio.create_subprocess_exec(
             *args,
             stdin=asyncio.subprocess.PIPE,

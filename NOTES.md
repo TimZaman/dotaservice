@@ -1,5 +1,14 @@
 Below are random notes I am taking during development. I hope you like spaghetti!
 
+
+# Releasing to PyPI
+
+Build release `python3 setup.py sdist bdist_wheel`.
+Upload to `pypi`: `twine upload --repository-url https://upload.pypi.org/legacy/ dist/*`.
+
+
+# ETC
+
 Adding things to the Dota bot API's `package.path` in LUA doesn't seem to work. It refuses to
 mount anything outside the `vscripts` directory. The solution is to mount your external disk simply
 by linking the folder e.g.
@@ -136,7 +145,7 @@ gained.
 Something is up with the host timescale, it sometimes runs 2x faster than it should. E.g. when
 you `render` the bothmatch, and you focus on the screen it goes at 2x the speed. If you then alt-tab
 to another window, it suddenly goes at normal speed. Why? Bisect this issue by toggling some
-dota launch variables.
+dota launch variables. Seems to be related to `host_force_frametime_to_equal_tick_interval`?
 
 Investigate again the difference between the maps `start` and `dota`?
 
@@ -145,7 +154,49 @@ near the river, on the radiant high ground.
 
 In the Dota lua api `Action_MoveToLocation` is quantized and doesn't move small distances (<250 units)
 
-# Releasing to PyPI
+You cannot have the dota GUI when steam isn't running. Running dedicated server witout steam is 
+fine, but so you cannot `render` with `True` when Steam isn't running, or Dota will quit
+'unexpectedly'.
 
-Build release `python3 setup.py sdist bdist_wheel`.
-Upload to `pypi`: `twine upload --repository-url https://upload.pypi.org/legacy/ dist/*`.
+
+`./dota.sh -console -insecure +sv_cheats 1 +map dota +dota_start_ai_game 1`
+Starts a game where the player can pick the hero it wants and the rest are filled in with bots.
+
+`./dota.sh -console -insecure +sv_cheats 1 +map dota +dota_start_ai_game 1 +dota_force_gamemode 11`
+Seems the same as previous.
+
+Changing above to `+map start` doesn't make a difference.
+
+Using Dota GUI, "1v1 solo mid" (21) only spawns creeps in center, but bots fill up all 5v5 spaces.
+The "mid-only" (11) mode doesn't seem to spawn any creeps at all!
+
+`./dota.sh -console -insecure +sv_lan 1 +sv_cheats 1 +map "dota gamemode 21" -fill_with_bots`
+Works nicely. Not sure how to take over bots though. Seems that i can just join a team as long
+as I remove `-fill_with_bots` and then use `+dota_start_ai_game 1` instead:
+`./dota.sh -console -insecure +sv_lan 1 +sv_cheats 1 +map "dota gamemode 21" +dota_start_ai_game 1`
+You can choose a side with `cl_team` (2=radiant, 3=dire)
+Then you can choose a side and the rest will be fille din with bots. Would this still work with
+dedicated game?
+
+`dota_lobby_browser_selected_gamemode`?
+
+`dota_bot_use_machine_learned_weights` is a console option?
+
+The difference between game mode MID (11) and 1v1 (21) seems that in the mid game mode, the creeps
+spawn at the -60s time (after 30s), while at 21 they spawn at 0s (after 90s).
+
+So `dota_start_ai_game` auto-fills with bots after the player has chosen. Does it work with
+no real players still? -> NO. So if playing through GUI, use `dota_start_ai_game` otherwise use
+`-fill_with_bots`
+
+Demos often seem borked because of abrupt quits. Just quit the dota game cleanly and the demos will be
+allright, even with `map` is dota (and gamemode 11).
+
+You can also launch a demo from console simply with `./dota.sh +playdemo foo` if `foo.dem` is the demo.
+
+Confirmed, map `start` works fine with replay (even if steam is on or off) while map `dota` gives
+a black screen on the replays.
+
+When using the GUI, the terminal's stdin doesn't pipe to dota's console anymore.
+
+Maybe we can use `host_force_frametime_to_equal_tick_interval` and `host_framerate` to speed things up.
