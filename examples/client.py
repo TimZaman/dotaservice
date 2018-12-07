@@ -78,7 +78,7 @@ def get_rewards(observation):
 class Policy(nn.Module):
     def __init__(self):
         super(Policy, self).__init__()
-        self.affine1 = nn.Linear(2, 128)
+        self.affine1 = nn.Linear(3, 128)
         self.affine2a = nn.Linear(128, 2)
         self.affine2b = nn.Linear(128, 2)
 
@@ -97,14 +97,17 @@ policy = Policy()
 optimizer = optim.Adam(policy.parameters(), lr=1e-2)
 eps = np.finfo(np.float32).eps.item()
 
-# pretrained_model = 'model_000000014.pt'
+# pretrained_model = 'runs/Dec0_00-03-40_Tims-Mac-Pro.local/model_000000348.pt'
+# pretrained_model = 'runs/Dec05_00/model_000000014.pt'
 # policy.load_state_dict(torch.load(pretrained_model))
 
 
-def select_action(state):
+def select_action(world_state):
     # Preprocess the state
-    state = get_hero_unit(state).location
-    state = np.array([state.x, state.y]) / 7000  # maps the map between [-1 and 1]
+    unit = get_hero_unit(world_state)
+    state = np.array([unit.location.x, unit.location.y]) / 7000  # maps the map between [-1 and 1]
+
+    state = np.append(state, [unit.health / unit.health_max])
 
     state = torch.from_numpy(state).float().unsqueeze(0)
     probs = policy(state)
@@ -159,10 +162,7 @@ async def main():
         # render=True,
     )
 
-    log_interval = 10
     batch_size = 4
-
-    running_reward = 10
 
     for episode in range(1000):
 
@@ -174,7 +174,7 @@ async def main():
 
             state = await env.reset(config)
 
-            for t in range(200):  # take 100 steps
+            for t in range(90):  # take 100 steps
                 action_a, action_b = select_action(state)
 
                 # print('action_a={} action_b={}'.format(action_a, action_b))
@@ -222,6 +222,42 @@ async def main():
         writer.add_scalar('mean_reward', avg_reward, episode)
         filename = os.path.join(log_dir, "model_%09d.pt" % episode)
         torch.save(policy.state_dict(), filename)
+        
+
+
+
+# async def main():
+#     loop = asyncio.get_event_loop()
+#     channel = Channel('127.0.0.1', 13337, loop=loop)
+#     env = DotaServiceStub(channel)
+
+#     config = Config(
+#         host_timescale=10,
+#         ticks_per_observation=30,
+#         render=False,
+#     )
+
+#     nsteps = 10000
+#     nepisodes = 10
+
+#     for e in range(nepisodes):
+#         observation = await env.reset(config)
+#         rewards = get_rewards(observation)
+
+#         for i in range(nsteps):
+#             action = CMsgBotWorldState.Action()
+#             action.actionType = CMsgBotWorldState.Action.Type.Value(
+#                 'DOTA_UNIT_ORDER_MOVE_TO_POSITION')
+#             m = CMsgBotWorldState.Action.MoveToLocation()
+#             m.location.x = math.sin(observation.world_state.dota_time) * 500 - 1000
+#             m.location.y = math.cos(observation.world_state.dota_time) * 500 - 1000
+#             m.location.z = 0
+#             action.moveToLocation.CopyFrom(m)
+#             observation = await env.step(Action(action=action))
+#             rewards = get_rewards(observation)
+
+#             print('t={:.2f}, rewards: {}'.format(observation.world_state.dota_time, rewards))
+
 
 if __name__ == '__main__':
     asyncio.run(main())
