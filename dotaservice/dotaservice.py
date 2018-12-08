@@ -217,13 +217,19 @@ class DotaGame(object):
         task_record_replay = asyncio.create_task(self.record_replay(process=process))
         task_monitor_log = asyncio.create_task(self.monitor_log())
 
-        await process.wait()
-
         try:
             await process.wait()
         except asyncio.CancelledError:
             kill_processes_and_children(pid=process.pid)
             raise
+
+    def close(self):
+        # TODO(tzaman): cleanly implement exit: write `quit` to stdin, and `close` all asyncio 
+        # stuff.
+        # How to do this though, as the dota loop is probably stuck waiting for an action response.
+        # Maybe add another file (other than the action file) that monitors the status or something?
+        # Or maybe a special value inside the action file..
+        pass
 
     @staticmethod
     async def _data_from_reader(reader):
@@ -231,7 +237,7 @@ class DotaGame(object):
         data = await reader.read(4)
         n_bytes = unpack("@I", data)[0]
         # Receive the payload given the length.
-        data = await asyncio.wait_for(reader.read(n_bytes), timeout=5.0)
+        data = await asyncio.wait_for(reader.read(n_bytes), timeout=1.0)
         # Decode the payload.
         parsed_data = CMsgBotWorldState()
         parsed_data.ParseFromString(data)

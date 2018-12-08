@@ -65,20 +65,35 @@ def get_total_xp(level, xp_needed_to_level):
     return xp_to_reach_level[level] + missing_xp_for_next_level
 
 
-def get_rewards(observation):
-    """Get the rewards for all heroes."""
-    rewards = {}
-    for unit in observation.world_state.units:
-        if unit.unit_type == CMsgBotWorldState.UnitType.Value('HERO'):
-            reward = get_total_xp(level=unit.level, xp_needed_to_level=unit.xp_needed_to_level)
-            rewards[unit.player_id] = reward
-    return rewards
+def get_reward(prev_state, state):
+    """Get the reward."""
+
+    unit_init = get_hero_unit(prev_state)
+    unit = get_hero_unit(state)
+
+    reward =  0
+
+    xp_init = get_total_xp(level=unit_init.level, xp_needed_to_level=unit_init.xp_needed_to_level)
+    xp = get_total_xp(level=unit.level, xp_needed_to_level=unit.xp_needed_to_level)
+
+    reward += (xp - xp_init) * 0.002  # One creep will result in 0.114 reward
+
+    if unit_init.is_alive and unit.is_alive:
+        hp_init = unit_init.health / unit_init.health_max
+        hp = unit.health / unit.health_max
+        reward += (hp - hp_init) * 2.0  # Losing 10% hp will result in -0.1 reward
+    if unit_init.is_alive and not unit.is_alive:
+        reward += -1.0  # Death is a massive -1 penalty.
+
+    return reward
 
 
 class Policy(nn.Module):
     def __init__(self):
         super(Policy, self).__init__()
-        self.affine1 = nn.Linear(3, 128)
+        self.affine1 = nn.Linear(2, 128)
+        self.affine1b = nn.Linear(1, 128)
+
         self.affine2a = nn.Linear(128, 2)
         self.affine2b = nn.Linear(128, 2)
 
@@ -86,31 +101,42 @@ class Policy(nn.Module):
         self.saved_log_probs_b = []
         self.rewards = []
 
-    def forward(self, x):
-        x = F.relu(self.affine1(x))
+    def forward(self, x1, x2):
+        xa = F.relu(self.affine1(x1))
+        xb = F.relu(self.affine1b(x2))
+
+        x = xa + xb
+
         action_scores_a = self.affine2a(x)
         action_scores_b = self.affine2b(x)
         return {'x': F.softmax(action_scores_a, dim=1), 'y': F.softmax(action_scores_b, dim=1)}
 
 
 policy = Policy()
-optimizer = optim.Adam(policy.parameters(), lr=1e-2)
+optimizer = optim.Adam(policy.parameters(), lr=1e-3)  # 1e-2 seemed fine
 eps = np.finfo(np.float32).eps.item()
 
 # pretrained_model = 'runs/Dec0_00-03-40_Tims-Mac-Pro.local/model_000000348.pt'
 # pretrained_model = 'runs/Dec05_00/model_000000014.pt'
-# policy.load_state_dict(torch.load(pretrained_model))
+# policy.load_state_dict(torch.load(pretrained_model), strict=False)
+pretrained_model = 'runs/Dec07_15-27-01_ngvpn01-160-168.dyn.scz.us.nvidia.com/model_000000042.pt'
+policy.load_state_dict(torch.load(pretrained_model), strict=True)
 
 
 def select_action(world_state):
     # Preprocess the state
     unit = get_hero_unit(world_state)
-    state = np.array([unit.location.x, unit.location.y]) / 7000  # maps the map between [-1 and 1]
 
-    state = np.append(state, [unit.health / unit.health_max])
+    # Location Input
+    location_state = np.array([unit.location.x, unit.location.y]) / 7000  # maps the map between [-1 and 1]
+    location_state = torch.from_numpy(location_state).float().unsqueeze(0)
 
-    state = torch.from_numpy(state).float().unsqueeze(0)
-    probs = policy(state)
+    # Health Input
+    health_state = torch.from_numpy(np.array([unit.health / unit.health_max])).float().unsqueeze(0) - 1.0 # Map between [-1 and 0]
+    
+    # TODO(tzaman) add dotatime
+
+    probs = policy(x1=location_state, x2=health_state)
 
     m = Categorical(probs['x'])
     action_a = m.sample()
@@ -145,20 +171,27 @@ def finish_episode():
 
 
 def get_hero_unit(state, id=0):
-   for unit in state.world_state.units:
+    for unit in state.world_state.units:
         if unit.unit_type == CMsgBotWorldState.UnitType.Value('HERO') and unit.player_id == id:
             return unit
+    return None
 
+
+
+N_RESET_RETRIES = 4
 
 async def main():
     loop = asyncio.get_event_loop()
     channel = Channel('127.0.0.1', 13337, loop=loop)
     env = DotaServiceStub(channel)
 
+    N_STEPS = 10000
+
     config = Config(
-        host_timescale=10,
         ticks_per_observation=30,
+        host_timescale=10,
         render=False,
+        # host_timescale=1,
         # render=True,
     )
 
@@ -172,9 +205,18 @@ async def main():
         for _ in range(batch_size):
             rewards = []
 
-            state = await env.reset(config)
+            state = None
+            for i in range(N_RESET_RETRIES):
+                try:
+                    state = await asyncio.wait_for(env.reset(config), timeout=60)
+                    break
+                except Exception as e:
+                    print('Exception on env.reset: {}'.format(e))
+                    if i == N_RESET_RETRIES-1:
+                        raise
 
-            for t in range(90):  # take 100 steps
+            for t in range(N_STEPS):  # take 100 steps
+                prev_state = state
                 action_a, action_b = select_action(state)
 
                 # print('action_a={} action_b={}'.format(action_a, action_b))
@@ -186,22 +228,27 @@ async def main():
                 hero_unit = get_hero_unit(state)
                 hero_location = hero_unit.location
                 # print('hero loc x={}, y={}'.format(hero_location.x, hero_location.y))
-                m.location.x = hero_location.x + 100 if action_a else hero_location.x - 100
-                m.location.y = hero_location.y + 100 if action_b else hero_location.y - 100
+                m.location.x = hero_location.x + 300 if action_a else hero_location.x - 300
+                m.location.y = hero_location.y + 300 if action_b else hero_location.y - 300
                 m.location.z = 0
 
                 action.moveToLocation.CopyFrom(m)
-                state = await env.step(Action(action=action))
 
+                try:
+                    state = await asyncio.wait_for(env.step(Action(action=action)), timeout=5)
+                except Exception as e:
+                    print('Exception on env.step: {}'.format(e))
+                    break
+
+                
                 # Get the reward for hero 0.
-                reward = get_rewards(state)[0]
+                reward = get_reward(prev_state=prev_state, state=state)
 
-                # Factor in health.
-                reward *= hero_unit.health / hero_unit.health_max
+                print('x={:.0f}, y={:.0f}, reward={}'.format(hero_location.x, hero_location.y, reward))
 
                 reward_sum += reward
                 rewards.append(reward)
-            print('last hero loc dotatime={}, x={}, y={}'.format(state.world_state.dota_time, hero_location.x, hero_location.y))
+            print('last hero loc dotatime={:.2f}, x={:.0f}, y={:.0f}'.format(state.world_state.dota_time, hero_location.x, hero_location.y))
 
 
             discounted_rewards = []
