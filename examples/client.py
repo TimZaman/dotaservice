@@ -2,7 +2,6 @@ import asyncio
 from time import time
 import math
 import uuid
-# from itertools import count
 import os
 
 from grpclib.client import Channel
@@ -97,10 +96,6 @@ class Policy(nn.Module):
         self.affine2a = nn.Linear(128, 2)
         self.affine2b = nn.Linear(128, 2)
 
-        self.saved_log_probs_a = []
-        self.saved_log_probs_b = []
-        self.rewards = []
-
     def forward(self, x1, x2):
         xa = F.relu(self.affine1(x1))
         xb = F.relu(self.affine1b(x2))
@@ -113,13 +108,10 @@ class Policy(nn.Module):
 
 
 policy = Policy()
-optimizer = optim.Adam(policy.parameters(), lr=1e-3)  # 1e-2 seemed fine
+optimizer = optim.Adam(policy.parameters(), lr=5e-4)  # 1e-2 seems to go out of control
 eps = np.finfo(np.float32).eps.item()
 
-# pretrained_model = 'runs/Dec0_00-03-40_Tims-Mac-Pro.local/model_000000348.pt'
-# pretrained_model = 'runs/Dec05_00/model_000000014.pt'
-# policy.load_state_dict(torch.load(pretrained_model), strict=False)
-pretrained_model = 'runs/Dec07_15-27-01_ngvpn01-160-168.dyn.scz.us.nvidia.com/model_000000042.pt'
+pretrained_model = 'runs/Dec07_21-00-13_Tims-Mac-Pro.local/model_000000006.pt'
 policy.load_state_dict(torch.load(pretrained_model), strict=True)
 
 
@@ -140,34 +132,29 @@ def select_action(world_state):
 
     m = Categorical(probs['x'])
     action_a = m.sample()
-    policy.saved_log_probs_a.append(m.log_prob(action_a))
 
     m = Categorical(probs['y'])
     action_b = m.sample()
-    policy.saved_log_probs_b.append(m.log_prob(action_b))
 
-    return action_a.item(), action_b.item()
+    return {'x': {'action': action_a.item(), 'logprob':m.log_prob(action_a)},
+            'y': {'action': action_b.item(), 'logprob':m.log_prob(action_b)},
+            }
 
 
-def finish_episode():
-    policy_loss = []
-    rewards = policy.rewards
+def finish_episode(rewards, log_probs):
     rewards = torch.tensor(rewards)
     rewards = (rewards - rewards.mean()) / (rewards.std() + eps)
 
-    for log_prob, reward in zip(policy.saved_log_probs_a, rewards):
-        policy_loss.append(-log_prob * reward)
-
-    for log_prob, reward in zip(policy.saved_log_probs_b, rewards):
-        policy_loss.append(-log_prob * reward)
+    loss = []
+    for log_prob, reward in zip(log_probs, rewards):
+        # TODO(tzaman) simplify
+        loss.append(-log_prob['x'] * reward)
+        loss.append(-log_prob['y'] * reward)
 
     optimizer.zero_grad()
-    policy_loss = torch.cat(policy_loss).sum()
-    policy_loss.backward()
+    loss = torch.cat(loss).sum()
+    loss.backward()
     optimizer.step()
-    del policy.rewards[:]
-    del policy.saved_log_probs_a[:]
-    del policy.saved_log_probs_b[:]
 
 
 def get_hero_unit(state, id=0):
@@ -178,133 +165,149 @@ def get_hero_unit(state, id=0):
 
 
 
+
+N_STEPS = 100
 N_RESET_RETRIES = 4
+
+class Actor(object):
+
+    def __init__(self, config, host='127.0.0.1', port=13337):
+        loop = asyncio.get_event_loop()
+        channel = Channel(host, port, loop=loop)
+        self.host = host
+        self.port = port
+        self.env = DotaServiceStub(channel)
+        self.config = config
+
+    async def __call__(self):
+        rewards = []
+        state = None
+        for i in range(N_RESET_RETRIES):
+            try:
+                state = await asyncio.wait_for(self.env.reset(self.config), timeout=60)
+                break
+            except Exception as e:
+                print('Exception on env.reset: {}'.format(e))
+                if i == N_RESET_RETRIES-1:
+                    raise
+
+        log_probs = []
+
+        for t in range(N_STEPS):  # Steps/actions in the environment
+            prev_state = state
+            # action_a, action_b = select_action(state)
+            action = select_action(state)
+
+            action_a = action['x']['action']
+            action_b = action['y']['action']
+
+            log_probs.append({'x': action['x']['logprob'], 'y': action['y']['logprob']})
+
+            # print('action_a={} action_b={}'.format(action_a, action_b))
+
+            action = CMsgBotWorldState.Action()
+            action.actionType = CMsgBotWorldState.Action.Type.Value(
+                'DOTA_UNIT_ORDER_MOVE_TO_POSITION')
+            m = CMsgBotWorldState.Action.MoveToLocation()
+            hero_unit = get_hero_unit(state)
+            hero_location = hero_unit.location
+            # print('hero loc x={}, y={}'.format(hero_location.x, hero_location.y))
+            m.location.x = hero_location.x + 300 if action_a else hero_location.x - 300
+            m.location.y = hero_location.y + 300 if action_b else hero_location.y - 300
+            m.location.z = 0
+
+            action.moveToLocation.CopyFrom(m)
+
+            try:
+                state = await asyncio.wait_for(self.env.step(Action(action=action)), timeout=10)
+            except Exception as e:
+                print('Exception on env.step: {}'.format(e))
+                break
+
+            reward = get_reward(prev_state=prev_state, state=state)
+
+            # print('x={:.0f}, y={:.0f}, reward={}'.format(hero_location.x, hero_location.y, reward))
+
+            rewards.append(reward)
+        print('{} last dotatime={:.2f}, x={:.0f}, y={:.0f}'.format(
+            self.port, state.world_state.dota_time, hero_location.x, hero_location.y))
+
+        return rewards, log_probs
+
+
+def discount_rewards(rewards, gamma=0.99):
+    R = 0
+    discounted_rewards = []
+    for r in rewards[::-1]:
+        R = r + gamma * R
+        discounted_rewards.insert(0, R)
+    return discounted_rewards
+
 
 async def main():
     loop = asyncio.get_event_loop()
-    channel = Channel('127.0.0.1', 13337, loop=loop)
-    env = DotaServiceStub(channel)
 
-    N_STEPS = 10000
 
     config = Config(
         ticks_per_observation=30,
         host_timescale=10,
         render=False,
-        # host_timescale=1,
-        # render=True,
     )
+    actors = [
+        Actor(config=config, port=13337),
+        Actor(config=config, port=13338),
+        Actor(config=config, port=13339),
+        Actor(config=config, port=13340),
+    ]
 
-    batch_size = 4
+    # config = Config(
+    #     ticks_per_observation=30,
 
-    for episode in range(1000):
+    #     host_timescale=1,
+    #     render=True,
+    # )
+    # actors = [
+    #     Actor(config=config, port=13341),
+    #     # Actor(config=config, port=13338),
+    #     # Actor(config=config, port=13339),
+    #     # Actor(config=config, port=13340),
+    # ]
 
-        all_discounted_rewards = []  # rewards
-        actions_steps = []
+    N_EPISODES = 10000
+    BATCH_SIZE = 8
+
+    if BATCH_SIZE % len(actors) != 0:
+        print('Notice: amount of actors not cleanly divisible by batch size.')
+
+    for episode in range(N_EPISODES):
+
         reward_sum = 0
-        for _ in range(batch_size):
-            rewards = []
+        all_rewards = []
+        all_log_probs = []
 
-            state = None
-            for i in range(N_RESET_RETRIES):
-                try:
-                    state = await asyncio.wait_for(env.reset(config), timeout=60)
-                    break
-                except Exception as e:
-                    print('Exception on env.reset: {}'.format(e))
-                    if i == N_RESET_RETRIES-1:
-                        raise
+        i = 0
+        while i < BATCH_SIZE:
+            print('@subbatch #{}'.format(i))
 
-            for t in range(N_STEPS):  # take 100 steps
-                prev_state = state
-                action_a, action_b = select_action(state)
+            actor_output = await asyncio.gather(*[a() for a in actors])
 
-                # print('action_a={} action_b={}'.format(action_a, action_b))
+            # Loop over all distributed actors.
+            for rewards, log_probs in actor_output:
+                reward_sum += sum(rewards)
+                discounted_rewards = discount_rewards(rewards)
+                all_rewards.extend(discounted_rewards)
+                all_log_probs.extend(log_probs)
 
-                action = CMsgBotWorldState.Action()
-                action.actionType = CMsgBotWorldState.Action.Type.Value(
-                    'DOTA_UNIT_ORDER_MOVE_TO_POSITION')
-                m = CMsgBotWorldState.Action.MoveToLocation()
-                hero_unit = get_hero_unit(state)
-                hero_location = hero_unit.location
-                # print('hero loc x={}, y={}'.format(hero_location.x, hero_location.y))
-                m.location.x = hero_location.x + 300 if action_a else hero_location.x - 300
-                m.location.y = hero_location.y + 300 if action_b else hero_location.y - 300
-                m.location.z = 0
+                i += 1
 
-                action.moveToLocation.CopyFrom(m)
+        finish_episode(rewards=all_rewards, log_probs=all_log_probs)
 
-                try:
-                    state = await asyncio.wait_for(env.step(Action(action=action)), timeout=5)
-                except Exception as e:
-                    print('Exception on env.step: {}'.format(e))
-                    break
-
-                
-                # Get the reward for hero 0.
-                reward = get_reward(prev_state=prev_state, state=state)
-
-                print('x={:.0f}, y={:.0f}, reward={}'.format(hero_location.x, hero_location.y, reward))
-
-                reward_sum += reward
-                rewards.append(reward)
-            print('last hero loc dotatime={:.2f}, x={:.0f}, y={:.0f}'.format(state.world_state.dota_time, hero_location.x, hero_location.y))
-
-
-            discounted_rewards = []
-            R = 0
-            gamma = 0.99
-
-            for r in rewards[::-1]:
-                R = r + gamma * R
-                discounted_rewards.insert(0, R)
-
-            policy.rewards.extend(discounted_rewards)
-
-
-        finish_episode()
-
-        avg_reward = reward_sum/batch_size
-        print('ep={} reward sum={}'.format(episode, reward_sum/batch_size))
+        avg_reward = reward_sum / BATCH_SIZE
+        print('ep={} n_actors={} avg_reward={}'.format(episode, i, avg_reward))
         writer.add_scalar('mean_reward', avg_reward, episode)
         filename = os.path.join(log_dir, "model_%09d.pt" % episode)
         torch.save(policy.state_dict(), filename)
         
-
-
-
-# async def main():
-#     loop = asyncio.get_event_loop()
-#     channel = Channel('127.0.0.1', 13337, loop=loop)
-#     env = DotaServiceStub(channel)
-
-#     config = Config(
-#         host_timescale=10,
-#         ticks_per_observation=30,
-#         render=False,
-#     )
-
-#     nsteps = 10000
-#     nepisodes = 10
-
-#     for e in range(nepisodes):
-#         observation = await env.reset(config)
-#         rewards = get_rewards(observation)
-
-#         for i in range(nsteps):
-#             action = CMsgBotWorldState.Action()
-#             action.actionType = CMsgBotWorldState.Action.Type.Value(
-#                 'DOTA_UNIT_ORDER_MOVE_TO_POSITION')
-#             m = CMsgBotWorldState.Action.MoveToLocation()
-#             m.location.x = math.sin(observation.world_state.dota_time) * 500 - 1000
-#             m.location.y = math.cos(observation.world_state.dota_time) * 500 - 1000
-#             m.location.z = 0
-#             action.moveToLocation.CopyFrom(m)
-#             observation = await env.step(Action(action=action))
-#             rewards = get_rewards(observation)
-
-#             print('t={:.2f}, rewards: {}'.format(observation.world_state.dota_time, rewards))
-
 
 if __name__ == '__main__':
     asyncio.run(main())

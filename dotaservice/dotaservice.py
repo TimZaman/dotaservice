@@ -15,6 +15,7 @@ import subprocess
 import time
 import uuid
 
+from google.protobuf.message import DecodeError
 from google.protobuf.json_format import MessageToDict
 from grpclib.server import Server
 
@@ -258,8 +259,12 @@ class DotaGame(object):
         try:
             while True:
                 # This reader is always going to need to keep going to keep the buffers clean.
-                parsed_data = await self._data_from_reader(reader)
-                self.worldstate_queue.put_nowait(parsed_data)
+                try:
+                    parsed_data = await self._data_from_reader(reader)
+                    self.worldstate_queue.put_nowait(parsed_data)
+                except DecodeError as e:
+                    print(e)
+                    pass
         except asyncio.CancelledError:
             raise
 
