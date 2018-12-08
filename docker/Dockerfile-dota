@@ -29,18 +29,3 @@ ARG user
 ARG pwd
 ARG guard
 RUN /root/steamcmd/steamcmd.sh +login ${user} ${pwd} ${guard} +app_update 570 +quit
-
-RUN apt-get -q update \
- && apt-get install -y \
-    python3.7 \
-    python3.7-distutils \
- && curl -s https://bootstrap.pypa.io/get-pip.py | python3.7
-
-WORKDIR /root
-
-CMD mkdir /root/dotaservice
-COPY setup.py README.md /root/dotaservice/
-COPY dotaservice /root/dotaservice/dotaservice/
-RUN pip3.7 install --user -e /root/dotaservice/
-
-ENTRYPOINT ["python3.7", "-m", "dotaservice"]

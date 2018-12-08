@@ -26,5 +26,10 @@ docker run -dp 13337:13337 ds
 docker run -dp 13338:13337 ds
 ```
 
+Or for development run with `it` instead of detached `d` as:
+```
+docker run -itp 13337:13337 dotaservice
+```
+
 You can now open as many dota clients as you want, provided they expose on different ip:ports
 combinations and they don't collide.
