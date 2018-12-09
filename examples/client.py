@@ -80,9 +80,9 @@ def get_reward(prev_state, state):
     if unit_init.is_alive and unit.is_alive:
         hp_init = unit_init.health / unit_init.health_max
         hp = unit.health / unit.health_max
-        reward += (hp - hp_init) * 0.2
-    # if unit_init.is_alive and not unit.is_alive:
-    #     reward += -0.1  # Death is a massive penalty
+        reward += (hp - hp_init) * 0.4
+    if unit_init.is_alive and not unit.is_alive:
+        reward += -0.2  # Death should be a big penalty
 
     # Last-hit reward
     lh = unit.last_hits - unit_init.last_hits
@@ -130,9 +130,9 @@ policy = Policy()
 optimizer = optim.Adam(policy.parameters(), lr=1e-4)  # 1e-2 is obscene
 eps = np.finfo(np.float32).eps.item()
 
-START_EPISODE = 867
+START_EPISODE = 1061
 MODEL_FILENAME_FMT = "model_%09d.pt"
-pretrained_model = 'runs/Dec09_02-57-21_Tims-Mac-Pro.local/' + MODEL_FILENAME_FMT % START_EPISODE
+pretrained_model = 'runs/Dec09_11-32-22_Tims-Mac-Pro.local/' + MODEL_FILENAME_FMT % START_EPISODE
 policy.load_state_dict(torch.load(pretrained_model), strict=True)
 
 
@@ -294,7 +294,7 @@ class Actor(object):
             action_pb = action_to_pb(action=action, state=state.world_state)
 
             try:
-                state = await asyncio.wait_for(self.env.step(Action(action=action_pb)), timeout=10)
+                state = await asyncio.wait_for(self.env.step(Action(action=action_pb)), timeout=11)
             except Exception as e:
                 print('Exception on env.step: {}'.format(e))
                 break
@@ -323,29 +323,28 @@ def discount_rewards(rewards, gamma=0.99):
 async def main():
     loop = asyncio.get_event_loop()
 
+    # config = Config(
+    #     ticks_per_observation=30,
+    #     host_timescale=10,
+    #     render=False,
+    # )
+    # actors = [
+    #     Actor(config=config, port=42000),
+    #     Actor(config=config, port=42001),
+    #     Actor(config=config, port=42002),
+    #     Actor(config=config, port=42003),
+    #     Actor(config=config, port=42004),
+    #     Actor(config=config, port=42005),
+    #     Actor(config=config, port=42006),
+    #     Actor(config=config, port=42007),
+    # ]
 
     config = Config(
         ticks_per_observation=30,
-        host_timescale=10,
-        render=False,
+        host_timescale=2,
+        render=True,
     )
-    actors = [
-        Actor(config=config, port=42000),
-        Actor(config=config, port=42001),
-        Actor(config=config, port=42002),
-        Actor(config=config, port=42003),
-        Actor(config=config, port=42004),
-        Actor(config=config, port=42005),
-        Actor(config=config, port=42006),
-        Actor(config=config, port=42007),
-    ]
-
-    # config = Config(
-    #     ticks_per_observation=30,
-    #     host_timescale=2,
-    #     render=True,
-    # )
-    # actors = [Actor(config=config, port=13337)]
+    actors = [Actor(config=config, port=13337)]
 
     N_EPISODES = 100000
     BATCH_SIZE = 8
