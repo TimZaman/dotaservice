@@ -238,7 +238,8 @@ class DotaGame(object):
         data = await reader.read(4)
         n_bytes = unpack("@I", data)[0]
         # Receive the payload given the length.
-        data = await asyncio.wait_for(reader.read(n_bytes), timeout=1.0)
+        # data = await asyncio.wait_for(reader.read(n_bytes), timeout=3.0)
+        data = await reader.read(n_bytes) # Should we timeout for this?
         # Decode the payload.
         parsed_data = CMsgBotWorldState()
         parsed_data.ParseFromString(data)

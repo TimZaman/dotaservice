@@ -6,6 +6,10 @@ local ACTION_FILENAME = 'bots/action'
 local live_config = nil
 
 
+
+
+
+
 local function act(action)
     -- print('(lua) act')
     local bot = GetBot()
@@ -14,6 +18,14 @@ local function act(action)
         do return end
     elseif  action_type == 'DOTA_UNIT_ORDER_MOVE_TO_POSITION' then
         bot:Action_MoveDirectly(Vector(action.moveToLocation.location.x, action.moveToLocation.location.y))
+    elseif  action_type == 'DOTA_UNIT_ORDER_ATTACK_TARGET' then
+        -- action.attackTarget.target  TODO(tzaman): use this target unit. 
+        enemies = true
+        local creeps = bot:GetNearbyLaneCreeps(1200, enemies);
+        for _,c in pairs(creeps) do  -- This is sorted from closest to furthest
+            bot:Action_AttackUnit(c, action.attackTarget.once)
+            do return end
+        end
     else
         print('Invalid action_type=', action_type)
     end

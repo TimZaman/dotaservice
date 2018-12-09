@@ -21,7 +21,7 @@ import torch.nn.functional as F
 import torch.optim as optim
 from torch.distributions import Categorical
 
-torch.manual_seed(1337)
+torch.manual_seed(7)
 
 writer = SummaryWriter()
 if writer:
@@ -80,9 +80,17 @@ def get_reward(prev_state, state):
     if unit_init.is_alive and unit.is_alive:
         hp_init = unit_init.health / unit_init.health_max
         hp = unit.health / unit.health_max
-        reward += (hp - hp_init) * 2.0  # Losing 10% hp will result in -0.1 reward
-    if unit_init.is_alive and not unit.is_alive:
-        reward += -1.0  # Death is a massive -1 penalty.
+        reward += (hp - hp_init) * 0.2
+    # if unit_init.is_alive and not unit.is_alive:
+    #     reward += -0.1  # Death is a massive penalty
+
+    # Last-hit reward
+    lh = unit.last_hits - unit_init.last_hits
+    reward += lh * 0.5
+
+    # Help him get to mid, for minor speed boost
+    dist_mid = math.sqrt(unit.location.x**2 + unit.location.y**2)
+    reward += (1-(dist_mid / 8000.)) * 0.01
 
     return reward
 
@@ -90,80 +98,126 @@ def get_reward(prev_state, state):
 class Policy(nn.Module):
     def __init__(self):
         super(Policy, self).__init__()
-        self.affine1 = nn.Linear(2, 128)
-        self.affine1b = nn.Linear(1, 128)
+        self.affine1a = nn.Linear(2, 128)
+        self.affine1b = nn.Linear(2, 128)
+        self.affine1c = nn.Linear(2, 128)
 
         self.affine2a = nn.Linear(128, 2)
         self.affine2b = nn.Linear(128, 2)
+        self.affine2c = nn.Linear(128, 3)
 
-    def forward(self, x1, x2):
-        xa = F.relu(self.affine1(x1))
-        xb = F.relu(self.affine1b(x2))
+    def forward(self, xa, xb, xc):
+        print('policy(xa={}, xb={}, xc={})'.format(xa, xb, xc))
 
-        x = xa + xb
+        xa = self.affine1a(xa)
+        xb = self.affine1b(xb)
+        xc = self.affine1c(xc)
 
-        action_scores_a = self.affine2a(x)
-        action_scores_b = self.affine2b(x)
-        return {'x': F.softmax(action_scores_a, dim=1), 'y': F.softmax(action_scores_b, dim=1)}
+        x = F.relu(xa + xb + xc)
+
+        action_scores_x = self.affine2a(x)
+        action_scores_y = self.affine2b(x)
+        action_scores_enum = self.affine2c(x)
+
+        return {
+                'x': F.softmax(action_scores_x, dim=1),
+                'y': F.softmax(action_scores_y, dim=1),
+                'enum': F.softmax(action_scores_enum, dim=1),
+                }
 
 
 policy = Policy()
-optimizer = optim.Adam(policy.parameters(), lr=5e-4)  # 1e-2 seems to go out of control
+optimizer = optim.Adam(policy.parameters(), lr=1e-4)  # 1e-2 is obscene
 eps = np.finfo(np.float32).eps.item()
 
-pretrained_model = 'runs/Dec07_21-00-13_Tims-Mac-Pro.local/model_000000006.pt'
+START_EPISODE = 362
+MODEL_FILENAME_FMT = "model_%09d.pt"
+pretrained_model = 'runs/Dec08_20-49-15_Tims-Mac-Pro.local/' + MODEL_FILENAME_FMT % START_EPISODE
 policy.load_state_dict(torch.load(pretrained_model), strict=True)
 
 
-def select_action(world_state):
+def select_action(world_state, step=None):
     # Preprocess the state
     unit = get_hero_unit(world_state)
 
     # Location Input
-    location_state = np.array([unit.location.x, unit.location.y]) / 7000  # maps the map between [-1 and 1]
+    location_state = np.array([unit.location.x, unit.location.y]) / 7000.  # maps the map between [-1 and 1]
     location_state = torch.from_numpy(location_state).float().unsqueeze(0)
 
-    # Health Input
-    health_state = torch.from_numpy(np.array([unit.health / unit.health_max])).float().unsqueeze(0) - 1.0 # Map between [-1 and 0]
-    
-    # TODO(tzaman) add dotatime
+    # Health and dotatime input
+    hp_rel = 1. - (unit.health / unit.health_max) # Map between [0 and 1]
+    dota_time_norm = dota_time = world_state.dota_time / 1200.  # Normalize by 20 minutes
+    env_state = torch.from_numpy(np.array([hp_rel, dota_time_norm])).float().unsqueeze(0) 
 
-    probs = policy(x1=location_state, x2=health_state)
 
-    m = Categorical(probs['x'])
-    action_a = m.sample()
+    # Nearest creep input
+    closest_unit, distance = get_nearest_creep_to_hero(world_state, hero_unit=unit)
+    MAX_CREEP_DIST = 1200.
+    if closest_unit is not None and distance < MAX_CREEP_DIST:
+        # print('closest_unit:\n{}'.format(closest_unit))
+        creep_hp = 1. - (closest_unit.health / closest_unit.health_max)  # [1 (dead) : 0 (full hp)]
+        distance = 1. - (distance / MAX_CREEP_DIST)  # [1 (close): 0 (far)] 
+    else :
+        creep_hp = 0
+        distance = 0
 
-    m = Categorical(probs['y'])
-    action_b = m.sample()
+    creep_state = torch.from_numpy(np.array([creep_hp, distance])).float().unsqueeze(0) 
 
-    return {'x': {'action': action_a.item(), 'logprob':m.log_prob(action_a)},
-            'y': {'action': action_b.item(), 'logprob':m.log_prob(action_b)},
-            }
+    probs = policy(xa=location_state, xb=env_state, xc=creep_state)
+
+    actions = {}
+    for k, prob in probs.items():
+        m = Categorical(prob)
+        action = m.sample()
+        actions[k] = {'action': action.item(), 'prob': prob, 'logprob' :m.log_prob(action)}
+
+    return actions
+
 
 
 def finish_episode(rewards, log_probs):
+    print('@finish_eposide')
     rewards = torch.tensor(rewards)
     rewards = (rewards - rewards.mean()) / (rewards.std() + eps)
 
+    # print('rewards: {}'.format(rewards))
+    # print('log_probs: {}'.format(log_probs))
+
     loss = []
     for log_prob, reward in zip(log_probs, rewards):
-        # TODO(tzaman) simplify
-        loss.append(-log_prob['x'] * reward)
-        loss.append(-log_prob['y'] * reward)
+        for key in log_prob:
+            loss.append(-log_prob[key] * reward)
 
     optimizer.zero_grad()
-    loss = torch.cat(loss).sum()
+    loss = torch.cat(loss).mean()
     loss.backward()
     optimizer.step()
+    return loss
 
 
 def get_hero_unit(state, id=0):
-    for unit in state.world_state.units:
+    for unit in state.units:
         if unit.unit_type == CMsgBotWorldState.UnitType.Value('HERO') and unit.player_id == id:
             return unit
-    return None
+    raise ValueError("hero {} nor found in state:\n{}".format(id, state))
 
 
+def location_distance(lhs, rhs):
+    return math.sqrt( (lhs.x-rhs.x)**2  +  (lhs.y-rhs.y)**2 )
+
+def get_nearest_creep_to_hero(state, hero_unit):
+    # hero_unit = get_hero_unit(state=state, id=id)
+    min_d = None
+    closest_unit = None
+    for unit in state.units:
+        if unit.unit_type == CMsgBotWorldState.UnitType.Value('LANE_CREEP') \
+            and unit.team_id != hero_unit.team_id \
+            and unit.is_alive:  # Why the shits does the proto show dead units.
+            d = location_distance(hero_unit.location, unit.location)
+            if min_d is None or d < min_d:
+                min_d = d
+                closest_unit = unit
+    return closest_unit, min_d
 
 
 N_STEPS = 100
@@ -193,30 +247,43 @@ class Actor(object):
 
         log_probs = []
 
-        for t in range(N_STEPS):  # Steps/actions in the environment
+        for step in range(N_STEPS):  # Steps/actions in the environment
             prev_state = state
-            # action_a, action_b = select_action(state)
-            action = select_action(state)
+            action = select_action(state.world_state, step=step)
+            print('action:{}'.format(action))
 
-            action_a = action['x']['action']
-            action_b = action['y']['action']
+            action_x = action['x']['action']
+            action_y = action['y']['action']
+            action_enum = action['enum']['action']
 
-            log_probs.append({'x': action['x']['logprob'], 'y': action['y']['logprob']})
-
-            # print('action_a={} action_b={}'.format(action_a, action_b))
+            log_probs.append({'x': action['x']['logprob'],
+                              'y': action['y']['logprob'],
+                              'enum': action['enum']['logprob'],
+                              })
 
             action = CMsgBotWorldState.Action()
-            action.actionType = CMsgBotWorldState.Action.Type.Value(
-                'DOTA_UNIT_ORDER_MOVE_TO_POSITION')
-            m = CMsgBotWorldState.Action.MoveToLocation()
-            hero_unit = get_hero_unit(state)
-            hero_location = hero_unit.location
-            # print('hero loc x={}, y={}'.format(hero_location.x, hero_location.y))
-            m.location.x = hero_location.x + 300 if action_a else hero_location.x - 300
-            m.location.y = hero_location.y + 300 if action_b else hero_location.y - 300
-            m.location.z = 0
+            hero_unit = get_hero_unit(state.world_state)
 
-            action.moveToLocation.CopyFrom(m)
+            if action_enum == 0:
+                action.actionType = CMsgBotWorldState.Action.Type.Value('DOTA_UNIT_ORDER_NONE')
+            elif action_enum == 1:
+                action.actionType = CMsgBotWorldState.Action.Type.Value(
+                    'DOTA_UNIT_ORDER_MOVE_TO_POSITION')
+                m = CMsgBotWorldState.Action.MoveToLocation()
+                hero_location = hero_unit.location
+                m.location.x = hero_location.x + 350 if action_x else hero_location.x - 350
+                m.location.y = hero_location.y + 350 if action_y else hero_location.y - 350
+                m.location.z = 0
+                action.moveToLocation.CopyFrom(m)
+            elif action_enum == 2:
+                action.actionType = CMsgBotWorldState.Action.Type.Value(
+                                    'DOTA_UNIT_ORDER_ATTACK_TARGET')
+                m = CMsgBotWorldState.Action.AttackTarget()
+                m.target = 1337 # TODO(tzaman): Improve - for now just attack closest creep in lua code
+                m.once = False
+                action.attackTarget.CopyFrom(m)
+            else:
+                raise ValueError("unknown action {}".format(action_enum))
 
             try:
                 state = await asyncio.wait_for(self.env.step(Action(action=action)), timeout=10)
@@ -224,13 +291,14 @@ class Actor(object):
                 print('Exception on env.step: {}'.format(e))
                 break
 
-            reward = get_reward(prev_state=prev_state, state=state)
+            reward = get_reward(prev_state=prev_state.world_state, state=state.world_state)
 
-            # print('x={:.0f}, y={:.0f}, reward={}'.format(hero_location.x, hero_location.y, reward))
+            print('x={:.0f}, y={:.0f}, reward={}'.format(hero_unit.location.x, hero_unit.location.y, reward))
+            print(' ')
 
             rewards.append(reward)
         print('{} last dotatime={:.2f}, x={:.0f}, y={:.0f}'.format(
-            self.port, state.world_state.dota_time, hero_location.x, hero_location.y))
+            self.port, state.world_state.dota_time, hero_unit.location.x, hero_unit.location.y))
 
         return rewards, log_probs
 
@@ -254,32 +322,30 @@ async def main():
         render=False,
     )
     actors = [
-        Actor(config=config, port=13337),
-        Actor(config=config, port=13338),
-        Actor(config=config, port=13339),
-        Actor(config=config, port=13340),
+        Actor(config=config, port=42000),
+        Actor(config=config, port=42001),
+        Actor(config=config, port=42002),
+        Actor(config=config, port=42003),
+        Actor(config=config, port=42004),
+        Actor(config=config, port=42005),
+        Actor(config=config, port=42006),
+        Actor(config=config, port=42007),
     ]
 
     # config = Config(
     #     ticks_per_observation=30,
-
-    #     host_timescale=1,
+    #     host_timescale=2,
     #     render=True,
     # )
-    # actors = [
-    #     Actor(config=config, port=13341),
-    #     # Actor(config=config, port=13338),
-    #     # Actor(config=config, port=13339),
-    #     # Actor(config=config, port=13340),
-    # ]
+    # actors = [Actor(config=config, port=13337)]
 
-    N_EPISODES = 10000
+    N_EPISODES = 100000
     BATCH_SIZE = 8
 
     if BATCH_SIZE % len(actors) != 0:
         print('Notice: amount of actors not cleanly divisible by batch size.')
 
-    for episode in range(N_EPISODES):
+    for episode in range(START_EPISODE, N_EPISODES):
 
         reward_sum = 0
         all_rewards = []
@@ -288,7 +354,6 @@ async def main():
         i = 0
         while i < BATCH_SIZE:
             print('@subbatch #{}'.format(i))
-
             actor_output = await asyncio.gather(*[a() for a in actors])
 
             # Loop over all distributed actors.
@@ -300,12 +365,13 @@ async def main():
 
                 i += 1
 
-        finish_episode(rewards=all_rewards, log_probs=all_log_probs)
+        loss = finish_episode(rewards=all_rewards, log_probs=all_log_probs)
 
         avg_reward = reward_sum / BATCH_SIZE
-        print('ep={} n_actors={} avg_reward={}'.format(episode, i, avg_reward))
+        print('ep={} n_actors={} avg_reward={} loss={}'.format(episode, i, avg_reward, loss))
+        writer.add_scalar('loss', loss, episode)
         writer.add_scalar('mean_reward', avg_reward, episode)
-        filename = os.path.join(log_dir, "model_%09d.pt" % episode)
+        filename = os.path.join(log_dir, MODEL_FILENAME_FMT % episode)
         torch.save(policy.state_dict(), filename)
         
 
