@@ -32,7 +32,7 @@ $ cat Steam/steamapps/common/dota\ 2\ beta/game/dota/bin/linuxsteamrt64/libserve
 
 The bot script's LUA version is 5.1 and luajit-2.0.4.
 
-Good command for dedicated bot 1v1
+Good command for dedicated bot 
 ```sh
 dota.sh \
 -dedicated -insecure +map dota +sv_lan 1 +clientport 27006 +sv_cheats 1 \
@@ -56,7 +56,7 @@ The awesome Valve dev that worked on the dota bot api and OpenAI's contact at Va
 
 On the DOTA client, `clientport` default is `27015`. Multiple steam clients on same router/computer should
 have different clienports; corresponding option e.g.: `+clientport 27017`.
-\
+
 Mid 1v1 mode skips the 30s strategy; `+dota_force_gamemode 11 +dota_1v1_skip_strategy 1`.
 
 Saving replays is impossibe by dedicated servers: need SourceTV (tv_*), `27020` is the default SourceTV port.
@@ -167,8 +167,6 @@ Seems the same as previous.
 
 Changing above to `+map start` doesn't make a difference.
 
-Using Dota GUI, "1v1 solo mid" (21) only spawns creeps in center, but bots fill up all 5v5 spaces.
-The "mid-only" (11) mode doesn't seem to spawn any creeps at all!
 
 `./dota.sh -console -insecure +sv_lan 1 +sv_cheats 1 +map "dota gamemode 21" -fill_with_bots`
 Works nicely. Not sure how to take over bots though. Seems that i can just join a team as long
