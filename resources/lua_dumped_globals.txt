@@ -1,0 +1,913 @@
+ABILITY_BEHAVIOR_AOE
+ABILITY_BEHAVIOR_ATTACK
+ABILITY_BEHAVIOR_AURA
+ABILITY_BEHAVIOR_AUTOCAST
+ABILITY_BEHAVIOR_CHANNELLED
+ABILITY_BEHAVIOR_DIRECTIONAL
+ABILITY_BEHAVIOR_DONT_ALERT_TARGET
+ABILITY_BEHAVIOR_DONT_CANCEL_CHANNEL
+ABILITY_BEHAVIOR_DONT_CANCEL_MOVEMENT
+ABILITY_BEHAVIOR_DONT_RESUME_ATTACK
+ABILITY_BEHAVIOR_DONT_RESUME_MOVEMENT
+ABILITY_BEHAVIOR_HIDDEN
+ABILITY_BEHAVIOR_IGNORE_BACKSWING
+ABILITY_BEHAVIOR_IGNORE_CHANNEL
+ABILITY_BEHAVIOR_IGNORE_PSEUDO_QUEUE
+ABILITY_BEHAVIOR_IMMEDIATE
+ABILITY_BEHAVIOR_ITEM
+ABILITY_BEHAVIOR_LAST_RESORT_POINT
+ABILITY_BEHAVIOR_NONE
+ABILITY_BEHAVIOR_NORMAL_WHEN_STOLEN
+ABILITY_BEHAVIOR_NOT_LEARNABLE
+ABILITY_BEHAVIOR_NO_TARGET
+ABILITY_BEHAVIOR_OPTIONAL_NO_TARGET
+ABILITY_BEHAVIOR_OPTIONAL_POINT
+ABILITY_BEHAVIOR_OPTIONAL_UNIT_TARGET
+ABILITY_BEHAVIOR_PASSIVE
+ABILITY_BEHAVIOR_POINT
+ABILITY_BEHAVIOR_ROOT_DISABLES
+ABILITY_BEHAVIOR_RUNE_TARGET
+ABILITY_BEHAVIOR_TOGGLE
+ABILITY_BEHAVIOR_UNIT_TARGET
+ABILITY_BEHAVIOR_UNRESTRICTED
+ABILITY_BEHAVIOR_VECTOR_TARGETING
+ABILITY_TARGET_FLAG_CHECK_DISABLE_HELP
+ABILITY_TARGET_FLAG_DEAD
+ABILITY_TARGET_FLAG_FOW_VISIBLE
+ABILITY_TARGET_FLAG_INVULNERABLE
+ABILITY_TARGET_FLAG_MAGIC_IMMUNE_ENEMIES
+ABILITY_TARGET_FLAG_MANA_ONLY
+ABILITY_TARGET_FLAG_MELEE_ONLY
+ABILITY_TARGET_FLAG_NONE
+ABILITY_TARGET_FLAG_NOT_ANCIENTS
+ABILITY_TARGET_FLAG_NOT_ATTACK_IMMUNE
+ABILITY_TARGET_FLAG_NOT_CREEP_HERO
+ABILITY_TARGET_FLAG_NOT_DOMINATED
+ABILITY_TARGET_FLAG_NOT_ILLUSIONS
+ABILITY_TARGET_FLAG_NOT_MAGIC_IMMUNE_ALLIES
+ABILITY_TARGET_FLAG_NOT_NIGHTMARED
+ABILITY_TARGET_FLAG_NOT_SUMMONED
+ABILITY_TARGET_FLAG_NO_INVIS
+ABILITY_TARGET_FLAG_OUT_OF_WORLD
+ABILITY_TARGET_FLAG_PLAYER_CONTROLLED
+ABILITY_TARGET_FLAG_PREFER_ENEMIES
+ABILITY_TARGET_FLAG_RANGED_ONLY
+ABILITY_TARGET_TEAM_BOTH
+ABILITY_TARGET_TEAM_ENEMY
+ABILITY_TARGET_TEAM_FRIENDLY
+ABILITY_TARGET_TEAM_NONE
+ABILITY_TARGET_TYPE_ALL
+ABILITY_TARGET_TYPE_BASIC
+ABILITY_TARGET_TYPE_BUILDING
+ABILITY_TARGET_TYPE_COURIER
+ABILITY_TARGET_TYPE_CREEP
+ABILITY_TARGET_TYPE_HERO
+ABILITY_TARGET_TYPE_NONE
+ABILITY_TARGET_TYPE_OTHER
+ABILITY_TARGET_TYPE_TREE
+ACTIVITY_ATTACK
+ACTIVITY_ATTACK2
+ACTIVITY_ATTACK_EVENT
+ACTIVITY_CAPTURE
+ACTIVITY_CAST_ABILITY_1
+ACTIVITY_CAST_ABILITY_2
+ACTIVITY_CAST_ABILITY_3
+ACTIVITY_CAST_ABILITY_4
+ACTIVITY_CAST_ABILITY_5
+ACTIVITY_CAST_ABILITY_6
+ACTIVITY_CHANNEL_ABILITY_1
+ACTIVITY_CHANNEL_ABILITY_2
+ACTIVITY_CHANNEL_ABILITY_3
+ACTIVITY_CHANNEL_ABILITY_4
+ACTIVITY_CHANNEL_ABILITY_5
+ACTIVITY_CHANNEL_ABILITY_6
+ACTIVITY_CHANNEL_END_ABILITY_1
+ACTIVITY_CHANNEL_END_ABILITY_2
+ACTIVITY_CHANNEL_END_ABILITY_3
+ACTIVITY_CHANNEL_END_ABILITY_4
+ACTIVITY_CHANNEL_END_ABILITY_5
+ACTIVITY_CHANNEL_END_ABILITY_6
+ACTIVITY_CONSTANT_LAYER
+ACTIVITY_DIE
+ACTIVITY_DISABLED
+ACTIVITY_FLAIL
+ACTIVITY_FLINCH
+ACTIVITY_IDLE
+ACTIVITY_IDLE_RARE
+ACTIVITY_KILLTAUNT
+ACTIVITY_OVERRIDE_ABILITY_1
+ACTIVITY_OVERRIDE_ABILITY_2
+ACTIVITY_OVERRIDE_ABILITY_3
+ACTIVITY_OVERRIDE_ABILITY_4
+ACTIVITY_RUN
+ACTIVITY_SPAWN
+ACTIVITY_TAUNT
+ATTRIBUTE_AGILITY
+ATTRIBUTE_INTELLECT
+ATTRIBUTE_INVALID
+ATTRIBUTE_STRENGTH
+AddAvoidanceZone
+AddConditionalAvoidanceZone
+BARRACKS_BOT_MELEE
+BARRACKS_BOT_RANGED
+BARRACKS_MID_MELEE
+BARRACKS_MID_RANGED
+BARRACKS_TOP_MELEE
+BARRACKS_TOP_RANGED
+BOT_ACTION_DESIRE_ABSOLUTE
+BOT_ACTION_DESIRE_HIGH
+BOT_ACTION_DESIRE_LOW
+BOT_ACTION_DESIRE_MODERATE
+BOT_ACTION_DESIRE_NONE
+BOT_ACTION_DESIRE_VERYHIGH
+BOT_ACTION_DESIRE_VERYLOW
+BOT_ACTION_TYPE_ATTACK
+BOT_ACTION_TYPE_ATTACKMOVE
+BOT_ACTION_TYPE_DELAY
+BOT_ACTION_TYPE_DROP_ITEM
+BOT_ACTION_TYPE_IDLE
+BOT_ACTION_TYPE_MOVE_TO
+BOT_ACTION_TYPE_MOVE_TO_DIRECTLY
+BOT_ACTION_TYPE_NONE
+BOT_ACTION_TYPE_PICK_UP_ITEM
+BOT_ACTION_TYPE_PICK_UP_RUNE
+BOT_ACTION_TYPE_SHRINE
+BOT_ACTION_TYPE_USE_ABILITY
+BOT_MODE_ASSEMBLE
+BOT_MODE_ASSEMBLE_WITH_HUMANS
+BOT_MODE_ATTACK
+BOT_MODE_DEFEND_ALLY
+BOT_MODE_DEFEND_TOWER_BOT
+BOT_MODE_DEFEND_TOWER_MID
+BOT_MODE_DEFEND_TOWER_TOP
+BOT_MODE_DESIRE_ABSOLUTE
+BOT_MODE_DESIRE_HIGH
+BOT_MODE_DESIRE_LOW
+BOT_MODE_DESIRE_MODERATE
+BOT_MODE_DESIRE_NONE
+BOT_MODE_DESIRE_VERYHIGH
+BOT_MODE_DESIRE_VERYLOW
+BOT_MODE_EVASIVE_MANEUVERS
+BOT_MODE_FARM
+BOT_MODE_ITEM
+BOT_MODE_LANING
+BOT_MODE_NONE
+BOT_MODE_PUSH_TOWER_BOT
+BOT_MODE_PUSH_TOWER_MID
+BOT_MODE_PUSH_TOWER_TOP
+BOT_MODE_RETREAT
+BOT_MODE_ROAM
+BOT_MODE_ROSHAN
+BOT_MODE_RUNE
+BOT_MODE_SECRET_SHOP
+BOT_MODE_SIDE_SHOP
+BOT_MODE_TEAM_ROAM
+BOT_MODE_WARD
+BotBaseScriptScope
+	OnEnd
+	OnStart
+	dkjson
+		addnewline
+		decode
+		encode
+		encodeexception
+		null
+		quotestring
+		use_lpeg
+		version
+	dump
+BotTeamCommander2
+	__self
+CDOTABaseAbility_BotScript
+	CanAbilityBeUpgraded
+	CanBeDisassembled
+	GetAOERadius
+	GetAbilityDamage
+	GetAutoCastState
+	GetBehavior
+	GetCastPoint
+	GetCastRange
+	GetCaster
+	GetChannelTime
+	GetChannelledManaCostPerSecond
+	GetCooldown
+	GetCooldownTimeRemaining
+	GetCurrentCharges
+	GetDamageType
+	GetDuration
+	GetEstimatedDamageToTarget
+	GetHeroLevelRequiredToUpgrade
+	GetInitialCharges
+	GetLevel
+	GetManaCost
+	GetMaxLevel
+	GetName
+	GetPowerTreadsStat
+	GetSecondaryCharges
+	GetSpecialValueFloat
+	GetSpecialValueInt
+	GetTargetFlags
+	GetTargetTeam
+	GetTargetType
+	GetToggleState
+	IsActivated
+	IsChanneling
+	IsCombineLocked
+	IsCooldownReady
+	IsFullyCastable
+	IsHidden
+	IsInAbilityPhase
+	IsItem
+	IsNull
+	IsOwnersManaEnough
+	IsPassive
+	IsStealable
+	IsStolen
+	IsTalent
+	IsToggle
+	IsTrained
+	IsUltimate
+	ProcsMagicStick
+	ToggleAutoCast
+CDOTA_Bot_Script
+	ActionImmediate_Buyback
+	ActionImmediate_Chat
+	ActionImmediate_Courier
+	ActionImmediate_DisassembleItem
+	ActionImmediate_Glyph
+	ActionImmediate_LevelAbility
+	ActionImmediate_Ping
+	ActionImmediate_PurchaseItem
+	ActionImmediate_SellItem
+	ActionImmediate_SetItemCombineLock
+	ActionImmediate_SwapItems
+	ActionPush_AttackMove
+	ActionPush_AttackUnit
+	ActionPush_Delay
+	ActionPush_DropItem
+	ActionPush_MoveDirectly
+	ActionPush_MovePath
+	ActionPush_MoveToLocation
+	ActionPush_MoveToUnit
+	ActionPush_PickUpItem
+	ActionPush_PickUpRune
+	ActionPush_UseAbility
+	ActionPush_UseAbilityOnEntity
+	ActionPush_UseAbilityOnLocation
+	ActionPush_UseAbilityOnTree
+	ActionPush_UseShrine
+	ActionQueue_AttackMove
+	ActionQueue_AttackUnit
+	ActionQueue_Delay
+	ActionQueue_DropItem
+	ActionQueue_MoveDirectly
+	ActionQueue_MovePath
+	ActionQueue_MoveToLocation
+	ActionQueue_MoveToUnit
+	ActionQueue_PickUpItem
+	ActionQueue_PickUpRune
+	ActionQueue_UseAbility
+	ActionQueue_UseAbilityOnEntity
+	ActionQueue_UseAbilityOnLocation
+	ActionQueue_UseAbilityOnTree
+	ActionQueue_UseShrine
+	Action_AttackMove
+	Action_AttackUnit
+	Action_ClearActions
+	Action_Delay
+	Action_DropItem
+	Action_MoveDirectly
+	Action_MovePath
+	Action_MoveToLocation
+	Action_MoveToUnit
+	Action_PickUpItem
+	Action_PickUpRune
+	Action_UseAbility
+	Action_UseAbilityOnEntity
+	Action_UseAbilityOnLocation
+	Action_UseAbilityOnTree
+	Action_UseShrine
+	CanBeSeen
+	DistanceFromFountain
+	DistanceFromSecretShop
+	DistanceFromSideShop
+	FindAoELocation
+	FindItemSlot
+	GetAbilityByName
+	GetAbilityInSlot
+	GetAbilityPoints
+	GetAbilityTarget
+	GetAcquisitionRange
+	GetActiveMode
+	GetActiveModeDesire
+	GetActualIncomingDamage
+	GetAnimActivity
+	GetAnimCycle
+	GetArmor
+	GetAssignedLane
+	GetAttackCombatProficiency
+	GetAttackDamage
+	GetAttackPoint
+	GetAttackProjectileSpeed
+	GetAttackRange
+	GetAttackSpeed
+	GetAttackTarget
+	GetAttributeValue
+	GetBaseDamage
+	GetBaseDamageVariance
+	GetBaseHealthRegen
+	GetBaseManaRegen
+	GetBaseMovementSpeed
+	GetBoundingRadius
+	GetBountyGoldMax
+	GetBountyGoldMin
+	GetBountyXP
+	GetBuybackCooldown
+	GetBuybackCost
+	GetCourierValue
+	GetCurrentActionType
+	GetCurrentActiveAbility
+	GetCurrentMovementSpeed
+	GetCurrentVisionRange
+	GetDayTimeVisionRange
+	GetDefendCombatProficiency
+	GetDenies
+	GetDifficulty
+	GetEstimatedDamageToTarget
+	GetEvasion
+	GetExtrapolatedLocation
+	GetFacing
+	GetGold
+	GetGroundHeight
+	GetHealth
+	GetHealthRegen
+	GetHealthRegenPerStr
+	GetIncomingTrackingProjectiles
+	GetItemInSlot
+	GetItemSlotType
+	GetLastAttackTime
+	GetLastHits
+	GetLevel
+	GetLocation
+	GetMagicResist
+	GetMana
+	GetManaRegen
+	GetManaRegenPerInt
+	GetMaxHealth
+	GetMaxMana
+	GetModifierAuxiliaryUnits
+	GetModifierByName
+	GetModifierList
+	GetModifierName
+	GetModifierRemainingDuration
+	GetModifierStackCount
+	GetMostRecentPing
+	GetMovementDirectionStability
+	GetNearbyBarracks
+	GetNearbyCreeps
+	GetNearbyFillers
+	GetNearbyHeroes
+	GetNearbyLaneCreeps
+	GetNearbyNeutralCreeps
+	GetNearbyShrines
+	GetNearbyTowers
+	GetNearbyTrees
+	GetNetWorth
+	GetNextItemPurchaseValue
+	GetNightTimeVisionRange
+	GetOffensivePower
+	GetPlayerID
+	GetPrimaryAttribute
+	GetQueuedActionType
+	GetRawOffensivePower
+	GetRemainingLifespan
+	GetRespawnTime
+	GetSecondsPerAttack
+	GetSlowDuration
+	GetSpellAmp
+	GetStashValue
+	GetStunDuration
+	GetTalent
+	GetTarget
+	GetTeam
+	GetUnitName
+	GetVelocity
+	GetXPNeededToLevel
+	HasBlink
+	HasBuyback
+	HasInvisibility
+	HasMinistunOnAttack
+	HasModifier
+	HasScepter
+	HasSilence
+	IsAlive
+	IsAncientCreep
+	IsAttackImmune
+	IsBlind
+	IsBlockDisabled
+	IsBot
+	IsBuilding
+	IsCastingAbility
+	IsChanneling
+	IsCourier
+	IsCreep
+	IsDisarmed
+	IsDominated
+	IsEvadeDisabled
+	IsFacingLocation
+	IsFort
+	IsHero
+	IsHexed
+	IsIllusion
+	IsInvisible
+	IsInvulnerable
+	IsMagicImmune
+	IsMinion
+	IsMuted
+	IsNightmared
+	IsNull
+	IsRooted
+	IsSilenced
+	IsSpeciallyDeniable
+	IsStunned
+	IsTower
+	IsUnableToMiss
+	IsUsingAbility
+	NumModifiers
+	NumQueuedActions
+	SetNextItemPurchaseValue
+	SetTarget
+	TimeSinceDamagedByAnyHero
+	TimeSinceDamagedByCreep
+	TimeSinceDamagedByHero
+	TimeSinceDamagedByPlayer
+	TimeSinceDamagedByTower
+	UsingItemBreaksInvisibility
+	WasRecentlyDamagedByAnyHero
+	WasRecentlyDamagedByCreep
+	WasRecentlyDamagedByHero
+	WasRecentlyDamagedByPlayer
+	WasRecentlyDamagedByTower
+CDOTA_TeamCommander
+	IsNull
+CMBanHero
+CMPickHero
+COURIER_ACTION_BURST
+COURIER_ACTION_ENEMY_SECRET_SHOP
+COURIER_ACTION_RETURN
+COURIER_ACTION_RETURN_STASH_ITEMS
+COURIER_ACTION_SECRET_SHOP
+COURIER_ACTION_SIDE_SHOP
+COURIER_ACTION_SIDE_SHOP2
+COURIER_ACTION_TAKE_AND_TRANSFER_ITEMS
+COURIER_ACTION_TAKE_STASH_ITEMS
+COURIER_ACTION_TRANSFER_ITEMS
+COURIER_STATE_AT_BASE
+COURIER_STATE_DEAD
+COURIER_STATE_DELIVERING_ITEMS
+COURIER_STATE_IDLE
+COURIER_STATE_MOVING
+COURIER_STATE_RETURNING_TO_BASE
+Clamp
+CreateHTTPRequest
+CreateRemoteHTTPRequest
+DAMAGE_TYPE_ALL
+DAMAGE_TYPE_MAGICAL
+DAMAGE_TYPE_PHYSICAL
+DAMAGE_TYPE_PURE
+DIFFICULTY_EASY
+DIFFICULTY_HARD
+DIFFICULTY_INVALID
+DIFFICULTY_MEDIUM
+DIFFICULTY_PASSIVE
+DIFFICULTY_UNFAIR
+DebugDrawCircle
+DebugDrawLine
+DebugDrawText
+DebugPause
+DotaTime
+GAMEMODE_1V1MID
+GAMEMODE_ABILITY_DRAFT
+GAMEMODE_ALL_DRAFT
+GAMEMODE_AP
+GAMEMODE_AR
+GAMEMODE_ARDM
+GAMEMODE_CD
+GAMEMODE_CM
+GAMEMODE_MO
+GAMEMODE_MUTATION
+GAMEMODE_NONE
+GAMEMODE_RD
+GAMEMODE_REVERSE_CM
+GAMEMODE_SD
+GAMEMODE_TURBO
+GAME_STATE_CUSTOM_GAME_SETUP
+GAME_STATE_DISCONNECT
+GAME_STATE_GAME_IN_PROGRESS
+GAME_STATE_HERO_SELECTION
+GAME_STATE_INIT
+GAME_STATE_LAST
+GAME_STATE_POST_GAME
+GAME_STATE_PRE_GAME
+GAME_STATE_STRATEGY_TIME
+GAME_STATE_TEAM_SHOWCASE
+GAME_STATE_WAIT_FOR_MAP_TO_LOAD
+GAME_STATE_WAIT_FOR_PLAYERS_TO_LOAD
+GLYPH_COOLDOWN
+GameTime
+GeneratePath
+GetAllTrees
+GetAmountAlongLane
+GetAncient
+GetAvoidanceZones
+GetBarracks
+GetBot
+GetBotAbilityByHandle
+GetBotByHandle
+GetCMCaptain
+GetCMPhaseTimeRemaining
+GetCourier
+GetCourierForPlayer
+GetCourierState
+GetDefendLaneDesire
+GetDroppedItemList
+GetFarmLaneDesire
+GetGameMode
+GetGameState
+GetGameStateTimeRemaining
+GetGlyphCooldown
+GetHeightLevel
+GetHeroAssists
+GetHeroDeaths
+GetHeroKills
+GetHeroLastSeenInfo
+GetHeroLevel
+GetHeroPickState
+GetIncomingTeleports
+GetItemComponents
+GetItemCost
+GetItemStockCount
+GetLaneFrontAmount
+GetLaneFrontLocation
+GetLinearProjectileByHandle
+GetLinearProjectiles
+GetLocationAlongLane
+GetNeutralSpawners
+GetNumCouriers
+GetOpposingTeam
+GetPushLaneDesire
+GetRoamDesire
+GetRoamTarget
+GetRoshanDesire
+GetRoshanKillTime
+GetRuneSpawnLocation
+GetRuneStatus
+GetRuneTimeSinceSeen
+GetRuneType
+GetScriptDirectory
+GetSelectedHeroName
+GetShopLocation
+GetShrine
+GetShrineCooldown
+GetTeam
+GetTeamForPlayer
+GetTeamMember
+GetTeamPlayers
+GetTimeOfDay
+GetTower
+GetTowerAttackTarget
+GetTreeLocation
+GetUnitList
+GetUnitPotentialValue
+GetUnitToLocationDistance
+GetUnitToLocationDistanceSqr
+GetUnitToUnitDistance
+GetUnitToUnitDistanceSqr
+GetWorldBounds
+HEROPICK_STATE_ALL_DRAFT_SELECT
+HEROPICK_STATE_AP_SELECT
+HEROPICK_STATE_AR_SELECT
+HEROPICK_STATE_BD_SELECT
+HEROPICK_STATE_CD_BAN1
+HEROPICK_STATE_CD_BAN2
+HEROPICK_STATE_CD_BAN3
+HEROPICK_STATE_CD_BAN4
+HEROPICK_STATE_CD_BAN5
+HEROPICK_STATE_CD_BAN6
+HEROPICK_STATE_CD_CAPTAINPICK
+HEROPICK_STATE_CD_INTRO
+HEROPICK_STATE_CD_PICK
+HEROPICK_STATE_CD_SELECT1
+HEROPICK_STATE_CD_SELECT10
+HEROPICK_STATE_CD_SELECT2
+HEROPICK_STATE_CD_SELECT3
+HEROPICK_STATE_CD_SELECT4
+HEROPICK_STATE_CD_SELECT5
+HEROPICK_STATE_CD_SELECT6
+HEROPICK_STATE_CD_SELECT7
+HEROPICK_STATE_CD_SELECT8
+HEROPICK_STATE_CD_SELECT9
+HEROPICK_STATE_CM_BAN1
+HEROPICK_STATE_CM_BAN10
+HEROPICK_STATE_CM_BAN11
+HEROPICK_STATE_CM_BAN12
+HEROPICK_STATE_CM_BAN2
+HEROPICK_STATE_CM_BAN3
+HEROPICK_STATE_CM_BAN4
+HEROPICK_STATE_CM_BAN5
+HEROPICK_STATE_CM_BAN6
+HEROPICK_STATE_CM_BAN7
+HEROPICK_STATE_CM_BAN8
+HEROPICK_STATE_CM_BAN9
+HEROPICK_STATE_CM_CAPTAINPICK
+HEROPICK_STATE_CM_INTRO
+HEROPICK_STATE_CM_PICK
+HEROPICK_STATE_CM_SELECT1
+HEROPICK_STATE_CM_SELECT10
+HEROPICK_STATE_CM_SELECT2
+HEROPICK_STATE_CM_SELECT3
+HEROPICK_STATE_CM_SELECT4
+HEROPICK_STATE_CM_SELECT5
+HEROPICK_STATE_CM_SELECT6
+HEROPICK_STATE_CM_SELECT7
+HEROPICK_STATE_CM_SELECT8
+HEROPICK_STATE_CM_SELECT9
+HEROPICK_STATE_FH_SELECT
+HEROPICK_STATE_MO_SELECT
+HEROPICK_STATE_NONE
+HEROPICK_STATE_SD_SELECT
+HEROPICK_STATE_SELECT_PENALTY
+HERO_PICK_STATE_ABILITY_DRAFT_SELECT
+HERO_PICK_STATE_ARDM_SELECT
+HeroSelectionScriptScope
+	Think
+	UpdateLaneAssignments
+	a
+	gs
+ITEM_SLOT_TYPE_BACKPACK
+ITEM_SLOT_TYPE_INVALID
+ITEM_SLOT_TYPE_MAIN
+ITEM_SLOT_TYPE_STASH
+InstallCastCallback
+InstallChatCallback
+InstallCourierDeathCallback
+InstallDamageCallback
+InstallRoshanDeathCallback
+IsCMBannedHero
+IsCMPickedHero
+IsCourierAvailable
+IsFlyingCourier
+IsHeroAlive
+IsInCMBanPhase
+IsInCMPickPhase
+IsItemPurchasedFromSecretShop
+IsItemPurchasedFromSideShop
+IsLocationPassable
+IsLocationVisible
+IsPlayerBot
+IsPlayerInHeroSelectionControl
+IsRadiusVisible
+IsShrineHealing
+IsTeamPlayer
+LANE_BOT
+LANE_MID
+LANE_NONE
+LANE_TOP
+Max
+Min
+Msg
+PURCHASE_ITEM_DISALLOWED_ITEM
+PURCHASE_ITEM_INSUFFICIENT_GOLD
+PURCHASE_ITEM_INVALID_ITEM_NAME
+PURCHASE_ITEM_NOT_AT_HOME_SHOP
+PURCHASE_ITEM_NOT_AT_SECRET_SHOP
+PURCHASE_ITEM_NOT_AT_SIDE_SHOP
+PURCHASE_ITEM_OUT_OF_STOCK
+PURCHASE_ITEM_SUCCESS
+PointToLineDistance
+QAngle
+RUNE_ARCANE
+RUNE_BOUNTY
+RUNE_BOUNTY_1
+RUNE_BOUNTY_2
+RUNE_BOUNTY_3
+RUNE_BOUNTY_4
+RUNE_DOUBLEDAMAGE
+RUNE_HASTE
+RUNE_ILLUSION
+RUNE_INVALID
+RUNE_INVISIBILITY
+RUNE_POWERUP_1
+RUNE_POWERUP_2
+RUNE_REGENERATION
+RUNE_STATUS_AVAILABLE
+RUNE_STATUS_MISSING
+RUNE_STATUS_UNKNOWN
+RandomFloat
+RandomInt
+RandomVector
+RealTime
+RemapVal
+RemapValClamped
+RemoveAvoidanceZone
+RollPercentage
+SHOP_HOME
+SHOP_SECRET
+SHOP_SECRET2
+SHOP_SIDE
+SHOP_SIDE2
+SHRINE_BASE_1
+SHRINE_BASE_2
+SHRINE_BASE_3
+SHRINE_JUNGLE_1
+SHRINE_JUNGLE_2
+SelectHero
+SetCMCaptain
+TEAM_DIRE
+TEAM_NEUTRAL
+TEAM_NONE
+TEAM_RADIANT
+TOWER_BASE_1
+TOWER_BASE_2
+TOWER_BOT_1
+TOWER_BOT_2
+TOWER_BOT_3
+TOWER_MID_1
+TOWER_MID_2
+TOWER_MID_3
+TOWER_TOP_1
+TOWER_TOP_2
+TOWER_TOP_3
+UNIT_LIST_ALL
+UNIT_LIST_ALLIED_BUILDINGS
+UNIT_LIST_ALLIED_CREEPS
+UNIT_LIST_ALLIED_HEROES
+UNIT_LIST_ALLIED_OTHER
+UNIT_LIST_ALLIED_WARDS
+UNIT_LIST_ALLIES
+UNIT_LIST_ENEMIES
+UNIT_LIST_ENEMY_BUILDINGS
+UNIT_LIST_ENEMY_CREEPS
+UNIT_LIST_ENEMY_HEROES
+UNIT_LIST_ENEMY_OTHER
+UNIT_LIST_ENEMY_WARDS
+UNIT_LIST_NEUTRAL_CREEPS
+UNIT_LIST_THINKERS
+Vector
+Warning
+_G
+_VERSION
+assert
+bit
+	arshift
+	band
+	bnot
+	bor
+	bswap
+	bxor
+	lshift
+	rol
+	ror
+	rshift
+	tobit
+	tohex
+collectgarbage
+coroutine
+	create
+	resume
+	running
+	status
+	wrap
+	yield
+debug
+	debug
+	getfenv
+	gethook
+	getinfo
+	getlocal
+	getmetatable
+	getregistry
+	getupvalue
+	setfenv
+	sethook
+	setlocal
+	setmetatable
+	setupvalue
+	traceback
+	upvalueid
+	upvaluejoin
+dofile
+error
+g_reloadState
+	_G
+	bit
+	coroutine
+	debug
+	math
+		abs
+		acos
+		asin
+		atan
+		atan2
+		ceil
+		cos
+		cosh
+		deg
+		exp
+		floor
+		fmod
+		frexp
+		huge
+		ldexp
+		log
+		log10
+		max
+		min
+		mod
+		modf
+		pi
+		pow
+		rad
+		random
+		randomseed
+		sin
+		sinh
+		sqrt
+		tan
+		tanh
+	package
+		config
+		cpath
+		loaded
+			_G
+			bit
+			coroutine
+			debug
+			game/dkjson
+			math
+			package
+			string
+				byte
+				char
+				dump
+				find
+				format
+				gfind
+				gmatch
+				gsub
+				len
+				lower
+				match
+				rep
+				reverse
+				sub
+				upper
+			table
+				concat
+				foreach
+				foreachi
+				getn
+				insert
+				maxn
+				remove
+				sort
+		loaders
+			1
+			2
+		path
+		preload
+		searchpath
+		seeall
+	string
+	table
+gcinfo
+getfenv
+getmetatable
+ipairs
+json
+load
+loadfile
+loadstring
+math
+module
+newproxy
+next
+package
+pairs
+pcall
+print
+printstack
+rawequal
+rawget
+rawset
+require
+select
+setfenv
+setmetatable
+string
+table
+tonumber
+tostring
+type
+unpack
+xpcall
