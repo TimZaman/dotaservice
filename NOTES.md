@@ -1,11 +1,11 @@
 Below are random notes I am taking during development. I hope you like spaghetti!
 
-
 # Releasing to PyPI
 
-Build release `python3 setup.py sdist bdist_wheel`.
-Upload to `pypi`: `twine upload --repository-url https://upload.pypi.org/legacy/ dist/*`.
-
+1. Change version info in `setup.py` and root `__init__.py` and commit.
+2. Add tag `git tag -a $version $sha` and push `git push --tags`
+3. Build release `python3 setup.py sdist bdist_wheel`.
+4. Upload to `pypi`: `twine upload --repository-url https://upload.pypi.org/legacy/ dist/*`.
 
 # ETC
 

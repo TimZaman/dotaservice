@@ -130,13 +130,15 @@ policy = Policy()
 optimizer = optim.Adam(policy.parameters(), lr=1e-4)  # 1e-2 is obscene
 eps = np.finfo(np.float32).eps.item()
 
-START_EPISODE = 362
+START_EPISODE = 867
 MODEL_FILENAME_FMT = "model_%09d.pt"
-pretrained_model = 'runs/Dec08_20-49-15_Tims-Mac-Pro.local/' + MODEL_FILENAME_FMT % START_EPISODE
+pretrained_model = 'runs/Dec09_02-57-21_Tims-Mac-Pro.local/' + MODEL_FILENAME_FMT % START_EPISODE
 policy.load_state_dict(torch.load(pretrained_model), strict=True)
 
 
 def select_action(world_state, step=None):
+    actions = {}
+
     # Preprocess the state
     unit = get_hero_unit(world_state)
 
@@ -157,6 +159,8 @@ def select_action(world_state, step=None):
         # print('closest_unit:\n{}'.format(closest_unit))
         creep_hp = 1. - (closest_unit.health / closest_unit.health_max)  # [1 (dead) : 0 (full hp)]
         distance = 1. - (distance / MAX_CREEP_DIST)  # [1 (close): 0 (far)] 
+        actions['DOTA_UNIT_ORDER_ATTACK_TARGET'] = {}
+        actions['DOTA_UNIT_ORDER_ATTACK_TARGET']['handle'] = closest_unit.handle
     else :
         creep_hp = 0
         distance = 0
@@ -165,7 +169,6 @@ def select_action(world_state, step=None):
 
     probs = policy(xa=location_state, xb=env_state, xc=creep_state)
 
-    actions = {}
     for k, prob in probs.items():
         m = Categorical(prob)
         action = m.sample()
@@ -199,14 +202,13 @@ def get_hero_unit(state, id=0):
     for unit in state.units:
         if unit.unit_type == CMsgBotWorldState.UnitType.Value('HERO') and unit.player_id == id:
             return unit
-    raise ValueError("hero {} nor found in state:\n{}".format(id, state))
+    raise ValueError("hero {} not found in state:\n{}".format(id, state))
 
 
 def location_distance(lhs, rhs):
     return math.sqrt( (lhs.x-rhs.x)**2  +  (lhs.y-rhs.y)**2 )
 
 def get_nearest_creep_to_hero(state, hero_unit):
-    # hero_unit = get_hero_unit(state=state, id=id)
     min_d = None
     closest_unit = None
     for unit in state.units:
@@ -220,8 +222,40 @@ def get_nearest_creep_to_hero(state, hero_unit):
     return closest_unit, min_d
 
 
-N_STEPS = 100
+N_STEPS = 120
 N_RESET_RETRIES = 4
+
+
+def action_to_pb(action, state):
+    hero_unit = get_hero_unit(state)
+
+    action_pb = CMsgBotWorldState.Action()
+    action_enum = action['enum']['action']
+    if action_enum == 0:
+        action_pb.actionType = CMsgBotWorldState.Action.Type.Value('DOTA_UNIT_ORDER_NONE')
+    elif action_enum == 1:
+        action_pb.actionType = CMsgBotWorldState.Action.Type.Value(
+            'DOTA_UNIT_ORDER_MOVE_TO_POSITION')
+        m = CMsgBotWorldState.Action.MoveToLocation()
+        hero_location = hero_unit.location
+        m.location.x = hero_location.x + 350 if action['x']['action'] else hero_location.x - 350
+        m.location.y = hero_location.y + 350 if action['y']['action'] else hero_location.y - 350
+        m.location.z = 0
+        action_pb.moveToLocation.CopyFrom(m)
+    elif action_enum == 2:
+        action_pb.actionType = CMsgBotWorldState.Action.Type.Value(
+                            'DOTA_UNIT_ORDER_ATTACK_TARGET')
+        m = CMsgBotWorldState.Action.AttackTarget()
+        if 'DOTA_UNIT_ORDER_ATTACK_TARGET' in action:
+            m.target = action['DOTA_UNIT_ORDER_ATTACK_TARGET']['handle']
+        else:
+            m.target = -1
+        m.once = False
+        action_pb.attackTarget.CopyFrom(m)
+    else:
+        raise ValueError("unknown action {}".format(action_enum))
+
+    return action_pb
 
 class Actor(object):
 
@@ -252,53 +286,27 @@ class Actor(object):
             action = select_action(state.world_state, step=step)
             print('action:{}'.format(action))
 
-            action_x = action['x']['action']
-            action_y = action['y']['action']
-            action_enum = action['enum']['action']
-
             log_probs.append({'x': action['x']['logprob'],
                               'y': action['y']['logprob'],
                               'enum': action['enum']['logprob'],
                               })
 
-            action = CMsgBotWorldState.Action()
-            hero_unit = get_hero_unit(state.world_state)
-
-            if action_enum == 0:
-                action.actionType = CMsgBotWorldState.Action.Type.Value('DOTA_UNIT_ORDER_NONE')
-            elif action_enum == 1:
-                action.actionType = CMsgBotWorldState.Action.Type.Value(
-                    'DOTA_UNIT_ORDER_MOVE_TO_POSITION')
-                m = CMsgBotWorldState.Action.MoveToLocation()
-                hero_location = hero_unit.location
-                m.location.x = hero_location.x + 350 if action_x else hero_location.x - 350
-                m.location.y = hero_location.y + 350 if action_y else hero_location.y - 350
-                m.location.z = 0
-                action.moveToLocation.CopyFrom(m)
-            elif action_enum == 2:
-                action.actionType = CMsgBotWorldState.Action.Type.Value(
-                                    'DOTA_UNIT_ORDER_ATTACK_TARGET')
-                m = CMsgBotWorldState.Action.AttackTarget()
-                m.target = 1337 # TODO(tzaman): Improve - for now just attack closest creep in lua code
-                m.once = False
-                action.attackTarget.CopyFrom(m)
-            else:
-                raise ValueError("unknown action {}".format(action_enum))
+            action_pb = action_to_pb(action=action, state=state.world_state)
 
             try:
-                state = await asyncio.wait_for(self.env.step(Action(action=action)), timeout=10)
+                state = await asyncio.wait_for(self.env.step(Action(action=action_pb)), timeout=10)
             except Exception as e:
                 print('Exception on env.step: {}'.format(e))
                 break
 
             reward = get_reward(prev_state=prev_state.world_state, state=state.world_state)
 
-            print('x={:.0f}, y={:.0f}, reward={}'.format(hero_unit.location.x, hero_unit.location.y, reward))
-            print(' ')
+            print('{} step={} reward={:.3f}\n'.format(self.port, step, reward))
 
             rewards.append(reward)
-        print('{} last dotatime={:.2f}, x={:.0f}, y={:.0f}'.format(
-            self.port, state.world_state.dota_time, hero_unit.location.x, hero_unit.location.y))
+
+        print('{} last dotatime={:.2f}, reward sum={:.2f}'.format(
+            self.port, state.world_state.dota_time, sum(rewards)))
 
         return rewards, log_probs
 

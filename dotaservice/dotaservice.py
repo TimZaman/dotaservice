@@ -367,6 +367,8 @@ class DotaService(DotaServiceBase):
         # We've started to assume our queue will only have 1 item.
         data = await self.dota_game.worldstate_queue.get()
 
+        # TODO(tzaman): I've seen empty worldstates on occasions. How to deal with that?
+
         # Update the tick
         self.dota_game.dota_time = data.dota_time
 
