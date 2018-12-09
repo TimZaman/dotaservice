@@ -127,7 +127,7 @@ class DotaGame(object):
 
         # Copy all the bot files into the action folder.
         lua_files = glob.glob(LUA_FILES_GLOB)
-        assert len(lua_files) == 5
+        assert len(lua_files) == 6
         for filename in lua_files:
             shutil.copy(filename, bot_path)
 
@@ -262,7 +262,10 @@ class DotaGame(object):
                 # This reader is always going to need to keep going to keep the buffers clean.
                 try:
                     parsed_data = await self._data_from_reader(reader)
-                    self.worldstate_queue.put_nowait(parsed_data)
+                    # Only put data pre-game (4) and game (5).
+                    # TODO(tzaman): use oficial enums from proto.
+                    if parsed_data.game_state == 4 or parsed_data.game_state == 5:
+                        self.worldstate_queue.put_nowait(parsed_data)
                 except DecodeError as e:
                     print(e)
                     pass

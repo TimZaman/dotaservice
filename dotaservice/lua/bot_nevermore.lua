@@ -1,8 +1,11 @@
-local dkjson = require( "game/dkjson" )
-local config = require("bots/config")
+local config = require('bots/config')
+local dkjson = require('game/dkjson')
+local pprint = require('bots/pprint')
 
-local LIVE_CONFIG_FILENAME = 'bots/live_config_auto'
 local ACTION_FILENAME = 'bots/action'
+local LIVE_CONFIG_FILENAME = 'bots/live_config_auto'
+
+local debug_text = nil
 local live_config = nil
 
 
@@ -10,11 +13,18 @@ local function act(action)
     local bot = GetBot()
     action_type = action.actionType
     if action_type == 'DOTA_UNIT_ORDER_NONE' then
-        do return end
+        DebugDrawCircle(bot:GetLocation(), 50, 127, 127, 127)
     elseif  action_type == 'DOTA_UNIT_ORDER_MOVE_TO_POSITION' then
-        bot:Action_MoveDirectly(Vector(action.moveToLocation.location.x, action.moveToLocation.location.y))
+        move_location = Vector(action.moveToLocation.location.x, action.moveToLocation.location.y)
+        DebugDrawLine(bot:GetLocation(), move_location, 255, 255, 255)
+        bot:Action_MoveDirectly(move_location)
     elseif  action_type == 'DOTA_UNIT_ORDER_ATTACK_TARGET' then
-        bot:Action_AttackUnit(GetBotByHandle(action.attackTarget.target), action.attackTarget.once)
+        if action.attackTarget.target == -1 then  -- Invalid target. Do nothing.
+            do return end
+        end
+        unit = GetBotByHandle(action.attackTarget.target)
+        DebugDrawCircle(unit:GetLocation(), 50, 255, 0, 0)
+        bot:Action_AttackUnit(unit, action.attackTarget.once)
     else
         print('Invalid action_type=', action_type)
     end
@@ -67,14 +77,20 @@ local function data_from_file(filename)
 end
 
 
-function dump(o)
+function dump(o, d)
+    print('dump d=', d)
+    if d == nil then
+        d = 0
+
+    end
+    indent = string.rep('  ', d)
     if type(o) == 'table' then
-       local s = '{ '
+       local s = '{\n'
        for k,v in pairs(o) do
           if type(k) ~= 'number' then k = '"'..k..'"' end
-          s = s .. '['..k..'] = ' .. dump(v) .. ','
+          s = s .. indent .. '[' .. k .. '] = ' .. dump(v, d + 1) .. ',\n'
        end
-       return s .. '} '
+       return s .. indent .. '}'
     else
        return tostring(o)
     end
@@ -134,6 +150,11 @@ function Think()
         -- action with the right timestep.
         local action = get_new_action(dota_time)
         -- print('(lua) action =', dump(action))
+        -- debug_text = dump(action)
+        debug_text = pprint.pformat(action)
         act(action)
+    end
+    if debug_text ~= nil then
+        DebugDrawText(8, 90, debug_text, 255, 255, 255)
     end
 end
