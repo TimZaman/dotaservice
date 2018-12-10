@@ -10,6 +10,11 @@ local live_config = nil
 
 
 local function act(action)
+    if action == nil then
+        -- If we have no action, draw a big red circle around the hero.
+        DebugDrawCircle(bot:GetLocation(), 200, 255, 0, 0)
+        do return end
+    end
     local bot = GetBot()
     action_type = action.actionType
     if action_type == 'DOTA_UNIT_ORDER_NONE' then
@@ -43,6 +48,9 @@ local function get_new_action(dota_time)
         -- Execute the file_fn; this loads contents into `data`.
         local data = file_fn()
         if data ~= nil then
+            if data == 'FLUSH' then
+                return nil
+            end
             local data, pos, err = dkjson.decode(data, 1, nil)
             if err then
                 print("(lua) JSON Decode Error=", err, " at pos=", pos)
@@ -73,26 +81,6 @@ local function data_from_file(filename)
             end
             return data
         end
-    end
-end
-
-
-function dump(o, d)
-    print('dump d=', d)
-    if d == nil then
-        d = 0
-
-    end
-    indent = string.rep('  ', d)
-    if type(o) == 'table' then
-       local s = '{\n'
-       for k,v in pairs(o) do
-          if type(k) ~= 'number' then k = '"'..k..'"' end
-          s = s .. indent .. '[' .. k .. '] = ' .. dump(v, d + 1) .. ',\n'
-       end
-       return s .. indent .. '}'
-    else
-       return tostring(o)
     end
 end
 
@@ -134,7 +122,7 @@ function Think()
         -- The live configuration gives us back the last time at which dota sent out a 
         -- world state signal.
         live_config = data_from_file(LIVE_CONFIG_FILENAME)
-        print('(lua) live_config =', dump(live_config))
+        print('(lua) live_config =', pprint.pformat(live_config))
 
         -- We now relate when this was sent out, to the step we were at.
         worldstate_step_offset = dota_time_to_step_map[live_config.calibration_dota_time]

@@ -130,9 +130,9 @@ policy = Policy()
 optimizer = optim.Adam(policy.parameters(), lr=1e-4)  # 1e-2 is obscene
 eps = np.finfo(np.float32).eps.item()
 
-START_EPISODE = 1061
+START_EPISODE = 1177
 MODEL_FILENAME_FMT = "model_%09d.pt"
-pretrained_model = 'runs/Dec09_11-32-22_Tims-Mac-Pro.local/' + MODEL_FILENAME_FMT % START_EPISODE
+pretrained_model = 'runs/Dec09_15-47-51_Tims-Mac-Pro/' + MODEL_FILENAME_FMT % START_EPISODE
 policy.load_state_dict(torch.load(pretrained_model), strict=True)
 
 
@@ -182,9 +182,6 @@ def finish_episode(rewards, log_probs):
     print('@finish_eposide')
     rewards = torch.tensor(rewards)
     rewards = (rewards - rewards.mean()) / (rewards.std() + eps)
-
-    # print('rewards: {}'.format(rewards))
-    # print('log_probs: {}'.format(log_probs))
 
     loss = []
     for log_prob, reward in zip(log_probs, rewards):
@@ -319,32 +316,34 @@ def discount_rewards(rewards, gamma=0.99):
         discounted_rewards.insert(0, R)
     return discounted_rewards
 
+GUI_DEBUG = False
 
 async def main():
     loop = asyncio.get_event_loop()
 
-    # config = Config(
-    #     ticks_per_observation=30,
-    #     host_timescale=10,
-    #     render=False,
-    # )
-    # actors = [
-    #     Actor(config=config, port=42000),
-    #     Actor(config=config, port=42001),
-    #     Actor(config=config, port=42002),
-    #     Actor(config=config, port=42003),
-    #     Actor(config=config, port=42004),
-    #     Actor(config=config, port=42005),
-    #     Actor(config=config, port=42006),
-    #     Actor(config=config, port=42007),
-    # ]
-
-    config = Config(
-        ticks_per_observation=30,
-        host_timescale=2,
-        render=True,
-    )
-    actors = [Actor(config=config, port=13337)]
+    if GUI_DEBUG:
+        config = Config(
+            ticks_per_observation=30,
+            host_timescale=10,
+            render=False,
+        )
+        actors = [Actor(config=config, port=13337)]
+    else:
+        config = Config(
+            ticks_per_observation=30,
+            host_timescale=10,
+            render=False,
+        )
+        actors = [
+            Actor(config=config, port=42000),
+            Actor(config=config, port=42001),
+            Actor(config=config, port=42002),
+            Actor(config=config, port=42003),
+            Actor(config=config, port=42004),
+            Actor(config=config, port=42005),
+            Actor(config=config, port=42006),
+            Actor(config=config, port=42007),
+        ]
 
     N_EPISODES = 100000
     BATCH_SIZE = 8

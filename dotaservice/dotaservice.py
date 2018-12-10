@@ -47,13 +47,16 @@ def verify_game_path(game_path):
 
 class DotaGame(object):
 
-    # Static configuration.
+    ACTION_FILENAME = 'action'
     BOTS_FOLDER_NAME = 'bots'
     CONFIG_FILENAME = 'config_auto'
     CONSOLE_LOG_FILENAME = 'console.log'
     DOTA_SCRIPT_FILENAME = 'dota.sh'
+    LIVE_CONFIG_FILENAME = 'live_config_auto'
     PORT_WORLDSTATE_DIRE = 12121
     PORT_WORLDSTATE_RADIANT = 12120
+    RE_DEMO =  re.compile(r'playdemo[ \t](.*dem)')
+    RE_LUARDY = re.compile(r'LUARDY[ \t](\{.*\})')
 
     def __init__(self,
                  dota_path,
@@ -77,6 +80,8 @@ class DotaGame(object):
         self.worldstate_queue = asyncio.Queue(loop=asyncio.get_event_loop())
         self.lua_config_future = asyncio.get_event_loop().create_future()
         self._write_config()
+        self.process = None
+        self.demo_path_rel = None
 
     def _write_config(self):
         # Write out the game configuration.
@@ -84,7 +89,7 @@ class DotaGame(object):
             'game_id': self.game_id,
             'ticks_per_observation': self.ticks_per_observation,
         }
-        self.write_bot_data_file(filename_stem=self.CONFIG_FILENAME, data=config)
+        self.write_static_config(data=config)
 
     @property
     def dota_time(self):
@@ -98,7 +103,16 @@ class DotaGame(object):
                 value, self._dota_time))
         self._dota_time = value
 
-    def write_bot_data_file(self, filename_stem, data):
+    def write_static_config(self, data):
+        self._write_bot_data_file(filename_stem=self.CONFIG_FILENAME, data=data)
+
+    def write_live_config(self, data):
+        self._write_bot_data_file(filename_stem=self.LIVE_CONFIG_FILENAME, data=data)
+        
+    def write_action(self, data):
+        self._write_bot_data_file(filename_stem=self.ACTION_FILENAME, data=data)
+
+    def _write_bot_data_file(self, filename_stem, data):
         """Write a file to lua to that the bot can read it.
 
         Although writing atomicly would prevent bad reads, we just catch the bad reads in the
@@ -136,32 +150,24 @@ class DotaGame(object):
         return bot_path
 
     async def monitor_log(self):
-        # TODO(tzaman): catch this line: `playdemo replays/auto-20181206-1840-dota-Dota_2.dem`
-        p = re.compile(r'LUARDY[ \t](\{.*\})')
         while True:  # TODO(tzaman): probably just retry 10x sleep(0.5) then bust?
             filename = os.path.join(self.bot_path, self.CONSOLE_LOG_FILENAME)
             if os.path.exists(filename):
                 with open(filename) as f:
                     for line in f:
-                        m = p.search(line)
-                        if m:
-                            found = m.group(1)
-                            lua_config = json.loads(found)
+                        # Demo line always comes before the LUADRY signal.
+                        m_demo = self.RE_DEMO.search(line)
+                        if m_demo and self.demo_path_rel is None:
+                            self.demo_path_rel = m_demo.group(1)
+                            print("(py) demo_path_rel='{}'".format(self.demo_path_rel))
+                        m_luadry = self.RE_LUARDY.search(line)
+                        if m_luadry:
+                            config_json = m_luadry.group(1)
+                            lua_config = json.loads(config_json)
                             print('(py) lua_config = ', lua_config)
                             self.lua_config_future.set_result(lua_config)
                             return
             await asyncio.sleep(0.2)
-
-    async def record_replay(self, process):
-        """Starts the stdin command."""
-        print('@record_replay')
-        # @ TODO(tzaman): rewrite this to use autorecord, and just parse the log
-        # and get the filename that had been assigned. Then when the dota context closes
-        # we move over the file.
-        # Stdin is problematic anyway, as any attachde GUI will block stdin and use dota's console.
-        await asyncio.sleep(5)  # TODO(tzaman): just invoke after LUARDY signal?
-        process.stdin.write(b"tv_record scripts/vscripts/bots/replay\n")
-        await process.stdin.drain()
 
     async def run(self):
         # Start the worldstate listener(s).
@@ -197,6 +203,8 @@ class DotaGame(object):
             '+tv_delay 0 ',
             '+tv_enable 1',
             '+tv_title {}'.format(self.game_id),
+            '+tv_autorecord 1',
+            '+tv_transmitall 1',  # TODO(tzaman): what does this do exactly?
         ]
         if False:  # The viewer wants to play himself
             args.append('+dota_start_ai_game 1')
@@ -213,24 +221,37 @@ class DotaGame(object):
             # stdout=asyncio.subprocess.PIPE,
             # stderr=asyncio.subprocess.PIPE,
         )
-        process = await create
+        self.process = await create
 
-        task_record_replay = asyncio.create_task(self.record_replay(process=process))
+        # task_record_replay = asyncio.create_task(self.record_replay(process=self.process))
         task_monitor_log = asyncio.create_task(self.monitor_log())
 
         try:
-            await process.wait()
+            await self.process.wait()
         except asyncio.CancelledError:
-            kill_processes_and_children(pid=process.pid)
+            kill_processes_and_children(pid=self.process.pid)
             raise
 
-    def close(self):
-        # TODO(tzaman): cleanly implement exit: write `quit` to stdin, and `close` all asyncio 
-        # stuff.
-        # How to do this though, as the dota loop is probably stuck waiting for an action response.
-        # Maybe add another file (other than the action file) that monitors the status or something?
-        # Or maybe a special value inside the action file..
-        pass
+    async def close(self):
+        # TODO(tzaman): close async stuff?
+
+        # Make the bot flush.
+        self.write_action(data='FLUSH')
+
+        # Stop the recording
+        self.process.stdin.write(b"tv_stoprecord\n")
+        self.process.stdin.write(b"quit\n")
+        await self.process.stdin.drain()
+        await asyncio.sleep(1)
+
+        # Move the recording.
+        if self.demo_path_rel is not None:
+            demo_path_abs = os.path.join(self.dota_path, 'dota', self.demo_path_rel)
+            try:
+                shutil.move(demo_path_abs, self.bot_path)
+            except Exception as e:  # Fail silently.
+                print(e)
+
 
     @staticmethod
     async def _data_from_reader(reader):
@@ -308,11 +329,14 @@ class DotaService(DotaServiceBase):
         config = await stream.recv_message()
         print('config=\n', config)
 
-        # Kill any previously running dota processes. # TODO(tzaman): do this cleanly.
+        
+        # Kill any previously running dota processes.
+        # TODO(tzaman): Currently semi-gracefully. Can be cleaner.
+        if self.dota_game is not None:
+            await self.dota_game.close()
         os.system("ps | grep dota2 | awk '{print $1}' | xargs kill -9")
 
         # Create a new dota game instance.
-        # TODO(tzaman): kill previous dota game? or implicit through __del__?
         self.dota_game = DotaGame(
             dota_path=self.dota_path,
             action_folder=self.action_folder,
@@ -348,7 +372,7 @@ class DotaService(DotaServiceBase):
             'calibration_dota_time': data.dota_time,
         }
         print('(py) writing live config=', config)
-        self.dota_game.write_bot_data_file(filename_stem='live_config_auto', data=config)
+        self.dota_game.write_live_config(data=config)
 
         # Return the reponse
         await stream.send_message(Observation(world_state=data))
@@ -365,7 +389,7 @@ class DotaService(DotaServiceBase):
 
         print('(python) action=', action)
 
-        self.dota_game.write_bot_data_file(filename_stem='action', data=action)
+        self.dota_game.write_action(data=action)
 
         # We've started to assume our queue will only have 1 item.
         data = await self.dota_game.worldstate_queue.get()
