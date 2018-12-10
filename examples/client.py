@@ -23,8 +23,13 @@ from torch.distributions import Categorical
 
 torch.manual_seed(7)
 
-writer = SummaryWriter()
-if writer:
+GUI_DEBUG = True
+N_STEPS = 100000 if GUI_DEBUG else 150
+N_RESET_RETRIES = 4
+
+
+if not GUI_DEBUG:
+    writer = SummaryWriter()
     log_dir = writer.file_writer.get_logdir()
 
 xp_to_reach_level = {
@@ -80,9 +85,9 @@ def get_reward(prev_state, state):
     if unit_init.is_alive and unit.is_alive:
         hp_init = unit_init.health / unit_init.health_max
         hp = unit.health / unit.health_max
-        reward += (hp - hp_init) * 0.4
+        reward += (hp - hp_init) * 1.0
     if unit_init.is_alive and not unit.is_alive:
-        reward += -0.2  # Death should be a big penalty
+        reward += - 0.5  # Death should be a big penalty
 
     # Last-hit reward
     lh = unit.last_hits - unit_init.last_hits
@@ -90,7 +95,7 @@ def get_reward(prev_state, state):
 
     # Help him get to mid, for minor speed boost
     dist_mid = math.sqrt(unit.location.x**2 + unit.location.y**2)
-    reward += (1-(dist_mid / 8000.)) * 0.01
+    reward += -(dist_mid / 8000.) * 0.01
 
     return reward
 
@@ -130,9 +135,9 @@ policy = Policy()
 optimizer = optim.Adam(policy.parameters(), lr=1e-4)  # 1e-2 is obscene
 eps = np.finfo(np.float32).eps.item()
 
-START_EPISODE = 1177
+START_EPISODE = 1233
 MODEL_FILENAME_FMT = "model_%09d.pt"
-pretrained_model = 'runs/Dec09_15-47-51_Tims-Mac-Pro/' + MODEL_FILENAME_FMT % START_EPISODE
+pretrained_model = 'runs/Dec09_18-26-08_Tims-Mac-Pro/' + MODEL_FILENAME_FMT % START_EPISODE
 policy.load_state_dict(torch.load(pretrained_model), strict=True)
 
 
@@ -219,8 +224,6 @@ def get_nearest_creep_to_hero(state, hero_unit):
     return closest_unit, min_d
 
 
-N_STEPS = 120
-N_RESET_RETRIES = 4
 
 
 def action_to_pb(action, state):
@@ -316,16 +319,14 @@ def discount_rewards(rewards, gamma=0.99):
         discounted_rewards.insert(0, R)
     return discounted_rewards
 
-GUI_DEBUG = False
-
 async def main():
     loop = asyncio.get_event_loop()
 
     if GUI_DEBUG:
         config = Config(
             ticks_per_observation=30,
-            host_timescale=10,
-            render=False,
+            host_timescale=2,
+            render=True,
         )
         actors = [Actor(config=config, port=13337)]
     else:
@@ -375,10 +376,12 @@ async def main():
 
         avg_reward = reward_sum / BATCH_SIZE
         print('ep={} n_actors={} avg_reward={} loss={}'.format(episode, i, avg_reward, loss))
-        writer.add_scalar('loss', loss, episode)
-        writer.add_scalar('mean_reward', avg_reward, episode)
-        filename = os.path.join(log_dir, MODEL_FILENAME_FMT % episode)
-        torch.save(policy.state_dict(), filename)
+
+        if not GUI_DEBUG:
+            writer.add_scalar('loss', loss, episode)
+            writer.add_scalar('mean_reward', avg_reward, episode)
+            filename = os.path.join(log_dir, MODEL_FILENAME_FMT % episode)
+            torch.save(policy.state_dict(), filename)
         
 
 if __name__ == '__main__':

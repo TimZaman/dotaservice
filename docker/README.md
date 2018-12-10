@@ -34,7 +34,7 @@ docker run -itp 13337:13337 dotaservice
 You can now open as many dota clients as you want, provided they expose on different ip:ports
 combinations and they don't collide.
 
-Personally i create a ramdisk on MacOS and then mount that to the container:
+Creating an MacOS-native mount seems very detrimental to speed; CPU (8 containers) goes from 50% to 80%
 ```sh
 docker run -v /Volumes/ramdisk:/ramdisk -itp 42000:13337 dotaservice --action-path=/ramdisk
 ```
