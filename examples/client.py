@@ -1,8 +1,9 @@
-import asyncio
+from collections import Counter
 from time import time
+import asyncio
 import math
-import uuid
 import os
+import uuid
 
 from grpclib.client import Channel
 from google.protobuf.json_format import MessageToDict
@@ -23,8 +24,8 @@ from torch.distributions import Categorical
 
 torch.manual_seed(7)
 
-GUI_DEBUG = True
-N_STEPS = 100000 if GUI_DEBUG else 150
+GUI_DEBUG = False
+N_STEPS = 150 if GUI_DEBUG else 150
 N_RESET_RETRIES = 4
 
 
@@ -71,31 +72,31 @@ def get_total_xp(level, xp_needed_to_level):
 
 def get_reward(prev_state, state):
     """Get the reward."""
-
     unit_init = get_hero_unit(prev_state)
     unit = get_hero_unit(state)
 
-    reward =  0
+    reward = {'xp': 0, 'hp': 0, 'death': 0, 'dist': 0, 'lh': 0}
+
 
     xp_init = get_total_xp(level=unit_init.level, xp_needed_to_level=unit_init.xp_needed_to_level)
     xp = get_total_xp(level=unit.level, xp_needed_to_level=unit.xp_needed_to_level)
 
-    reward += (xp - xp_init) * 0.002  # One creep will result in 0.114 reward
+    reward['xp'] = (xp - xp_init) * 0.002  # One creep will result in 0.114 reward
 
     if unit_init.is_alive and unit.is_alive:
         hp_init = unit_init.health / unit_init.health_max
         hp = unit.health / unit.health_max
-        reward += (hp - hp_init) * 1.0
+        reward['hp'] = (hp - hp_init) * 1.0
     if unit_init.is_alive and not unit.is_alive:
-        reward += - 0.5  # Death should be a big penalty
+        reward['death'] = - 0.5  # Death should be a big penalty
 
     # Last-hit reward
     lh = unit.last_hits - unit_init.last_hits
-    reward += lh * 0.5
+    reward['lh'] = lh * 0.5
 
     # Help him get to mid, for minor speed boost
     dist_mid = math.sqrt(unit.location.x**2 + unit.location.y**2)
-    reward += -(dist_mid / 8000.) * 0.01
+    reward['dist'] = -(dist_mid / 8000.) * 0.01
 
     return reward
 
@@ -132,12 +133,12 @@ class Policy(nn.Module):
 
 
 policy = Policy()
-optimizer = optim.Adam(policy.parameters(), lr=1e-4)  # 1e-2 is obscene
+optimizer = optim.Adam(policy.parameters(), lr=3e-4)  # 1e-2 is obscene
 eps = np.finfo(np.float32).eps.item()
 
-START_EPISODE = 1233
+START_EPISODE = 2530
 MODEL_FILENAME_FMT = "model_%09d.pt"
-pretrained_model = 'runs/Dec09_18-26-08_Tims-Mac-Pro/' + MODEL_FILENAME_FMT % START_EPISODE
+pretrained_model = 'runs/Dec11_02-18-59_Tims-Mac-Pro.local/' + MODEL_FILENAME_FMT % START_EPISODE
 policy.load_state_dict(torch.load(pretrained_model), strict=True)
 
 
@@ -224,8 +225,6 @@ def get_nearest_creep_to_hero(state, hero_unit):
     return closest_unit, min_d
 
 
-
-
 def action_to_pb(action, state):
     hero_unit = get_hero_unit(state)
 
@@ -254,7 +253,6 @@ def action_to_pb(action, state):
         action_pb.attackTarget.CopyFrom(m)
     else:
         raise ValueError("unknown action {}".format(action_enum))
-
     return action_pb
 
 class Actor(object):
@@ -301,12 +299,14 @@ class Actor(object):
 
             reward = get_reward(prev_state=prev_state.world_state, state=state.world_state)
 
-            print('{} step={} reward={:.3f}\n'.format(self.port, step, reward))
+            print('{} step={} reward={:.3f}\n'.format(self.port, step, sum(reward.values())))
 
             rewards.append(reward)
 
+        reward_sum = sum([sum(r.values()) for r in rewards])
+
         print('{} last dotatime={:.2f}, reward sum={:.2f}'.format(
-            self.port, state.world_state.dota_time, sum(rewards)))
+            self.port, state.world_state.dota_time, reward_sum))
 
         return rewards, log_probs
 
@@ -326,7 +326,7 @@ async def main():
         config = Config(
             ticks_per_observation=30,
             host_timescale=2,
-            render=True,
+            render=False,
         )
         actors = [Actor(config=config, port=13337)]
     else:
@@ -347,15 +347,15 @@ async def main():
         ]
 
     N_EPISODES = 100000
-    BATCH_SIZE = 8
+    BATCH_SIZE = 16
 
     if BATCH_SIZE % len(actors) != 0:
         print('Notice: amount of actors not cleanly divisible by batch size.')
 
     for episode in range(START_EPISODE, N_EPISODES):
 
-        reward_sum = 0
         all_rewards = []
+        all_discounted_rewards = []
         all_log_probs = []
 
         i = 0
@@ -365,21 +365,33 @@ async def main():
 
             # Loop over all distributed actors.
             for rewards, log_probs in actor_output:
-                reward_sum += sum(rewards)
-                discounted_rewards = discount_rewards(rewards)
-                all_rewards.extend(discounted_rewards)
+                all_rewards.append(rewards)
+                combined_rewards = [sum(r.values()) for r in rewards]
+                discounted_rewards = discount_rewards(combined_rewards)
+                all_discounted_rewards.extend(discounted_rewards)
                 all_log_probs.extend(log_probs)
-
                 i += 1
 
-        loss = finish_episode(rewards=all_rewards, log_probs=all_log_probs)
+        loss = finish_episode(rewards=all_discounted_rewards, log_probs=all_log_probs)
 
+
+        
+
+        reward_counter = Counter()
+        for b in all_rewards: # jobs in a batch
+            for s in b: # Steps in a batch
+                reward_counter.update(s)
+        reward_counter = dict(reward_counter)
+                
+        reward_sum = sum(reward_counter.values())
         avg_reward = reward_sum / BATCH_SIZE
         print('ep={} n_actors={} avg_reward={} loss={}'.format(episode, i, avg_reward, loss))
 
         if not GUI_DEBUG:
             writer.add_scalar('loss', loss, episode)
             writer.add_scalar('mean_reward', avg_reward, episode)
+            for k, v in reward_counter.items():
+                writer.add_scalar('reward_{}'.format(k), v / BATCH_SIZE, episode)
             filename = os.path.join(log_dir, MODEL_FILENAME_FMT % episode)
             torch.save(policy.state_dict(), filename)
         
