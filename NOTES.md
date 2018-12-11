@@ -36,7 +36,7 @@ Good command for dedicated bot
 ```sh
 dota.sh \
 -dedicated -insecure +map dota +sv_lan 1 +clientport 27006 +sv_cheats 1 \
--fill_with_bots -host_force_frametime_to_equal_tick_interval 1 \
+-fill_with_bots \
 -botworldstatetosocket_radiant 12120 -botworldstatetosocket_dire 12121 -botworldstatetosocket_frames 5 -botworldstatesocket_threaded \
 +sv_hibernate_when_empty 0 +dota_auto_surrender_all_disconnected_timeout 180 +host_timescale 1 \
 +dota_camera_edgemove 0
