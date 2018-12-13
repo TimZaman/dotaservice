@@ -263,30 +263,30 @@ class Actor(object):
         self.port = port
         self.config = config
 
-    def create_channel(self):
-        loop = asyncio.get_event_loop()
-        channel = Channel(self.host, self.port, loop=loop)
-        env = DotaServiceStub(channel)
-        return env
-
-    ENV_RETRY_DELAY = 5
+    ENV_RETRY_DELAY = 15
 
     async def __call__(self):
         obs = None
+        channel = None
+        env = None
 
         while True:
             # Set up a channel.
-            env = self.create_channel()
+            loop = asyncio.get_event_loop()
+            channel = Channel(self.host, self.port, loop=loop)
+            env = DotaServiceStub(channel)
 
             # Wait for game to boot.
-            response = await asyncio.wait_for(env.reset(self.config), timeout=60)
+            response = await asyncio.wait_for(env.reset(self.config), timeout=600)
             obs = response.world_state
 
             if response.status == Status.Value('OK'):
                 print("Channel and reset opened.")
                 break
+            channel.close()
             print("Environment reset request (retrying in {}s):\n{}".format(
                 self.ENV_RETRY_DELAY, response))
+
             await asyncio.sleep(self.ENV_RETRY_DELAY)
 
         rewards = []
@@ -318,7 +318,7 @@ class Actor(object):
             rewards.append(reward)
 
         await env.clear(Empty())
-
+        channel.close()
         reward_sum = sum([sum(r.values()) for r in rewards])
 
         print('{} last dotatime={:.2f}, reward sum={:.2f}'.format(
