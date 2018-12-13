@@ -7,7 +7,6 @@ import uuid
 
 from grpclib.client import Channel
 from google.protobuf.json_format import MessageToDict
-from tensorboardX import SummaryWriter
 
 from dotaservice.protos.DotaService_grpc import DotaServiceStub
 from dotaservice.protos.dota_gcmessages_common_bot_script_pb2 import CMsgBotWorldState
@@ -31,6 +30,7 @@ GUI_DEBUG = True
 N_STEPS = 10 if GUI_DEBUG else 10
 
 if not GUI_DEBUG:
+    from tensorboardX import SummaryWriter
     writer = SummaryWriter()
     log_dir = writer.file_writer.get_logdir()
 
@@ -140,8 +140,13 @@ eps = np.finfo(np.float32).eps.item()
 START_EPISODE = 3488
 MODEL_FILENAME_FMT = "model_%09d.pt"
 pretrained_model = 'runs/Dec12_21-41-31_Tims-Mac-Pro.local/' + MODEL_FILENAME_FMT % START_EPISODE
-policy.load_state_dict(torch.load(pretrained_model), strict=True)
 
+try:
+    policy.load_state_dict(torch.load(pretrained_model), strict=True)
+except FileNotFoundError:
+    START_EPISODE = 0
+    print("Model '%s' Not Found. Starting from scratch at episode %d" % (pretrained_model, START_EPISODE))
+    pass
 
 def select_action(world_state, step=None):
     actions = {}
