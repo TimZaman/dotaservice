@@ -257,7 +257,7 @@ class DotaGame(object):
 
 
     @staticmethod
-    async def _data_from_reader(reader):
+    async def _world_state_from_reader(reader):
         # Receive the package length.
         data = await reader.read(4)
         n_bytes = unpack("@I", data)[0]
@@ -265,12 +265,12 @@ class DotaGame(object):
         # data = await asyncio.wait_for(reader.read(n_bytes), timeout=3.0)
         data = await reader.read(n_bytes) # Should we timeout for this?
         # Decode the payload.
-        parsed_data = CMsgBotWorldState()
-        parsed_data.ParseFromString(data)
-        dotatime = parsed_data.dota_time
-        gamestate = parsed_data.game_state
+        world_state = CMsgBotWorldState()
+        world_state.ParseFromString(data)
+        dotatime = world_state.dota_time
+        gamestate = world_state.game_state
         print('(py) worldstate @ dotatime={}, gamestate={}'.format(dotatime, gamestate))
-        return parsed_data
+        return world_state
 
     async def _worldstate_listener(self, port):
         while True:  # TODO(tzaman): finite retries.
@@ -283,13 +283,15 @@ class DotaGame(object):
                 break
         try:
             while True:
-                # This reader is always going to need to keep going to keep the buffers clean.
+                # This reader is always going to need to keep going to keep the buffers flushed.
                 try:
-                    parsed_data = await self._data_from_reader(reader)
-                    # Only put data pre-game (4) and game (5).
+                    world_state = await self._world_state_from_reader(reader)
                     # TODO(tzaman): use oficial enums from proto.
-                    if parsed_data.game_state == 4 or parsed_data.game_state == 5:
-                        self.worldstate_queue.put_nowait(parsed_data)
+                    is_in_game = world_state.game_state == 4 or world_state.game_state == 5 # pre-game (4) and in-game (5).
+                    has_units = len(world_state.units) > 0
+                    if is_in_game and has_units:
+                        # Only regard worldstates that are actionable (in-game + has units).
+                        self.worldstate_queue.put_nowait(world_state)
                 except DecodeError as e:
                     print(e)
                     pass
