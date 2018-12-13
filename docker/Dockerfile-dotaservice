@@ -1,4 +1,4 @@
-FROM dota:7.20d
+FROM dota:latest
 MAINTAINER Tim Zaman <timbobel@gmail.com>
 
 RUN apt-get -q update \
