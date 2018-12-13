@@ -13,6 +13,8 @@ and each `obs = env.step(action)` in the environment takes between 10 and 30 ms.
 You can even set the config of `render=True` and you can watch the game play live. Each game will
 have a uuid and folder associated where there's a Dota demo (replay) and console logs.
 
+<img src="demo.gif" alt="demo" width="600"/>
+
 ## Run DotaService Locally
 
 Run the DotaService so you can connect your client to it later. Only one client per server
