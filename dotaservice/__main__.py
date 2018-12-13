@@ -41,6 +41,12 @@ parser.add_argument(
     type=str,
     default=get_default_action_path(),
     help="Path to the root folder in which the game logs will be saved.")
+parser.add_argument(
+    "-t", "--expiration_time",
+    type=int,
+    default=60,
+    help="Session expiration time. When no gRPC calls have been received to the active session"
+         " within this time frame, the session is considered expired and resources are cleared.")
 args = parser.parse_args()
 
 main(
@@ -48,4 +54,5 @@ main(
     grpc_port=args.port,
     dota_path=args.game_path,
     action_folder=args.action_path,
+    session_expiration_time=args.expiration_time,
 )

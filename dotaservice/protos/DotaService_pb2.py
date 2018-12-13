@@ -3,6 +3,7 @@
 
 import sys
 _b=sys.version_info[0]<3 and (lambda x:x) or (lambda x:x.encode('latin1'))
+from google.protobuf.internal import enum_type_wrapper
 from google.protobuf import descriptor as _descriptor
 from google.protobuf import message as _message
 from google.protobuf import reflection as _reflection
@@ -20,11 +21,60 @@ DESCRIPTOR = _descriptor.FileDescriptor(
   package='',
   syntax='proto2',
   serialized_options=None,
-  serialized_pb=_b('\n$dotaservice/protos/DotaService.proto\x1a:dotaservice/protos/dota_gcmessages_common_bot_script.proto\"3\n\x06\x41\x63tion\x12)\n\x06\x61\x63tion\x18\x01 \x02(\x0b\x32\x19.CMsgBotWorldState.Action\"6\n\x0bObservation\x12\'\n\x0bworld_state\x18\x01 \x02(\x0b\x32\x12.CMsgBotWorldState\"g\n\x06\x43onfig\x12\x0f\n\x07game_id\x18\x01 \x01(\t\x12\x16\n\x0ehost_timescale\x18\x02 \x02(\r\x12\x1d\n\x15ticks_per_observation\x18\x03 \x02(\r\x12\x15\n\x06render\x18\x04 \x01(\x08:\x05\x66\x61lse2P\n\x0b\x44otaService\x12 \n\x05reset\x12\x07.Config\x1a\x0c.Observation\"\x00\x12\x1f\n\x04step\x12\x07.Action\x1a\x0c.Observation\"\x00')
+  serialized_pb=_b('\n$dotaservice/protos/DotaService.proto\x1a:dotaservice/protos/dota_gcmessages_common_bot_script.proto\"\x07\n\x05\x45mpty\"3\n\x06\x41\x63tion\x12)\n\x06\x61\x63tion\x18\x01 \x02(\x0b\x32\x19.CMsgBotWorldState.Action\"O\n\x0bObservation\x12\x17\n\x06status\x18\x01 \x02(\x0e\x32\x07.Status\x12\'\n\x0bworld_state\x18\x02 \x01(\x0b\x32\x12.CMsgBotWorldState\"g\n\x06\x43onfig\x12\x0f\n\x07game_id\x18\x01 \x01(\t\x12\x16\n\x0ehost_timescale\x18\x02 \x02(\r\x12\x1d\n\x15ticks_per_observation\x18\x03 \x02(\r\x12\x15\n\x06render\x18\x04 \x01(\x08:\x05\x66\x61lse*(\n\x06Status\x12\x06\n\x02OK\x10\x00\x12\x16\n\x12RESOURCE_EXHAUSTED\x10\x08\x32k\n\x0b\x44otaService\x12 \n\x05reset\x12\x07.Config\x1a\x0c.Observation\"\x00\x12\x1f\n\x04step\x12\x07.Action\x1a\x0c.Observation\"\x00\x12\x19\n\x05\x63lear\x12\x06.Empty\x1a\x06.Empty\"\x00')
   ,
   dependencies=[dotaservice_dot_protos_dot_dota__gcmessages__common__bot__script__pb2.DESCRIPTOR,])
 
+_STATUS = _descriptor.EnumDescriptor(
+  name='Status',
+  full_name='Status',
+  filename=None,
+  file=DESCRIPTOR,
+  values=[
+    _descriptor.EnumValueDescriptor(
+      name='OK', index=0, number=0,
+      serialized_options=None,
+      type=None),
+    _descriptor.EnumValueDescriptor(
+      name='RESOURCE_EXHAUSTED', index=1, number=8,
+      serialized_options=None,
+      type=None),
+  ],
+  containing_type=None,
+  serialized_options=None,
+  serialized_start=348,
+  serialized_end=388,
+)
+_sym_db.RegisterEnumDescriptor(_STATUS)
 
+Status = enum_type_wrapper.EnumTypeWrapper(_STATUS)
+OK = 0
+RESOURCE_EXHAUSTED = 8
+
+
+
+_EMPTY = _descriptor.Descriptor(
+  name='Empty',
+  full_name='Empty',
+  filename=None,
+  file=DESCRIPTOR,
+  containing_type=None,
+  fields=[
+  ],
+  extensions=[
+  ],
+  nested_types=[],
+  enum_types=[
+  ],
+  serialized_options=None,
+  is_extendable=False,
+  syntax='proto2',
+  extension_ranges=[],
+  oneofs=[
+  ],
+  serialized_start=100,
+  serialized_end=107,
+)
 
 
 _ACTION = _descriptor.Descriptor(
@@ -53,8 +103,8 @@ _ACTION = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=100,
-  serialized_end=151,
+  serialized_start=109,
+  serialized_end=160,
 )
 
 
@@ -66,8 +116,15 @@ _OBSERVATION = _descriptor.Descriptor(
   containing_type=None,
   fields=[
     _descriptor.FieldDescriptor(
-      name='world_state', full_name='Observation.world_state', index=0,
-      number=1, type=11, cpp_type=10, label=2,
+      name='status', full_name='Observation.status', index=0,
+      number=1, type=14, cpp_type=8, label=2,
+      has_default_value=False, default_value=0,
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      serialized_options=None, file=DESCRIPTOR),
+    _descriptor.FieldDescriptor(
+      name='world_state', full_name='Observation.world_state', index=1,
+      number=2, type=11, cpp_type=10, label=1,
       has_default_value=False, default_value=None,
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
@@ -84,8 +141,8 @@ _OBSERVATION = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=153,
-  serialized_end=207,
+  serialized_start=162,
+  serialized_end=241,
 )
 
 
@@ -136,16 +193,26 @@ _CONFIG = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=209,
-  serialized_end=312,
+  serialized_start=243,
+  serialized_end=346,
 )
 
 _ACTION.fields_by_name['action'].message_type = dotaservice_dot_protos_dot_dota__gcmessages__common__bot__script__pb2._CMSGBOTWORLDSTATE_ACTION
+_OBSERVATION.fields_by_name['status'].enum_type = _STATUS
 _OBSERVATION.fields_by_name['world_state'].message_type = dotaservice_dot_protos_dot_dota__gcmessages__common__bot__script__pb2._CMSGBOTWORLDSTATE
+DESCRIPTOR.message_types_by_name['Empty'] = _EMPTY
 DESCRIPTOR.message_types_by_name['Action'] = _ACTION
 DESCRIPTOR.message_types_by_name['Observation'] = _OBSERVATION
 DESCRIPTOR.message_types_by_name['Config'] = _CONFIG
+DESCRIPTOR.enum_types_by_name['Status'] = _STATUS
 _sym_db.RegisterFileDescriptor(DESCRIPTOR)
+
+Empty = _reflection.GeneratedProtocolMessageType('Empty', (_message.Message,), dict(
+  DESCRIPTOR = _EMPTY,
+  __module__ = 'dotaservice.protos.DotaService_pb2'
+  # @@protoc_insertion_point(class_scope:Empty)
+  ))
+_sym_db.RegisterMessage(Empty)
 
 Action = _reflection.GeneratedProtocolMessageType('Action', (_message.Message,), dict(
   DESCRIPTOR = _ACTION,
@@ -176,8 +243,8 @@ _DOTASERVICE = _descriptor.ServiceDescriptor(
   file=DESCRIPTOR,
   index=0,
   serialized_options=None,
-  serialized_start=314,
-  serialized_end=394,
+  serialized_start=390,
+  serialized_end=497,
   methods=[
   _descriptor.MethodDescriptor(
     name='reset',
@@ -195,6 +262,15 @@ _DOTASERVICE = _descriptor.ServiceDescriptor(
     containing_service=None,
     input_type=_ACTION,
     output_type=_OBSERVATION,
+    serialized_options=None,
+  ),
+  _descriptor.MethodDescriptor(
+    name='clear',
+    full_name='DotaService.clear',
+    index=2,
+    containing_service=None,
+    input_type=_EMPTY,
+    output_type=_EMPTY,
     serialized_options=None,
   ),
 ])

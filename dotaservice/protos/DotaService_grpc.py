@@ -20,6 +20,10 @@ class DotaServiceBase(abc.ABC):
     async def step(self, stream):
         pass
 
+    @abc.abstractmethod
+    async def clear(self, stream):
+        pass
+
     def __mapping__(self):
         return {
             '/DotaService/reset': grpclib.const.Handler(
@@ -33,6 +37,12 @@ class DotaServiceBase(abc.ABC):
                 grpclib.const.Cardinality.UNARY_UNARY,
                 dotaservice.protos.DotaService_pb2.Action,
                 dotaservice.protos.DotaService_pb2.Observation,
+            ),
+            '/DotaService/clear': grpclib.const.Handler(
+                self.clear,
+                grpclib.const.Cardinality.UNARY_UNARY,
+                dotaservice.protos.DotaService_pb2.Empty,
+                dotaservice.protos.DotaService_pb2.Empty,
             ),
         }
 
@@ -51,4 +61,10 @@ class DotaServiceStub:
             '/DotaService/step',
             dotaservice.protos.DotaService_pb2.Action,
             dotaservice.protos.DotaService_pb2.Observation,
+        )
+        self.clear = grpclib.client.UnaryUnaryMethod(
+            channel,
+            '/DotaService/clear',
+            dotaservice.protos.DotaService_pb2.Empty,
+            dotaservice.protos.DotaService_pb2.Empty,
         )

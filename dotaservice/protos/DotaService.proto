@@ -1,13 +1,22 @@
 syntax = "proto2";
 
 import "dotaservice/protos/dota_gcmessages_common_bot_script.proto";
+// import "google/protobuf/empty.proto";
+
+enum Status {
+  OK = 0;
+  RESOURCE_EXHAUSTED = 8;
+}
+
+message Empty {}
 
 message Action {
   required CMsgBotWorldState.Action action = 1;
 }
 
 message Observation {
-  required CMsgBotWorldState world_state = 1;
+  required Status status = 1;
+  optional CMsgBotWorldState world_state = 2;
 }
 
 message Config {
@@ -21,4 +30,5 @@ message Config {
 service DotaService {
   rpc reset (Config) returns (Observation) {}
   rpc step (Action) returns (Observation) {}
+  rpc clear (Empty) returns (Empty) {}
 }

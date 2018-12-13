@@ -13,6 +13,9 @@ from dotaservice.protos.DotaService_grpc import DotaServiceStub
 from dotaservice.protos.dota_gcmessages_common_bot_script_pb2 import CMsgBotWorldState
 from dotaservice.protos.DotaService_pb2 import Action
 from dotaservice.protos.DotaService_pb2 import Config
+from dotaservice.protos.DotaService_pb2 import Empty
+from dotaservice.protos.DotaService_pb2 import Status
+
 
 import numpy as np
 
@@ -24,10 +27,8 @@ from torch.distributions import Categorical
 
 torch.manual_seed(7)
 
-GUI_DEBUG = False
-N_STEPS = 150 if GUI_DEBUG else 150
-N_RESET_RETRIES = 4
-
+GUI_DEBUG = True
+N_STEPS = 10 if GUI_DEBUG else 10
 
 if not GUI_DEBUG:
     writer = SummaryWriter()
@@ -70,10 +71,10 @@ def get_total_xp(level, xp_needed_to_level):
     return xp_to_reach_level[level] + missing_xp_for_next_level
 
 
-def get_reward(prev_state, state):
+def get_reward(prev_obs, obs):
     """Get the reward."""
-    unit_init = get_hero_unit(prev_state)
-    unit = get_hero_unit(state)
+    unit_init = get_hero_unit(prev_obs)
+    unit = get_hero_unit(obs)
 
     reward = {'xp': 0, 'hp': 0, 'death': 0, 'dist': 0, 'lh': 0}
 
@@ -133,12 +134,12 @@ class Policy(nn.Module):
 
 
 policy = Policy()
-optimizer = optim.Adam(policy.parameters(), lr=3e-4)  # 1e-2 is obscene
+optimizer = optim.Adam(policy.parameters(), lr=1e-3)  # 1e-2 is obscene, 1e-4 seems slow.
 eps = np.finfo(np.float32).eps.item()
 
-START_EPISODE = 2530
+START_EPISODE = 3488
 MODEL_FILENAME_FMT = "model_%09d.pt"
-pretrained_model = 'runs/Dec11_02-18-59_Tims-Mac-Pro.local/' + MODEL_FILENAME_FMT % START_EPISODE
+pretrained_model = 'runs/Dec12_21-41-31_Tims-Mac-Pro.local/' + MODEL_FILENAME_FMT % START_EPISODE
 policy.load_state_dict(torch.load(pretrained_model), strict=True)
 
 
@@ -258,30 +259,42 @@ def action_to_pb(action, state):
 class Actor(object):
 
     def __init__(self, config, host='127.0.0.1', port=13337):
-        loop = asyncio.get_event_loop()
-        channel = Channel(host, port, loop=loop)
         self.host = host
         self.port = port
-        self.env = DotaServiceStub(channel)
         self.config = config
 
-    async def __call__(self):
-        rewards = []
-        state = None
-        for i in range(N_RESET_RETRIES):
-            try:
-                state = await asyncio.wait_for(self.env.reset(self.config), timeout=60)
-                break
-            except Exception as e:
-                print('Exception on env.reset: {}'.format(e))
-                if i == N_RESET_RETRIES-1:
-                    raise
+    def create_channel(self):
+        loop = asyncio.get_event_loop()
+        channel = Channel(self.host, self.port, loop=loop)
+        env = DotaServiceStub(channel)
+        return env
 
+    ENV_RETRY_DELAY = 5
+
+    async def __call__(self):
+        obs = None
+
+        while True:
+            # Set up a channel.
+            env = self.create_channel()
+
+            # Wait for game to boot.
+            response = await asyncio.wait_for(env.reset(self.config), timeout=60)
+            obs = response.world_state
+
+            if response.status == Status.Value('OK'):
+                print("Channel and reset opened.")
+                break
+            print("Environment reset request (retrying in {}s):\n{}".format(
+                self.ENV_RETRY_DELAY, response))
+            await asyncio.sleep(self.ENV_RETRY_DELAY)
+
+        rewards = []
         log_probs = []
 
         for step in range(N_STEPS):  # Steps/actions in the environment
-            prev_state = state
-            action = select_action(state.world_state, step=step)
+            prev_obs = obs
+            action = select_action(obs, step=step)
             print('action:{}'.format(action))
 
             log_probs.append({'x': action['x']['logprob'],
@@ -289,24 +302,27 @@ class Actor(object):
                               'enum': action['enum']['logprob'],
                               })
 
-            action_pb = action_to_pb(action=action, state=state.world_state)
+            action_pb = action_to_pb(action=action, state=obs)
 
             try:
-                state = await asyncio.wait_for(self.env.step(Action(action=action_pb)), timeout=11)
+                response = await asyncio.wait_for(env.step(Action(action=action_pb)), timeout=11)
+                obs = response.world_state
             except Exception as e:
                 print('Exception on env.step: {}'.format(e))
                 break
 
-            reward = get_reward(prev_state=prev_state.world_state, state=state.world_state)
+            reward = get_reward(prev_obs=prev_obs, obs=obs)
 
             print('{} step={} reward={:.3f}\n'.format(self.port, step, sum(reward.values())))
 
             rewards.append(reward)
 
+        await env.clear(Empty())
+
         reward_sum = sum([sum(r.values()) for r in rewards])
 
         print('{} last dotatime={:.2f}, reward sum={:.2f}'.format(
-            self.port, state.world_state.dota_time, reward_sum))
+            self.port, obs.dota_time, reward_sum))
 
         return rewards, log_probs
 
@@ -322,35 +338,44 @@ def discount_rewards(rewards, gamma=0.99):
 async def main():
     loop = asyncio.get_event_loop()
 
+
+
     if GUI_DEBUG:
         config = Config(
             ticks_per_observation=30,
             host_timescale=2,
             render=False,
         )
-        actors = [Actor(config=config, port=13337)]
+        n_actors = 1
+        # actors = [Actor(config=config, port=13337)]
     else:
         config = Config(
             ticks_per_observation=30,
             host_timescale=10,
             render=False,
         )
-        actors = [
-            Actor(config=config, port=42000),
-            Actor(config=config, port=42001),
-            Actor(config=config, port=42002),
-            Actor(config=config, port=42003),
-            Actor(config=config, port=42004),
-            Actor(config=config, port=42005),
-            Actor(config=config, port=42006),
-            Actor(config=config, port=42007),
-        ]
+        n_actors = 2
+        # actors = [
+        #     Actor(config=config, port=40000),
+        #     Actor(config=config, port=40001),
+        #     Actor(config=config, port=40002),
+        #     Actor(config=config, port=40003),
+        #     Actor(config=config, port=40004),
+        #     Actor(config=config, port=40005),
+        #     Actor(config=config, port=40006),
+        #     Actor(config=config, port=40007),
+        # ]
+
+    actors = [Actor(config=config, port=13337) for _ in range(n_actors)]
 
     N_EPISODES = 100000
-    BATCH_SIZE = 16
+    batch_size = 2
 
-    if BATCH_SIZE % len(actors) != 0:
-        print('Notice: amount of actors not cleanly divisible by batch size.')
+    if batch_size % len(actors) != 0:
+        raise ValueError('Notice: amount of actors not cleanly divisible by batch size.')
+
+    if n_actors > batch_size:
+        raise ValueError('More actors than batch size!')
 
     for episode in range(START_EPISODE, N_EPISODES):
 
@@ -359,8 +384,8 @@ async def main():
         all_log_probs = []
 
         i = 0
-        while i < BATCH_SIZE:
-            print('@subbatch #{}'.format(i))
+        while i < batch_size:
+            print('Sub-batch processed {}/{}'.format(i, batch_size))
             actor_output = await asyncio.gather(*[a() for a in actors])
 
             # Loop over all distributed actors.
@@ -384,14 +409,14 @@ async def main():
         reward_counter = dict(reward_counter)
                 
         reward_sum = sum(reward_counter.values())
-        avg_reward = reward_sum / BATCH_SIZE
+        avg_reward = reward_sum / batch_size
         print('ep={} n_actors={} avg_reward={} loss={}'.format(episode, i, avg_reward, loss))
 
         if not GUI_DEBUG:
             writer.add_scalar('loss', loss, episode)
             writer.add_scalar('mean_reward', avg_reward, episode)
             for k, v in reward_counter.items():
-                writer.add_scalar('reward_{}'.format(k), v / BATCH_SIZE, episode)
+                writer.add_scalar('reward_{}'.format(k), v / batch_size, episode)
             filename = os.path.join(log_dir, MODEL_FILENAME_FMT % episode)
             torch.save(policy.state_dict(), filename)
         

@@ -21,7 +21,10 @@ from grpclib.server import Server
 
 from dotaservice.protos.dota_gcmessages_common_bot_script_pb2 import CMsgBotWorldState
 from dotaservice.protos.DotaService_grpc import DotaServiceBase
+from dotaservice.protos.DotaService_pb2 import Empty
 from dotaservice.protos.DotaService_pb2 import Observation
+from dotaservice.protos.DotaService_pb2 import Status
+
 
 LUA_FILES_GLOB = pkg_resources.resource_filename('dotaservice', 'lua/*.lua')
 
@@ -295,9 +298,11 @@ class DotaGame(object):
 
 
 class DotaService(DotaServiceBase):
-    def __init__(self, dota_path, action_folder):
+
+    def __init__(self, dota_path, action_folder, session_expiration_time):
         self.dota_path = dota_path
         self.action_folder = action_folder
+        self.session_expiration_time = session_expiration_time
 
         # Initial assertions.
         verify_game_path(self.dota_path)
@@ -317,7 +322,60 @@ class DotaService(DotaServiceBase):
                         .format(self.action_folder))
 
         self.dota_game = None
+        self._ready = True
+        self._time_last_call = time.time()
         super().__init__()
+
+    @property
+    async def ready(self):
+        """Check if we are ready to play.
+
+        The session will also be checked for expiration. If this is the case, we clean resources,
+        which sets the status to ready.
+        """
+        print('@DotaService::ready?')
+        if not self._ready:
+            print('session_expired={}'.format(self.session_expired))
+            if self.session_expired:
+                await self.clean_resources()
+                self._ready = True
+        print(' ready={}'.format(self._ready))
+        return self._ready
+
+    def set_call_timer(self):
+        self._time_last_call = time.time()
+
+    @property
+    def session_expired(self):
+        """Sessions expire after time sime, after which the current resource is available."""
+        if self._ready:
+            # Not applicable: when it's ready, there's no session, so not expired.
+            return False
+        dt = time.time() - self._time_last_call
+        if dt > self.session_expiration_time:
+            return True
+        return False
+
+    async def clean_resources(self):
+        """Clean resoruces.
+        
+        Kill any previously running dota processes, and therefore set our status to ready.
+        """
+        # TODO(tzaman): Currently semi-gracefully. Can be cleaner.
+        if self.dota_game is not None:
+            await self.dota_game.close()
+            self.dota_game = None
+        os.system("ps | grep dota2 | awk '{print $1}' | xargs kill -9")
+
+    async def clear(self, stream):
+        """Cleans resources.
+
+        Should be called when a user is done with a game, or when you want to nuke resources.
+        """
+        print('DotaService::clear()')
+        await self.clean_resources()
+        self._ready = True
+        await stream.send_message(Empty())
 
     async def reset(self, stream):
         """reset method.
@@ -325,16 +383,16 @@ class DotaService(DotaServiceBase):
         This method should start up the dota game and the other required services.
         """
         print('DotaService::reset()')
-
+        if not await self.ready:
+            print('Resource currently exhausted: returning response.')
+            await stream.send_message(Observation(status=Status.Value('RESOURCE_EXHAUSTED')))
+            return
+        self._ready = False
+        self.set_call_timer()
         config = await stream.recv_message()
         print('config=\n', config)
 
-        
-        # Kill any previously running dota processes.
-        # TODO(tzaman): Currently semi-gracefully. Can be cleaner.
-        if self.dota_game is not None:
-            await self.dota_game.close()
-        os.system("ps | grep dota2 | awk '{print $1}' | xargs kill -9")
+        await self.clean_resources()
 
         # Create a new dota game instance.
         self.dota_game = DotaGame(
@@ -375,13 +433,12 @@ class DotaService(DotaServiceBase):
         self.dota_game.write_live_config(data=config)
 
         # Return the reponse
-        await stream.send_message(Observation(world_state=data))
+        await stream.send_message(Observation(status=Status.Value('OK'), world_state=data))
 
     async def step(self, stream):
         print('DotaService::step()')
-
+        self.set_call_timer()
         request = await stream.recv_message()
-
         action = MessageToDict(request.action)
 
         # Add the dotatime to the dict for verification.
@@ -403,7 +460,7 @@ class DotaService(DotaServiceBase):
         assert self.dota_game.worldstate_queue.qsize() == 0
 
         # Return the reponse.
-        await stream.send_message(Observation(world_state=data))
+        await stream.send_message(Observation(status=Status.Value('OK'), world_state=data))
 
 
 async def serve(server, *, host, port):
@@ -421,8 +478,12 @@ async def grpc_main(loop, handler, host, port):
     await serve(server, host=host, port=port)
 
 
-def main(grpc_host, grpc_port, dota_path, action_folder):
-    dota_service = DotaService(dota_path=dota_path, action_folder=action_folder)
+def main(grpc_host, grpc_port, dota_path, action_folder, session_expiration_time):
+    dota_service = DotaService(
+        dota_path=dota_path,
+        action_folder=action_folder,
+        session_expiration_time=session_expiration_time,
+        )
     loop = asyncio.get_event_loop()
     tasks = grpc_main(
         loop=loop,
