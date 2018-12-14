@@ -63,6 +63,7 @@ class DotaGame(object):
     PORT_WORLDSTATE_RADIANT = 12120
     RE_DEMO =  re.compile(r'playdemo[ \t](.*dem)')
     RE_LUARDY = re.compile(r'LUARDY[ \t](\{.*\})')
+    WORLDSTATE_PAYLOAD_BYTES = 4
 
     def __init__(self,
                  dota_path,
@@ -258,15 +259,15 @@ class DotaGame(object):
             except Exception as e:  # Fail silently.
                 print(e)
 
-
-    @staticmethod
-    async def _world_state_from_reader(reader):
+    @classmethod
+    async def _world_state_from_reader(cls, reader):
         # Receive the package length.
-        data = await reader.read(4)
+        data = await reader.read(cls.WORLDSTATE_PAYLOAD_BYTES)
+        if len(data) != cls.WORLDSTATE_PAYLOAD_BYTES:
+            raise ValueError('Invalid worldstate payload')
         n_bytes = unpack("@I", data)[0]
         # Receive the payload given the length.
-        # data = await asyncio.wait_for(reader.read(n_bytes), timeout=3.0)
-        data = await reader.read(n_bytes) # Should we timeout for this?
+        data = await asyncio.wait_for(reader.read(n_bytes), timeout=1)
         # Decode the payload.
         world_state = CMsgBotWorldState()
         world_state.ParseFromString(data)
@@ -295,7 +296,6 @@ class DotaGame(object):
                         # Only regard worldstates that are actionable (in-game + has units).
                         self.worldstate_queue.put_nowait(world_state)
                 except DecodeError as e:
-                    print(e)
                     pass
         except asyncio.CancelledError:
             raise
@@ -331,19 +331,14 @@ class DotaService(DotaServiceBase):
         super().__init__()
 
     @property
-    async def ready(self):
+    def ready(self):
         """Check if we are ready to play.
 
-        The session will also be checked for expiration. If this is the case, we clean resources,
-        which sets the status to ready.
+        The session will also be checked for expiration.
         """
-        print('@DotaService::ready?')
         if not self._ready:
-            print('session_expired={}'.format(self.session_expired))
             if self.session_expired:
-                await self.clean_resources()
                 self._ready = True
-        print(' ready={}'.format(self._ready))
         return self._ready
 
     def set_call_timer(self):
@@ -357,6 +352,7 @@ class DotaService(DotaServiceBase):
             return False
         dt = time.time() - self._time_last_call
         if dt > self.session_expiration_time:
+            print("Session expired!")
             return True
         return False
 
@@ -387,7 +383,7 @@ class DotaService(DotaServiceBase):
         This method should start up the dota game and the other required services.
         """
         print('DotaService::reset()')
-        if not await self.ready:
+        if not self.ready:
             print('Resource currently exhausted: returning response.')
             await stream.send_message(Observation(status=Status.Value('RESOURCE_EXHAUSTED')))
             return
