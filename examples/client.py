@@ -26,10 +26,15 @@ from torch.distributions import Categorical
 
 torch.manual_seed(7)
 
-GUI_DEBUG = True
-N_STEPS = 10 if GUI_DEBUG else 10
+USE_CHECKPOINTS = True
+N_STEPS = 150
+start_episode = 0
+MODEL_FILENAME_FMT = "model_%09d.pt"
+pretrained_model = None
+# pretrained_model = 'runs/Dec12_21-41-31_Tims-Mac-Pro.local/' + MODEL_FILENAME_FMT % START_EPISODE
 
-if not GUI_DEBUG:
+
+if USE_CHECKPOINTS:
     from tensorboardX import SummaryWriter
     writer = SummaryWriter()
     log_dir = writer.file_writer.get_logdir()
@@ -137,16 +142,8 @@ policy = Policy()
 optimizer = optim.Adam(policy.parameters(), lr=1e-3)  # 1e-2 is obscene, 1e-4 seems slow.
 eps = np.finfo(np.float32).eps.item()
 
-START_EPISODE = 3488
-MODEL_FILENAME_FMT = "model_%09d.pt"
-pretrained_model = 'runs/Dec12_21-41-31_Tims-Mac-Pro.local/' + MODEL_FILENAME_FMT % START_EPISODE
-
-try:
+if pretrained_model:
     policy.load_state_dict(torch.load(pretrained_model), strict=True)
-except FileNotFoundError:
-    START_EPISODE = 0
-    print("Model '%s' Not Found. Starting from scratch at episode %d" % (pretrained_model, START_EPISODE))
-    pass
 
 def select_action(world_state, step=None):
     actions = {}
@@ -189,7 +186,6 @@ def select_action(world_state, step=None):
     return actions
 
 
-
 def finish_episode(rewards, log_probs):
     print('@finish_eposide')
     rewards = torch.tensor(rewards)
@@ -205,7 +201,6 @@ def finish_episode(rewards, log_probs):
     loss.backward()
     optimizer.step()
     return loss
-
 
 def get_hero_unit(state, id=0):
     for unit in state.units:
@@ -268,30 +263,30 @@ class Actor(object):
         self.port = port
         self.config = config
 
-    def create_channel(self):
-        loop = asyncio.get_event_loop()
-        channel = Channel(self.host, self.port, loop=loop)
-        env = DotaServiceStub(channel)
-        return env
-
-    ENV_RETRY_DELAY = 5
+    ENV_RETRY_DELAY = 15
 
     async def __call__(self):
         obs = None
+        channel = None
+        env = None
 
         while True:
             # Set up a channel.
-            env = self.create_channel()
+            loop = asyncio.get_event_loop()
+            channel = Channel(self.host, self.port, loop=loop)
+            env = DotaServiceStub(channel)
 
             # Wait for game to boot.
-            response = await asyncio.wait_for(env.reset(self.config), timeout=60)
+            response = await asyncio.wait_for(env.reset(self.config), timeout=600)
             obs = response.world_state
 
             if response.status == Status.Value('OK'):
                 print("Channel and reset opened.")
                 break
+            channel.close()
             print("Environment reset request (retrying in {}s):\n{}".format(
                 self.ENV_RETRY_DELAY, response))
+
             await asyncio.sleep(self.ENV_RETRY_DELAY)
 
         rewards = []
@@ -323,7 +318,7 @@ class Actor(object):
             rewards.append(reward)
 
         await env.clear(Empty())
-
+        channel.close()
         reward_sum = sum([sum(r.values()) for r in rewards])
 
         print('{} last dotatime={:.2f}, reward sum={:.2f}'.format(
@@ -342,39 +337,15 @@ def discount_rewards(rewards, gamma=0.99):
 
 async def main():
     loop = asyncio.get_event_loop()
-
-
-
-    if GUI_DEBUG:
-        config = Config(
-            ticks_per_observation=30,
-            host_timescale=2,
-            render=False,
-        )
-        n_actors = 1
-        # actors = [Actor(config=config, port=13337)]
-    else:
-        config = Config(
-            ticks_per_observation=30,
-            host_timescale=10,
-            render=False,
-        )
-        n_actors = 2
-        # actors = [
-        #     Actor(config=config, port=40000),
-        #     Actor(config=config, port=40001),
-        #     Actor(config=config, port=40002),
-        #     Actor(config=config, port=40003),
-        #     Actor(config=config, port=40004),
-        #     Actor(config=config, port=40005),
-        #     Actor(config=config, port=40006),
-        #     Actor(config=config, port=40007),
-        # ]
-
-    actors = [Actor(config=config, port=13337) for _ in range(n_actors)]
-
-    N_EPISODES = 100000
-    batch_size = 2
+    n_actors = 1
+    n_episodes = 100000
+    batch_size = n_actors
+    config = Config(
+        ticks_per_observation=30,
+        host_timescale=10,
+        render=False,
+    )
+    actors = [Actor(config=config, host='localhost', port=13337) for _ in range(n_actors)]
 
     if batch_size % len(actors) != 0:
         raise ValueError('Notice: amount of actors not cleanly divisible by batch size.')
@@ -382,7 +353,7 @@ async def main():
     if n_actors > batch_size:
         raise ValueError('More actors than batch size!')
 
-    for episode in range(START_EPISODE, N_EPISODES):
+    for episode in range(start_episode, n_episodes):
 
         all_rewards = []
         all_discounted_rewards = []
@@ -404,12 +375,9 @@ async def main():
 
         loss = finish_episode(rewards=all_discounted_rewards, log_probs=all_log_probs)
 
-
-        
-
         reward_counter = Counter()
-        for b in all_rewards: # jobs in a batch
-            for s in b: # Steps in a batch
+        for b in all_rewards: # Jobs in a batch.
+            for s in b: # Steps in a batch.
                 reward_counter.update(s)
         reward_counter = dict(reward_counter)
                 
@@ -417,7 +385,7 @@ async def main():
         avg_reward = reward_sum / batch_size
         print('ep={} n_actors={} avg_reward={} loss={}'.format(episode, i, avg_reward, loss))
 
-        if not GUI_DEBUG:
+        if USE_CHECKPOINTS:
             writer.add_scalar('loss', loss, episode)
             writer.add_scalar('mean_reward', avg_reward, episode)
             for k, v in reward_counter.items():
