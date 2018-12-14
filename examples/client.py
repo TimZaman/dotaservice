@@ -261,8 +261,8 @@ def action_to_pb(action, state):
             'DOTA_UNIT_ORDER_MOVE_TO_POSITION')
         m = CMsgBotWorldState.Action.MoveToLocation()
         hero_location = hero_unit.location
-        m.location.x = hero_location.x + 350 if action['x']['action'] else hero_location.x - 350
-        m.location.y = hero_location.y + 350 if action['y']['action'] else hero_location.y - 350
+        m.location.x = max(min(hero_location.x + 350 if action['x']['action'] else hero_location.x - 350, 7000.), -7000.)
+        m.location.y = max(min(hero_location.y + 350 if action['y']['action'] else hero_location.y - 350, 7000.), -7000.)
         m.location.z = 0
         action_pb.moveToLocation.CopyFrom(m)
     elif action_enum == 2:
