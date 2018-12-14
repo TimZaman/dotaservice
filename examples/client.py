@@ -3,27 +3,26 @@ from time import time
 import asyncio
 import math
 import os
+import time
 import uuid
 
-from grpclib.client import Channel
 from google.protobuf.json_format import MessageToDict
+from grpclib.client import Channel
 from tensorboardX import SummaryWriter
+from torch.distributions import Categorical
+import numpy as np
+import torch
+import torch.nn as nn
+import torch.nn.functional as F
+import torch.optim as optim
 
-from dotaservice.protos.DotaService_grpc import DotaServiceStub
 from dotaservice.protos.dota_gcmessages_common_bot_script_pb2 import CMsgBotWorldState
+from dotaservice.protos.DotaService_grpc import DotaServiceStub
 from dotaservice.protos.DotaService_pb2 import Action
 from dotaservice.protos.DotaService_pb2 import Config
 from dotaservice.protos.DotaService_pb2 import Empty
 from dotaservice.protos.DotaService_pb2 import Status
 
-
-import numpy as np
-
-import torch
-import torch.nn as nn
-import torch.nn.functional as F
-import torch.optim as optim
-from torch.distributions import Categorical
 
 torch.manual_seed(7)
 
@@ -139,7 +138,7 @@ class Policy(nn.Module):
 
 
 policy = Policy()
-optimizer = optim.Adam(policy.parameters(), lr=1e-3)  # 1e-2 is obscene, 1e-4 seems slow.
+optimizer = optim.Adam(policy.parameters(), lr=1e-2)  # 1e-2 is obscene, 1e-4 seems slow.
 eps = np.finfo(np.float32).eps.item()
 
 if pretrained_model:
@@ -267,20 +266,28 @@ class Actor(object):
         self.config = config
 
     ENV_RETRY_DELAY = 15
+    EXCEPTION_RETRIES = 5
 
     async def __call__(self):
+        for i in range(self.EXCEPTION_RETRIES):
+            try:
+                return await self.call()
+            except Exception as e:
+                print('Exception on Actor::call; retrying ({}/{}).:\n{}'.format(
+                    i, self.EXCEPTION_RETRIES, e))
+
+    async def call(self):
         obs = None
         channel = None
         env = None
-
+        loop = asyncio.get_event_loop()
         while True:
             # Set up a channel.
-            loop = asyncio.get_event_loop()
             channel = Channel(self.host, self.port, loop=loop)
             env = DotaServiceStub(channel)
 
             # Wait for game to boot.
-            response = await asyncio.wait_for(env.reset(self.config), timeout=600)
+            response = await env.reset(self.config)
             obs = response.world_state
 
             if response.status == Status.Value('OK'):
@@ -289,12 +296,10 @@ class Actor(object):
             channel.close()
             print("Environment reset request (retrying in {}s):\n{}".format(
                 self.ENV_RETRY_DELAY, response))
-
             await asyncio.sleep(self.ENV_RETRY_DELAY)
 
         rewards = []
         log_probs = []
-
         for step in range(N_STEPS):  # Steps/actions in the environment
             prev_obs = obs
             action = select_action(obs, step=step)
@@ -307,12 +312,8 @@ class Actor(object):
 
             action_pb = action_to_pb(action=action, state=obs)
 
-            try:
-                response = await asyncio.wait_for(env.step(Action(action=action_pb)), timeout=11)
-                obs = response.world_state
-            except Exception as e:
-                print('Exception on env.step: {}'.format(e))
-                break
+            response = await env.step(Action(action=action_pb))
+            obs = response.world_state
 
             reward = get_reward(prev_obs=prev_obs, obs=obs)
 
@@ -341,7 +342,7 @@ def discount_rewards(rewards, gamma=0.99):
 async def main():
     loop = asyncio.get_event_loop()
     n_actors = 1
-    n_episodes = 100000
+    n_episodes = 10000000
     batch_size = n_actors
     config = Config(
         ticks_per_observation=30,
@@ -363,6 +364,7 @@ async def main():
         all_log_probs = []
 
         i = 0
+        start_time = time.time()
         while i < batch_size:
             print('Sub-batch processed {}/{}'.format(i, batch_size))
             actor_output = await asyncio.gather(*[a() for a in actors])
@@ -375,6 +377,8 @@ async def main():
                 all_discounted_rewards.extend(discounted_rewards)
                 all_log_probs.extend(log_probs)
                 i += 1
+        time_per_batch = time.time() - start_time
+        steps_per_s = len(all_log_probs) / time_per_batch
 
         loss = finish_episode(rewards=all_discounted_rewards, log_probs=all_log_probs)
 
@@ -389,6 +393,7 @@ async def main():
         print('ep={} n_actors={} avg_reward={} loss={}'.format(episode, i, avg_reward, loss))
 
         if USE_CHECKPOINTS:
+            writer.add_scalar('steps per s', steps_per_s, episode)
             writer.add_scalar('loss', loss, episode)
             writer.add_scalar('mean_reward', avg_reward, episode)
             for k, v in reward_counter.items():
