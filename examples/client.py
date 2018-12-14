@@ -81,8 +81,7 @@ def get_reward(prev_obs, obs):
     unit_init = get_hero_unit(prev_obs)
     unit = get_hero_unit(obs)
 
-    reward = {'xp': 0, 'hp': 0, 'death': 0, 'dist': 0, 'lh': 0}
-
+    reward = {'xp': 0, 'hp': 0, 'death': 0, 'dist': 0, 'lh': 0, 'denies': 0}
 
     xp_init = get_total_xp(level=unit_init.level, xp_needed_to_level=unit_init.xp_needed_to_level)
     xp = get_total_xp(level=unit.level, xp_needed_to_level=unit.xp_needed_to_level)
@@ -100,6 +99,10 @@ def get_reward(prev_obs, obs):
     lh = unit.last_hits - unit_init.last_hits
     reward['lh'] = lh * 0.5
 
+    # Deny reward
+    dn = unit.denies - unit_init.denies
+    reward['denies'] = dn * 0.25 # denies are 1/2 of last hits
+
     # Help him get to mid, for minor speed boost
     dist_mid = math.sqrt(unit.location.x**2 + unit.location.y**2)
     reward['dist'] = -(dist_mid / 8000.) * 0.01
@@ -113,28 +116,33 @@ class Policy(nn.Module):
         self.affine1a = nn.Linear(2, 128)
         self.affine1b = nn.Linear(2, 128)
         self.affine1c = nn.Linear(2, 128)
+        self.affine1d = nn.Linear(2, 128)
 
         self.affine2a = nn.Linear(128, 2)
         self.affine2b = nn.Linear(128, 2)
         self.affine2c = nn.Linear(128, 3)
+        self.affine2d = nn.Linear(128, 3)
 
-    def forward(self, xa, xb, xc):
-        print('policy(xa={}, xb={}, xc={})'.format(xa, xb, xc))
+    def forward(self, xa, xb, xc, xd):
+        print('policy(xa={}, xb={}, xc={}, xd={})'.format(xa, xb, xc, xd))
 
         xa = self.affine1a(xa)
         xb = self.affine1b(xb)
         xc = self.affine1c(xc)
+        xd = self.affine1c(xd)
 
-        x = F.relu(xa + xb + xc)
+        x = F.relu(xa + xb + xc + xd)
 
         action_scores_x = self.affine2a(x)
         action_scores_y = self.affine2b(x)
-        action_scores_enum = self.affine2c(x)
+        action_scores_enum_1 = self.affine2c(x)
+        action_scores_enum_2 = self.affine2d(x)
 
         return {
                 'x': F.softmax(action_scores_x, dim=1),
                 'y': F.softmax(action_scores_y, dim=1),
-                'enum': F.softmax(action_scores_enum, dim=1),
+                'e1': F.softmax(action_scores_enum_1, dim=1),
+                'e2': F.softmax(action_scores_enum_2, dim=1),
                 }
 
 
@@ -161,22 +169,36 @@ def select_action(world_state, step=None):
     env_state = torch.from_numpy(np.array([hp_rel, dota_time_norm])).float().unsqueeze(0) 
 
 
-    # Nearest creep input
-    closest_unit, distance = get_nearest_creep_to_hero(world_state, hero_unit=unit)
     MAX_CREEP_DIST = 1200.
+    # Nearest enemy creep input
+    closest_unit, distance = get_nearest_attackable_creep_to_hero(world_state, hero_unit=unit)
     if closest_unit is not None and distance < MAX_CREEP_DIST:
         # print('closest_unit:\n{}'.format(closest_unit))
-        creep_hp = 1. - (closest_unit.health / closest_unit.health_max)  # [1 (dead) : 0 (full hp)]
-        distance = 1. - (distance / MAX_CREEP_DIST)  # [1 (close): 0 (far)] 
+        e_creep_hp = 1. - (closest_unit.health / closest_unit.health_max)  # [1 (dead) : 0 (full hp)]
+        e_distance = 1. - (distance / MAX_CREEP_DIST)  # [1 (close): 0 (far)] 
         actions['DOTA_UNIT_ORDER_ATTACK_TARGET'] = {}
         actions['DOTA_UNIT_ORDER_ATTACK_TARGET']['handle'] = closest_unit.handle
     else :
-        creep_hp = 0
-        distance = 0
+        e_creep_hp = 0
+        e_distance = 0
 
-    creep_state = torch.from_numpy(np.array([creep_hp, distance])).float().unsqueeze(0) 
+    enemy_creep_state = torch.from_numpy(np.array([e_creep_hp, e_distance])).float().unsqueeze(0) 
 
-    probs = policy(xa=location_state, xb=env_state, xc=creep_state)
+    # Nearest friendly creep input
+    closest_unit, distance = get_nearest_attackable_creep_to_hero(world_state, hero_unit=unit, friend=True)
+    if closest_unit is not None and distance < MAX_CREEP_DIST:
+        # print('closest_unit:\n{}'.format(closest_unit))
+        f_creep_hp = 1. - (closest_unit.health / closest_unit.health_max)  # [1 (dead) : 0 (full hp)]
+        f_distance = 1. - (distance / MAX_CREEP_DIST)  # [1 (close): 0 (far)] 
+        actions['DOTA_UNIT_ORDER_ATTACK_TARGET'] = {}
+        actions['DOTA_UNIT_ORDER_ATTACK_TARGET']['handle'] = closest_unit.handle
+    else :
+        f_creep_hp = 0
+        f_distance = 0
+
+    friendly_creep_state = torch.from_numpy(np.array([f_creep_hp, f_distance])).float().unsqueeze(0)
+
+    probs = policy(xa=location_state, xb=env_state, xc=enemy_creep_state, xd=friendly_creep_state)
 
     for k, prob in probs.items():
         m = Categorical(prob)
@@ -187,7 +209,7 @@ def select_action(world_state, step=None):
 
 
 def finish_episode(rewards, log_probs):
-    print('@finish_eposide')
+    print('@finish_episode')
     rewards = torch.tensor(rewards)
     rewards = (rewards - rewards.mean()) / (rewards.std() + eps)
 
@@ -212,17 +234,23 @@ def get_hero_unit(state, id=0):
 def location_distance(lhs, rhs):
     return math.sqrt( (lhs.x-rhs.x)**2  +  (lhs.y-rhs.y)**2 )
 
-def get_nearest_creep_to_hero(state, hero_unit):
+def get_nearest_attackable_creep_to_hero(state, hero_unit, friend=False):
     min_d = None
     closest_unit = None
     for unit in state.units:
-        if unit.unit_type == CMsgBotWorldState.UnitType.Value('LANE_CREEP') \
-            and unit.team_id != hero_unit.team_id \
-            and unit.is_alive:  # Why the shits does the proto show dead units.
-            d = location_distance(hero_unit.location, unit.location)
-            if min_d is None or d < min_d:
-                min_d = d
-                closest_unit = unit
+        if unit.unit_type == CMsgBotWorldState.UnitType.Value('LANE_CREEP') and unit.is_alive:
+            if not friend and unit.team_id != hero_unit.team_id:
+                d = location_distance(hero_unit.location, unit.location)
+                if min_d is None or d < min_d:
+                    min_d = d
+                    closest_unit = unit
+            elif friend and unit.team_id == hero_unit.team_id \
+                    and (unit.health/unit.health_max) < 0.5:
+                d = location_distance(hero_unit.location, unit.location)
+                if min_d is None or d < min_d:
+                    min_d = d
+                    closest_unit = unit
+
     return closest_unit, min_d
 
 
@@ -230,7 +258,7 @@ def action_to_pb(action, state):
     hero_unit = get_hero_unit(state)
 
     action_pb = CMsgBotWorldState.Action()
-    action_enum = action['enum']['action']
+    action_enum = max(action['e1']['action'], action['e2']['action'])
     if action_enum == 0:
         action_pb.actionType = CMsgBotWorldState.Action.Type.Value('DOTA_UNIT_ORDER_NONE')
     elif action_enum == 1:
@@ -299,7 +327,8 @@ class Actor(object):
 
             log_probs.append({'x': action['x']['logprob'],
                               'y': action['y']['logprob'],
-                              'enum': action['enum']['logprob'],
+                              'e1': action['e1']['logprob'],
+                              'e2': action['e2']['logprob'],
                               })
 
             action_pb = action_to_pb(action=action, state=obs)
