@@ -20,6 +20,8 @@ from google.protobuf.json_format import MessageToDict
 from grpclib.server import Server
 
 from dotaservice.protos.dota_gcmessages_common_bot_script_pb2 import CMsgBotWorldState
+from dotaservice.protos.dota_shared_enums_pb2 import DOTA_GAMERULES_STATE_GAME_IN_PROGRESS
+from dotaservice.protos.dota_shared_enums_pb2 import DOTA_GAMERULES_STATE_PRE_GAME
 from dotaservice.protos.DotaService_grpc import DotaServiceBase
 from dotaservice.protos.DotaService_pb2 import Empty
 from dotaservice.protos.DotaService_pb2 import Observation
@@ -51,6 +53,7 @@ def verify_game_path(game_path):
 class DotaGame(object):
 
     ACTION_FILENAME = 'action'
+    ACTIONABLE_GAME_STATES = [DOTA_GAMERULES_STATE_PRE_GAME, DOTA_GAMERULES_STATE_GAME_IN_PROGRESS]
     BOTS_FOLDER_NAME = 'bots'
     CONFIG_FILENAME = 'config_auto'
     CONSOLE_LOG_FILENAME = 'console.log'
@@ -286,8 +289,7 @@ class DotaGame(object):
                 # This reader is always going to need to keep going to keep the buffers flushed.
                 try:
                     world_state = await self._world_state_from_reader(reader)
-                    # TODO(tzaman): use oficial enums from proto.
-                    is_in_game = world_state.game_state == 4 or world_state.game_state == 5 # pre-game (4) and in-game (5).
+                    is_in_game = world_state.game_state in self.ACTIONABLE_GAME_STATES
                     has_units = len(world_state.units) > 0
                     if is_in_game and has_units:
                         # Only regard worldstates that are actionable (in-game + has units).
