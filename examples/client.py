@@ -5,6 +5,7 @@ import math
 import os
 import time
 import uuid
+import argparse
 
 from google.protobuf.json_format import MessageToDict
 from grpclib.client import Channel
@@ -30,9 +31,6 @@ USE_CHECKPOINTS = True
 N_STEPS = 150
 start_episode = 0
 MODEL_FILENAME_FMT = "model_%09d.pt"
-pretrained_model = None
-# pretrained_model = 'runs/Dec12_21-41-31_Tims-Mac-Pro.local/' + MODEL_FILENAME_FMT % START_EPISODE
-
 
 if USE_CHECKPOINTS:
     writer = SummaryWriter()
@@ -149,8 +147,6 @@ policy = Policy()
 optimizer = optim.Adam(policy.parameters(), lr=1e-2)  # 1e-2 is obscene, 1e-4 seems slow.
 eps = np.finfo(np.float32).eps.item()
 
-if pretrained_model:
-    policy.load_state_dict(torch.load(pretrained_model), strict=True)
 
 def select_action(world_state, step=None):
     actions = {}
@@ -365,7 +361,14 @@ def discount_rewards(rewards, gamma=0.99):
         discounted_rewards.insert(0, R)
     return discounted_rewards
 
-async def main():
+async def main(pretrained_model):
+    if pretrained_model:
+        try:
+            policy.load_state_dict(torch.load(pretrained_model), strict=True)
+            start_episode = int(os.path.splitext(os.path.basename(pretrained_model))[0].rsplit('_', 1)[1]) + 1
+        except:
+            raise
+
     loop = asyncio.get_event_loop()
     n_actors = 1
     n_episodes = 10000000
@@ -426,7 +429,14 @@ async def main():
                 writer.add_scalar('reward_{}'.format(k), v / batch_size, episode)
             filename = os.path.join(log_dir, MODEL_FILENAME_FMT % episode)
             torch.save(policy.state_dict(), filename)
-        
+
 
 if __name__ == '__main__':
-    asyncio.run(main())
+    parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+    parser.add_argument(
+        "--model",
+        type=str,
+        default=None,
+        help="Path to the pretrained model.")
+    args = parser.parse_args()
+    asyncio.run(main(args.model))
