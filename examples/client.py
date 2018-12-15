@@ -21,17 +21,27 @@ from dotaservice.protos.DotaService_grpc import DotaServiceStub
 from dotaservice.protos.DotaService_pb2 import Action
 from dotaservice.protos.DotaService_pb2 import Config
 from dotaservice.protos.DotaService_pb2 import Empty
+from dotaservice.protos.DotaService_pb2 import HostMode
 from dotaservice.protos.DotaService_pb2 import Status
 
+
+import logging
+
+logger = logging.getLogger(__name__)
+handler = logging.StreamHandler()
+formatter = logging.Formatter('%(asctime)s %(levelname)-8s %(message)s')
+handler.setFormatter(formatter)
+logger.addHandler(handler)
+logger.setLevel(logging.INFO)
 
 torch.manual_seed(7)
 
 USE_CHECKPOINTS = True
 N_STEPS = 150
-start_episode = 0
+start_episode = 4297
 MODEL_FILENAME_FMT = "model_%09d.pt"
 pretrained_model = None
-# pretrained_model = 'runs/Dec12_21-41-31_Tims-Mac-Pro.local/' + MODEL_FILENAME_FMT % START_EPISODE
+pretrained_model = 'runs/Dec12_21-41-31_Tims-Mac-Pro.local/' + MODEL_FILENAME_FMT % start_episode
 
 
 if USE_CHECKPOINTS:
@@ -118,7 +128,7 @@ class Policy(nn.Module):
         self.affine2c = nn.Linear(128, 3)
 
     def forward(self, xa, xb, xc):
-        print('policy(xa={}, xb={}, xc={})'.format(xa, xb, xc))
+        logger.debug('policy(xa={}, xb={}, xc={})'.format(xa, xb, xc))
 
         xa = self.affine1a(xa)
         xb = self.affine1b(xb)
@@ -165,7 +175,6 @@ def select_action(world_state, step=None):
     closest_unit, distance = get_nearest_creep_to_hero(world_state, hero_unit=unit)
     MAX_CREEP_DIST = 1200.
     if closest_unit is not None and distance < MAX_CREEP_DIST:
-        # print('closest_unit:\n{}'.format(closest_unit))
         creep_hp = 1. - (closest_unit.health / closest_unit.health_max)  # [1 (dead) : 0 (full hp)]
         distance = 1. - (distance / MAX_CREEP_DIST)  # [1 (close): 0 (far)] 
         actions['DOTA_UNIT_ORDER_ATTACK_TARGET'] = {}
@@ -186,9 +195,7 @@ def select_action(world_state, step=None):
     return actions
 
 
-
 def finish_episode(rewards, log_probs):
-    print('@finish_eposide')
     rewards = torch.tensor(rewards)
     rewards = (rewards - rewards.mean()) / (rewards.std() + eps)
 
@@ -204,9 +211,10 @@ def finish_episode(rewards, log_probs):
     return loss
 
 
-def get_hero_unit(state, id=0):
+def get_hero_unit(state):
     for unit in state.units:
-        if unit.unit_type == CMsgBotWorldState.UnitType.Value('HERO') and unit.player_id == id:
+        if unit.unit_type == CMsgBotWorldState.UnitType.Value('HERO') \
+            and unit.name == 'npc_dota_hero_nevermore':
             return unit
     raise ValueError("hero {} not found in state:\n{}".format(id, state))
 
@@ -218,9 +226,7 @@ def get_nearest_creep_to_hero(state, hero_unit):
     min_d = None
     closest_unit = None
     for unit in state.units:
-        if unit.unit_type == CMsgBotWorldState.UnitType.Value('LANE_CREEP') \
-            and unit.team_id != hero_unit.team_id \
-            and unit.is_alive:  # Why the shits does the proto show dead units.
+        if unit.team_id != hero_unit.team_id and unit.is_alive:
             d = location_distance(hero_unit.location, unit.location)
             if min_d is None or d < min_d:
                 min_d = d
@@ -258,14 +264,17 @@ def action_to_pb(action, state):
         raise ValueError("unknown action {}".format(action_enum))
     return action_pb
 
-class Actor(object):
 
-    def __init__(self, config, host='127.0.0.1', port=13337):
+class Actor:
+
+    def __init__(self, config, host='127.0.0.1', port=13337, name=''):
         self.host = host
         self.port = port
         self.config = config
+        self.name = name
+        self.log_prefix = 'Actor {}: '.format(self.name)
 
-    ENV_RETRY_DELAY = 15
+    ENV_RETRY_DELAY = 2
     EXCEPTION_RETRIES = 5
 
     async def __call__(self):
@@ -273,28 +282,31 @@ class Actor(object):
             try:
                 return await self.call()
             except Exception as e:
-                print('Exception on Actor::call; retrying ({}/{}).:\n{}'.format(
-                    i, self.EXCEPTION_RETRIES, e))
+                logger.warning('Exception on Actor{}::call; retrying ({}/{}).:\n{}'.format(
+                    self.name, i, self.EXCEPTION_RETRIES, e))
+            await asyncio.sleep(1)
 
     async def call(self):
+        logger.info(self.log_prefix + 'Requesting channel.')
         obs = None
         channel = None
         env = None
         loop = asyncio.get_event_loop()
+        # Loop until we have an available game channel.
         while True:
             # Set up a channel.
             channel = Channel(self.host, self.port, loop=loop)
             env = DotaServiceStub(channel)
 
             # Wait for game to boot.
-            response = await env.reset(self.config)
+            response = await asyncio.wait_for(env.reset(self.config), timeout=90)
             obs = response.world_state
 
             if response.status == Status.Value('OK'):
-                print("Channel and reset opened.")
+                logger.info(self.log_prefix + 'Channel opened.')
                 break
             channel.close()
-            print("Environment reset request (retrying in {}s):\n{}".format(
+            logger.debug("Environment reset request (retrying in {}s):\n{}".format(
                 self.ENV_RETRY_DELAY, response))
             await asyncio.sleep(self.ENV_RETRY_DELAY)
 
@@ -303,7 +315,7 @@ class Actor(object):
         for step in range(N_STEPS):  # Steps/actions in the environment
             prev_obs = obs
             action = select_action(obs, step=step)
-            print('action:{}'.format(action))
+            logger.debug('action:{}'.format(action))
 
             log_probs.append({'x': action['x']['logprob'],
                               'y': action['y']['logprob'],
@@ -312,22 +324,20 @@ class Actor(object):
 
             action_pb = action_to_pb(action=action, state=obs)
 
-            response = await env.step(Action(action=action_pb))
+            response = await asyncio.wait_for(env.step(Action(action=action_pb)), timeout=15)
+            if response.status != Status.Value('OK'):
+                raise ValueError(self.log_prefix + 'Step reponse invalid:\n{}'.format(response))
             obs = response.world_state
 
             reward = get_reward(prev_obs=prev_obs, obs=obs)
 
-            print('{} step={} reward={:.3f}\n'.format(self.port, step, sum(reward.values())))
-
+            logger.debug(self.log_prefix + 'step={} reward={:.3f}\n'.format(step, sum(reward.values())))
             rewards.append(reward)
 
-        await env.clear(Empty())
+        await asyncio.wait_for(env.clear(Empty()), timeout=15)
         channel.close()
         reward_sum = sum([sum(r.values()) for r in rewards])
-
-        print('{} last dotatime={:.2f}, reward sum={:.2f}'.format(
-            self.port, obs.dota_time, reward_sum))
-
+        logger.info(self.log_prefix + 'Done. reward_sum={:.2f}'.format(reward_sum))
         return rewards, log_probs
 
 
@@ -341,42 +351,34 @@ def discount_rewards(rewards, gamma=0.99):
 
 async def main():
     loop = asyncio.get_event_loop()
-    n_actors = 1
     n_episodes = 10000000
-    batch_size = n_actors
+    batch_size = 2
     config = Config(
         ticks_per_observation=30,
         host_timescale=10,
-        render=False,
+        host_mode=HostMode.Value('DEDICATED'),
     )
-    actors = [Actor(config=config, host='localhost', port=13337) for _ in range(n_actors)]
-
-    if batch_size % len(actors) != 0:
-        raise ValueError('Notice: amount of actors not cleanly divisible by batch size.')
-
-    if n_actors > batch_size:
-        raise ValueError('More actors than batch size!')
+    host = 'localhost'
+    actors = [Actor(config=config, host=host, name=name) for name in range(batch_size)]
 
     for episode in range(start_episode, n_episodes):
-
+        logger.info('=== Starting Episode {}.'.format(episode))
         all_rewards = []
         all_discounted_rewards = []
         all_log_probs = []
 
-        i = 0
         start_time = time.time()
-        while i < batch_size:
-            print('Sub-batch processed {}/{}'.format(i, batch_size))
-            actor_output = await asyncio.gather(*[a() for a in actors])
 
-            # Loop over all distributed actors.
-            for rewards, log_probs in actor_output:
-                all_rewards.append(rewards)
-                combined_rewards = [sum(r.values()) for r in rewards]
-                discounted_rewards = discount_rewards(combined_rewards)
-                all_discounted_rewards.extend(discounted_rewards)
-                all_log_probs.extend(log_probs)
-                i += 1
+        actor_output = await asyncio.gather(*[a() for a in actors])
+
+        # Loop over all distributed actors.
+        for rewards, log_probs in actor_output:
+            all_rewards.append(rewards)
+            combined_rewards = [sum(r.values()) for r in rewards]
+            discounted_rewards = discount_rewards(combined_rewards)
+            all_discounted_rewards.extend(discounted_rewards)
+            all_log_probs.extend(log_probs)
+
         time_per_batch = time.time() - start_time
         steps_per_s = len(all_log_probs) / time_per_batch
 
@@ -390,7 +392,8 @@ async def main():
                 
         reward_sum = sum(reward_counter.values())
         avg_reward = reward_sum / batch_size
-        print('ep={} n_actors={} avg_reward={} loss={}'.format(episode, i, avg_reward, loss))
+        logger.info('Episode={} avg_reward={:.2f} loss={:.2f}, steps/s={:.2f}'.format(
+            episode, avg_reward, loss, steps_per_s))
 
         if USE_CHECKPOINTS:
             writer.add_scalar('steps per s', steps_per_s, episode)

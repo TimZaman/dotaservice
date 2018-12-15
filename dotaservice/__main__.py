@@ -44,7 +44,7 @@ parser.add_argument(
 parser.add_argument(
     "-t", "--expiration_time",
     type=int,
-    default=60,
+    default=100,
     help="Session expiration time. When no gRPC calls have been received to the active session"
          " within this time frame, the session is considered expired and resources are cleared.")
 args = parser.parse_args()
