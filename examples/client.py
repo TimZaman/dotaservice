@@ -26,10 +26,10 @@ from dotaservice.protos.DotaService_pb2 import Status
 
 
 torch.manual_seed(7)
+device = torch.device('cpu')
 
 USE_CHECKPOINTS = True
-N_STEPS = 150
-start_episode = 0
+N_STEPS = 250
 MODEL_FILENAME_FMT = "model_%09d.pt"
 
 if USE_CHECKPOINTS:
@@ -117,8 +117,7 @@ class Policy(nn.Module):
 
         self.affine2a = nn.Linear(128, 2)
         self.affine2b = nn.Linear(128, 2)
-        self.affine2c = nn.Linear(128, 3)
-        self.affine2d = nn.Linear(128, 3)
+        self.affine2c = nn.Linear(128, 4)
 
     def forward(self, xa, xb, xc, xd):
         print('policy(xa={}, xb={}, xc={}, xd={})'.format(xa, xb, xc, xd))
@@ -126,25 +125,23 @@ class Policy(nn.Module):
         xa = self.affine1a(xa)
         xb = self.affine1b(xb)
         xc = self.affine1c(xc)
-        xd = self.affine1c(xd)
+        xd = self.affine1d(xd)
 
         x = F.relu(xa + xb + xc + xd)
 
         action_scores_x = self.affine2a(x)
         action_scores_y = self.affine2b(x)
         action_scores_enum_1 = self.affine2c(x)
-        action_scores_enum_2 = self.affine2d(x)
 
         return {
                 'x': F.softmax(action_scores_x, dim=1),
                 'y': F.softmax(action_scores_y, dim=1),
                 'e1': F.softmax(action_scores_enum_1, dim=1),
-                'e2': F.softmax(action_scores_enum_2, dim=1),
                 }
 
 
 policy = Policy()
-optimizer = optim.Adam(policy.parameters(), lr=1e-2)  # 1e-2 is obscene, 1e-4 seems slow.
+optimizer = optim.Adam(policy.parameters(), lr=10e-3)  # 1e-2 is obscene, 1e-4 seems slow.
 eps = np.finfo(np.float32).eps.item()
 
 
@@ -171,8 +168,8 @@ def select_action(world_state, step=None):
         # print('closest_unit:\n{}'.format(closest_unit))
         e_creep_hp = 1. - (closest_unit.health / closest_unit.health_max)  # [1 (dead) : 0 (full hp)]
         e_distance = 1. - (distance / MAX_CREEP_DIST)  # [1 (close): 0 (far)] 
-        actions['DOTA_UNIT_ORDER_ATTACK_TARGET'] = {}
-        actions['DOTA_UNIT_ORDER_ATTACK_TARGET']['handle'] = closest_unit.handle
+        actions['DOTA_UNIT_ORDER_ATTACK_ENEMY_TARGET'] = {}
+        actions['DOTA_UNIT_ORDER_ATTACK_ENEMY_TARGET']['handle'] = closest_unit.handle
     else :
         e_creep_hp = 0
         e_distance = 0
@@ -185,8 +182,8 @@ def select_action(world_state, step=None):
         # print('closest_unit:\n{}'.format(closest_unit))
         f_creep_hp = 1. - (closest_unit.health / closest_unit.health_max)  # [1 (dead) : 0 (full hp)]
         f_distance = 1. - (distance / MAX_CREEP_DIST)  # [1 (close): 0 (far)] 
-        actions['DOTA_UNIT_ORDER_ATTACK_TARGET'] = {}
-        actions['DOTA_UNIT_ORDER_ATTACK_TARGET']['handle'] = closest_unit.handle
+        actions['DOTA_UNIT_ORDER_ATTACK_FRIEND_TARGET'] = {}
+        actions['DOTA_UNIT_ORDER_ATTACK_FRIEND_TARGET']['handle'] = closest_unit.handle
     else :
         f_creep_hp = 0
         f_distance = 0
@@ -198,7 +195,7 @@ def select_action(world_state, step=None):
     for k, prob in probs.items():
         m = Categorical(prob)
         action = m.sample()
-        actions[k] = {'action': action.item(), 'prob': prob, 'logprob' :m.log_prob(action)}
+        actions[k] = {'action': action.item(), 'prob': prob, 'logprob': m.log_prob(action)}
 
     return actions
 
@@ -253,7 +250,7 @@ def action_to_pb(action, state):
     hero_unit = get_hero_unit(state)
 
     action_pb = CMsgBotWorldState.Action()
-    action_enum = max(action['e1']['action'], action['e2']['action'])
+    action_enum = action['e1']['action']
     if action_enum == 0:
         action_pb.actionType = CMsgBotWorldState.Action.Type.Value('DOTA_UNIT_ORDER_NONE')
     elif action_enum == 1:
@@ -269,8 +266,18 @@ def action_to_pb(action, state):
         action_pb.actionType = CMsgBotWorldState.Action.Type.Value(
                             'DOTA_UNIT_ORDER_ATTACK_TARGET')
         m = CMsgBotWorldState.Action.AttackTarget()
-        if 'DOTA_UNIT_ORDER_ATTACK_TARGET' in action:
-            m.target = action['DOTA_UNIT_ORDER_ATTACK_TARGET']['handle']
+        if 'DOTA_UNIT_ORDER_ATTACK_ENEMY_TARGET' in action:
+            m.target = action['DOTA_UNIT_ORDER_ATTACK_ENEMY_TARGET']['handle']
+        else:
+            m.target = -1
+        m.once = False
+        action_pb.attackTarget.CopyFrom(m)
+    elif action_enum == 3:
+        action_pb.actionType = CMsgBotWorldState.Action.Type.Value(
+                            'DOTA_UNIT_ORDER_ATTACK_TARGET')
+        m = CMsgBotWorldState.Action.AttackTarget()
+        if 'DOTA_UNIT_ORDER_ATTACK_FRIEND_TARGET' in action:
+            m.target = action['DOTA_UNIT_ORDER_ATTACK_FRIEND_TARGET']['handle']
         else:
             m.target = -1
         m.once = False
@@ -329,7 +336,6 @@ class Actor(object):
             log_probs.append({'x': action['x']['logprob'],
                               'y': action['y']['logprob'],
                               'e1': action['e1']['logprob'],
-                              'e2': action['e2']['logprob'],
                               })
 
             action_pb = action_to_pb(action=action, state=obs)
@@ -363,15 +369,19 @@ def discount_rewards(rewards, gamma=0.99):
 
 async def main(pretrained_model):
     if pretrained_model:
+        start_episode = int(os.path.splitext(os.path.basename(pretrained_model))[0].rsplit('_', 1)[1]) + 1
+        print("Attempting to start from pretrained model at episode %d" % start_episode)
         try:
             policy.load_state_dict(torch.load(pretrained_model), strict=True)
-            start_episode = int(os.path.splitext(os.path.basename(pretrained_model))[0].rsplit('_', 1)[1]) + 1
-        except:
-            raise
+            print("Training Model loaded!")
+        except Exception as e:
+            raise e
+    else:
+        start_episode = 0
 
     loop = asyncio.get_event_loop()
     n_actors = 1
-    n_episodes = 10000000
+    n_episodes = 250
     batch_size = n_actors
     config = Config(
         ticks_per_observation=30,
