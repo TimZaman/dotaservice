@@ -37,7 +37,7 @@ message Config {
 }
 
 service DotaService {
-  rpc reset (Config) returns (Observation) {}
+  rpc reset (Config) returns (Observation) {}  // TODO(tzaman): add version and hostname in response.
   rpc step (Action) returns (Observation) {}
   rpc clear (Empty) returns (Empty) {}
 }

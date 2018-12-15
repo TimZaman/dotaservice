@@ -57,7 +57,6 @@ model_blob.download_to_filename(pretrained_model)
 
 # Derivates.
 DELAY_ENUM_TO_STEP = math.floor(TICKS_PER_OBSERVATION / N_DELAY_ENUMS)
-print('DELAY_ENUM_TO_STEP=', DELAY_ENUM_TO_STEP)
 
 if USE_CHECKPOINTS:
     writer = SummaryWriter()
@@ -220,56 +219,73 @@ def get_nearest_creep_to_hero(state, hero_unit):
 
 class Actor:
 
+    ENV_RETRY_DELAY = 15
+    EXCEPTION_RETRIES = 5
+
     def __init__(self, config, host='127.0.0.1', port=13337, name=''):
         self.host = host
         self.port = port
         self.config = config
         self.name = name
         self.log_prefix = 'Actor {}: '.format(self.name)
+        self.env = None
+        self.channel = None
 
-    ENV_RETRY_DELAY = 3
-    EXCEPTION_RETRIES = 5
+    def connect(self):
+        if self.channel is None:  # TODO(tzaman) OR channel is closed? How?
+            # Set up a channel.
+            self.channel = Channel(self.host, self.port, loop=asyncio.get_event_loop())
+            self.env = DotaServiceStub(self.channel)
+            logger.info(self.log_prefix + 'Channel opened.')
+
+    def disconnect(self):
+        if self.channel is not None:
+            self.channel.close()
+            self.channel = None
+            self.env = None
+            logger.info(self.log_prefix + 'Channel closed.')
 
     async def __call__(self):
+        # When an actor is being called it should first open up a channel. When a channel is opened
+        # it makes sense to try to re-use it for this actor. So if a channel has already been
+        # opened we should try to reuse.
+
         for i in range(self.EXCEPTION_RETRIES):
             try:
-                return await self.call()
+                while True:
+                    self.connect()
+
+                    # Wait for game to boot.
+                    response = await asyncio.wait_for(self.env.reset(self.config), timeout=90)
+                    initial_obs = response.world_state
+
+                    if response.status == Status.Value('OK'):
+                        break
+                    else:
+                        # Busy channel. Disconnect current and retry.
+                        self.disconnect()
+                        logger.info(self.log_prefix + "Service not ready, retrying in {}s.".format(
+                            self.ENV_RETRY_DELAY))
+                        await asyncio.sleep(self.ENV_RETRY_DELAY)
+
+                return await self.call(obs=initial_obs)
+
             except Exception as e:
-                logger.warning('Exception on Actor{}::call; retrying ({}/{}).:\n{}'.format(
-                    self.name, i, self.EXCEPTION_RETRIES, e))
+                logger.error(self.log_prefix + 'Exception call; retrying ({}/{}).:\n{}'.format(
+                    i, self.EXCEPTION_RETRIES, e))
+                # We always disconnect the channel upon exceptions.
+                self.disconnect()
             await asyncio.sleep(1)
 
-    async def call(self):
-        logger.info(self.log_prefix + 'Requesting channel.')
-        obs = None
-        channel = None
-        env = None
-        loop = asyncio.get_event_loop()
-        # Loop until we have an available game channel.
-        while True:
-            # Set up a channel.
-            channel = Channel(self.host, self.port, loop=loop)
-            env = DotaServiceStub(channel)
-
-            # Wait for game to boot.
-            response = await asyncio.wait_for(env.reset(self.config), timeout=90)
-            obs = response.world_state
-
-            if response.status == Status.Value('OK'):
-                logger.info(self.log_prefix + 'Channel opened.')
-                break
-            channel.close()
-            logger.debug("Environment reset request (retrying in {}s):\n{}".format(
-                self.ENV_RETRY_DELAY, response))
-            await asyncio.sleep(self.ENV_RETRY_DELAY)
-
+    async def call(self, obs):
+        logger.info(self.log_prefix + 'Starting game.')
         rewards = []
         log_probs = []
         hidden = None
         for step in range(N_STEPS):  # Steps/actions in the environment
             prev_obs = obs
             action, hidden = self.select_action(world_state=obs, hidden=hidden, step=step)
-            logger.debug('action:{}'.format(action))
+            logger.debug(self.log_prefix + 'action:{}'.format(action))
 
             log_probs.append({'x': action['x']['logprob'],
                               'y': action['y']['logprob'],
@@ -278,7 +294,7 @@ class Actor:
 
             action_pb = self.action_to_pb(action=action, state=obs)
 
-            response = await asyncio.wait_for(env.step(Action(action=action_pb)), timeout=15)
+            response = await asyncio.wait_for(self.env.step(Action(action=action_pb)), timeout=15)
             if response.status != Status.Value('OK'):
                 raise ValueError(self.log_prefix + 'Step reponse invalid:\n{}'.format(response))
             obs = response.world_state
@@ -288,10 +304,9 @@ class Actor:
             logger.debug(self.log_prefix + 'step={} reward={:.3f}\n'.format(step, sum(reward.values())))
             rewards.append(reward)
 
-        await asyncio.wait_for(env.clear(Empty()), timeout=15)
-        channel.close()
+        await asyncio.wait_for(self.env.clear(Empty()), timeout=15)
         reward_sum = sum([sum(r.values()) for r in rewards])
-        logger.info(self.log_prefix + 'Done. reward_sum={:.2f}'.format(reward_sum))
+        logger.info(self.log_prefix + 'Finished. reward_sum={:.2f}'.format(reward_sum))
         return rewards, log_probs
 
     def select_action(self, world_state, hidden, step=None):
@@ -375,8 +390,6 @@ def discount_rewards(rewards, gamma=0.99):
 
 
 async def main():
-    loop = asyncio.get_event_loop()
-
     config = Config(
         ticks_per_observation=TICKS_PER_OBSERVATION,
         host_timescale=HOST_TIMESCALE,
