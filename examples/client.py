@@ -38,16 +38,26 @@ torch.manual_seed(7)
 client = storage.Client()
 bucket = client.get_bucket('dotaservice')
 
-USE_CHECKPOINTS = True
+USE_CHECKPOINTS = False
 N_STEPS = 150
-start_episode = 4823
+START_EPISODE = 5232
 MODEL_FILENAME_FMT = "model_%09d.pt"
+TICKS_PER_OBSERVATION = 30
+N_DELAY_ENUMS = 5
+HOST_TIMESCALE = 10
+N_EPISODES = 10000000
+BATCH_SIZE = 1
+HOST_MODE = HostMode.Value('DEDICATED')
+HOST = 'localhost'
 
-# pretrained_model = None
-pretrained_model = 'runs/Dec14_21-11-34_Tims-Mac-Pro.local/' + MODEL_FILENAME_FMT % start_episode
+pretrained_model = 'runs/Dec15_10-22-04_dockermaker/' + MODEL_FILENAME_FMT % START_EPISODE
 model_blob = bucket.get_blob(pretrained_model)
 pretrained_model = '/tmp/mdl.pt'
 model_blob.download_to_filename(pretrained_model)
+
+# Derivates.
+DELAY_ENUM_TO_STEP = math.floor(TICKS_PER_OBSERVATION / N_DELAY_ENUMS)
+print('DELAY_ENUM_TO_STEP=', DELAY_ENUM_TO_STEP)
 
 if USE_CHECKPOINTS:
     writer = SummaryWriter()
@@ -134,6 +144,7 @@ class Policy(nn.Module):
         self.affine2a = nn.Linear(128, 2)
         self.affine2b = nn.Linear(128, 2)
         self.affine2c = nn.Linear(128, 3)
+        self.affine2d = nn.Linear(128, N_DELAY_ENUMS)
 
     def forward(self, xa, xb, xc, hidden):
         logger.debug('policy(xa={}, xb={}, xc={})'.format(xa, xb, xc))
@@ -150,11 +161,13 @@ class Policy(nn.Module):
         action_scores_x = self.affine2a(x)
         action_scores_y = self.affine2b(x)
         action_scores_enum = self.affine2c(x)
+        action_delay_enum = self.affine2d(x)
 
         return {
                 'x': F.softmax(action_scores_x, dim=1),
                 'y': F.softmax(action_scores_y, dim=1),
                 'enum': F.softmax(action_scores_enum, dim=1),
+                'delay': F.softmax(action_delay_enum, dim=1),
                 }, hidden
 
 
@@ -205,37 +218,6 @@ def get_nearest_creep_to_hero(state, hero_unit):
     return closest_unit, min_d
 
 
-def action_to_pb(action, state):
-    hero_unit = get_hero_unit(state)
-
-    action_pb = CMsgBotWorldState.Action()
-    action_enum = action['enum']['action']
-    if action_enum == 0:
-        action_pb.actionType = CMsgBotWorldState.Action.Type.Value('DOTA_UNIT_ORDER_NONE')
-    elif action_enum == 1:
-        action_pb.actionType = CMsgBotWorldState.Action.Type.Value(
-            'DOTA_UNIT_ORDER_MOVE_TO_POSITION')
-        m = CMsgBotWorldState.Action.MoveToLocation()
-        hero_location = hero_unit.location
-        m.location.x = hero_location.x + 350 if action['x']['action'] else hero_location.x - 350
-        m.location.y = hero_location.y + 350 if action['y']['action'] else hero_location.y - 350
-        m.location.z = 0
-        action_pb.moveToLocation.CopyFrom(m)
-    elif action_enum == 2:
-        action_pb.actionType = CMsgBotWorldState.Action.Type.Value(
-                            'DOTA_UNIT_ORDER_ATTACK_TARGET')
-        m = CMsgBotWorldState.Action.AttackTarget()
-        if 'DOTA_UNIT_ORDER_ATTACK_TARGET' in action:
-            m.target = action['DOTA_UNIT_ORDER_ATTACK_TARGET']['handle']
-        else:
-            m.target = -1
-        m.once = False
-        action_pb.attackTarget.CopyFrom(m)
-    else:
-        raise ValueError("unknown action {}".format(action_enum))
-    return action_pb
-
-
 class Actor:
 
     def __init__(self, config, host='127.0.0.1', port=13337, name=''):
@@ -245,7 +227,7 @@ class Actor:
         self.name = name
         self.log_prefix = 'Actor {}: '.format(self.name)
 
-    ENV_RETRY_DELAY = 2
+    ENV_RETRY_DELAY = 3
     EXCEPTION_RETRIES = 5
 
     async def __call__(self):
@@ -294,7 +276,7 @@ class Actor:
                               'enum': action['enum']['logprob'],
                               })
 
-            action_pb = action_to_pb(action=action, state=obs)
+            action_pb = self.action_to_pb(action=action, state=obs)
 
             response = await asyncio.wait_for(env.step(Action(action=action_pb)), timeout=15)
             if response.status != Status.Value('OK'):
@@ -351,6 +333,37 @@ class Actor:
 
         return actions, hidden
 
+    def action_to_pb(self, action, state):
+        hero_unit = get_hero_unit(state)
+
+        action_pb = CMsgBotWorldState.Action()
+        action_pb.actionDelay = action['delay']['action'] * DELAY_ENUM_TO_STEP
+        action_enum = action['enum']['action']
+        if action_enum == 0:
+            action_pb.actionType = CMsgBotWorldState.Action.Type.Value('DOTA_UNIT_ORDER_NONE')
+        elif action_enum == 1:
+            action_pb.actionType = CMsgBotWorldState.Action.Type.Value(
+                'DOTA_UNIT_ORDER_MOVE_TO_POSITION')
+            m = CMsgBotWorldState.Action.MoveToLocation()
+            hero_location = hero_unit.location
+            m.location.x = hero_location.x + 350 if action['x']['action'] else hero_location.x - 350
+            m.location.y = hero_location.y + 350 if action['y']['action'] else hero_location.y - 350
+            m.location.z = 0
+            action_pb.moveToLocation.CopyFrom(m)
+        elif action_enum == 2:
+            action_pb.actionType = CMsgBotWorldState.Action.Type.Value(
+                                'DOTA_UNIT_ORDER_ATTACK_TARGET')
+            m = CMsgBotWorldState.Action.AttackTarget()
+            if 'DOTA_UNIT_ORDER_ATTACK_TARGET' in action:
+                m.target = action['DOTA_UNIT_ORDER_ATTACK_TARGET']['handle']
+            else:
+                m.target = -1
+            m.once = False
+            action_pb.attackTarget.CopyFrom(m)
+        else:
+            raise ValueError("unknown action {}".format(action_enum))
+        return action_pb
+
 
 def discount_rewards(rewards, gamma=0.99):
     R = 0
@@ -360,19 +373,19 @@ def discount_rewards(rewards, gamma=0.99):
         discounted_rewards.insert(0, R)
     return discounted_rewards
 
+
 async def main():
     loop = asyncio.get_event_loop()
-    n_episodes = 10000000
-    batch_size = 1
-    config = Config(
-        ticks_per_observation=30,
-        host_timescale=10,
-        host_mode=HostMode.Value('DEDICATED'),
-    )
-    host = 'localhost'
-    actors = [Actor(config=config, host=host, name=name) for name in range(batch_size)]
 
-    for episode in range(start_episode, n_episodes):
+    config = Config(
+        ticks_per_observation=TICKS_PER_OBSERVATION,
+        host_timescale=HOST_TIMESCALE,
+        host_mode=HOST_MODE,
+    )
+
+    actors = [Actor(config=config, host=HOST, name=name) for name in range(BATCH_SIZE)]
+
+    for episode in range(START_EPISODE, N_EPISODES):
         logger.info('=== Starting Episode {}.'.format(episode))
         all_rewards = []
         all_discounted_rewards = []
@@ -402,7 +415,7 @@ async def main():
         reward_counter = dict(reward_counter)
                 
         reward_sum = sum(reward_counter.values())
-        avg_reward = reward_sum / batch_size
+        avg_reward = reward_sum / BATCH_SIZE
         logger.info('Episode={} avg_reward={:.2f} loss={:.3f}, steps/s={:.2f}'.format(
             episode, avg_reward, loss, steps_per_s))
 
@@ -411,7 +424,7 @@ async def main():
             writer.add_scalar('loss', loss, episode)
             writer.add_scalar('mean_reward', avg_reward, episode)
             for k, v in reward_counter.items():
-                writer.add_scalar('reward_{}'.format(k), v / batch_size, episode)
+                writer.add_scalar('reward_{}'.format(k), v / BATCH_SIZE, episode)
             filename = MODEL_FILENAME_FMT % episode
             rel_path = os.path.join(log_dir, filename)
             torch.save(policy.state_dict(), rel_path)

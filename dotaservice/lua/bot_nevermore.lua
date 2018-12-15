@@ -90,6 +90,8 @@ local dota_time_to_step_map = {}
 local worldstate_step_offset = nil
 local step = 0
 
+local action = nil
+local act_at_step = nil
 
 function Think()
     step = step + 1
@@ -136,12 +138,20 @@ function Think()
         -- print('(lua) Expecting state @ step=', step, 'dota_time=', dota_time)
         -- TODO(tzaman): read the action file here, and check that it contains an
         -- action with the right timestep.
-        local action = get_new_action(dota_time)
+        action = get_new_action(dota_time)
         -- print('(lua) action =', dump(action))
         -- debug_text = dump(action)
         debug_text = pprint.pformat(action)
-        act(action)
+
+        act_at_step = step + action.actionDelay  -- TODO(tzaman) does this still work if not defined?
     end
+
+    if step == act_at_step then
+        act(action)
+        act_at_step = nil
+        action = nil
+    end
+
     if debug_text ~= nil then
         DebugDrawText(8, 90, debug_text, 255, 255, 255)
     end
