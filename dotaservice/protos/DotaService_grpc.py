@@ -7,6 +7,7 @@ import grpclib.const
 import grpclib.client
 
 import dotaservice.protos.dota_gcmessages_common_bot_script_pb2
+import dotaservice.protos.dota_shared_enums_pb2
 import dotaservice.protos.DotaService_pb2
 
 

@@ -1,7 +1,6 @@
 from struct import unpack
 from sys import platform
 import asyncio
-import atexit
 import glob
 import json
 import logging
@@ -11,7 +10,6 @@ import pkg_resources
 import re
 import shutil
 import signal
-import subprocess
 import time
 import uuid
 
@@ -24,6 +22,7 @@ from dotaservice.protos.dota_shared_enums_pb2 import DOTA_GAMERULES_STATE_GAME_I
 from dotaservice.protos.dota_shared_enums_pb2 import DOTA_GAMERULES_STATE_PRE_GAME
 from dotaservice.protos.DotaService_grpc import DotaServiceBase
 from dotaservice.protos.DotaService_pb2 import Empty
+from dotaservice.protos.DotaService_pb2 import HostMode
 from dotaservice.protos.DotaService_pb2 import Observation
 from dotaservice.protos.DotaService_pb2 import Status
 
@@ -57,6 +56,7 @@ class DotaGame(object):
     BOTS_FOLDER_NAME = 'bots'
     CONFIG_FILENAME = 'config_auto'
     CONSOLE_LOG_FILENAME = 'console.log'
+    CONSOLE_LOGS_GLOB = 'console*.log'
     DOTA_SCRIPT_FILENAME = 'dota.sh'
     LIVE_CONFIG_FILENAME = 'live_config_auto'
     PORT_WORLDSTATE_DIRE = 12121
@@ -70,13 +70,15 @@ class DotaGame(object):
                  action_folder,
                  host_timescale,
                  ticks_per_observation,
-                 render,
+                 game_mode,
+                 host_mode,
                  game_id=None):
         self.dota_path = dota_path
         self.action_folder = action_folder
         self.host_timescale = host_timescale
         self.ticks_per_observation = ticks_per_observation
-        self.render = render
+        self.game_mode = game_mode
+        self.host_mode = host_mode
         self.game_id = game_id
         if not self.game_id:
             self.game_id = str(uuid.uuid1())
@@ -89,6 +91,12 @@ class DotaGame(object):
         self._write_config()
         self.process = None
         self.demo_path_rel = None
+
+        has_display = 'DISPLAY' in os.environ
+        if not has_display and HostMode.Value('DEDICATED'):
+            raise ValueError('GUI requested but no display detected.')
+            exit(-1)
+        super().__init__()
 
     def _write_config(self):
         # Write out the game configuration.
@@ -157,16 +165,18 @@ class DotaGame(object):
         return bot_path
 
     async def monitor_log(self):
-        while True:  # TODO(tzaman): probably just retry 10x sleep(0.5) then bust?
-            filename = os.path.join(self.bot_path, self.CONSOLE_LOG_FILENAME)
-            if os.path.exists(filename):
+        abs_glob = os.path.join(self.bot_path, self.CONSOLE_LOGS_GLOB)
+        while True:
+            # Console logs can get split from `$stem.log` into `$stem.$number.log`.
+            for filename in glob.glob(abs_glob):
                 with open(filename) as f:
                     for line in f:
                         # Demo line always comes before the LUADRY signal.
-                        m_demo = self.RE_DEMO.search(line)
-                        if m_demo and self.demo_path_rel is None:
-                            self.demo_path_rel = m_demo.group(1)
-                            print("(py) demo_path_rel='{}'".format(self.demo_path_rel))
+                        if self.demo_path_rel is None:
+                            m_demo = self.RE_DEMO.search(line)
+                            if m_demo:
+                                self.demo_path_rel = m_demo.group(1)
+                                print("(py) demo_path_rel='{}'".format(self.demo_path_rel))
                         m_luadry = self.RE_LUARDY.search(line)
                         if m_luadry:
                             config_json = m_luadry.group(1)
@@ -184,7 +194,7 @@ class DotaGame(object):
 
     async def _run_dota(self):
         script_path = os.path.join(self.dota_path, self.DOTA_SCRIPT_FILENAME)
-        GAME_MODE = 11
+
         # TODO(tzaman): all these options should be put in a proto and parsed with gRPC Config.
         args = [
             script_path,
@@ -203,34 +213,31 @@ class DotaGame(object):
             '+dota_surrender_on_disconnect 0',
             '+host_timescale {}'.format(self.host_timescale),
             '+hostname dotaservice',
-            '+map', 'start gamemode {}'.format(GAME_MODE),
             '+sv_cheats 1',
             '+sv_hibernate_when_empty 0',
-            '+sv_lan 1',
             '+tv_delay 0 ',
             '+tv_enable 1',
             '+tv_title {}'.format(self.game_id),
             '+tv_autorecord 1',
             '+tv_transmitall 1',  # TODO(tzaman): what does this do exactly?
         ]
-        if False:  # The viewer wants to play himself
-            args.append('+dota_start_ai_game 1')
-        else:
-            args.append('-fill_with_bots')
-        if not self.render:
-            args.append('-dedicated')
 
-        print('args=', args)
+        if self.host_mode == HostMode.Value('DEDICATED'):
+            args.append('-dedicated')
+        if self.host_mode == HostMode.Value('DEDICATED') or \
+            self.host_mode == HostMode.Value('GUI'):
+            args.append('-fill_with_bots')
+            args.extend(['+map', 'start gamemode {}'.format(self.game_mode)])
+            args.append('+sv_lan 1')
+        if self.host_mode == HostMode.Value('GUI_MENU'):
+            args.append('+sv_lan 0')
 
         create = asyncio.create_subprocess_exec(
             *args,
             stdin=asyncio.subprocess.PIPE,
-            # stdout=asyncio.subprocess.PIPE,
-            # stderr=asyncio.subprocess.PIPE,
         )
         self.process = await create
 
-        # task_record_replay = asyncio.create_task(self.record_replay(process=self.process))
         task_monitor_log = asyncio.create_task(self.monitor_log())
 
         try:
@@ -303,6 +310,8 @@ class DotaGame(object):
 
 class DotaService(DotaServiceBase):
 
+    WATCHDOG_TIMER = 10
+
     def __init__(self, dota_path, action_folder, session_expiration_time):
         self.dota_path = dota_path
         self.action_folder = action_folder
@@ -330,6 +339,15 @@ class DotaService(DotaServiceBase):
         self._time_last_call = time.time()
         super().__init__()
 
+    
+    async def watchdog(self):
+        """The watchdog checks for timeouts, then cleans resources."""
+        while True:
+            await asyncio.sleep(self.WATCHDOG_TIMER)
+            if self._ready == False and self.session_expired:
+                self._ready = True
+                await self.clean_resources()
+
     @property
     def ready(self):
         """Check if we are ready to play.
@@ -356,6 +374,20 @@ class DotaService(DotaServiceBase):
             return True
         return False
 
+    @staticmethod
+    def stop_dota_pids():
+        """Stop all dota processes.
+        
+        Stopping dota is nessecary because only one client can be active at a time. So we clean
+        up anything that already existed earlier, or a (hanging) mess we might have created.
+        """
+        dota_pids = str.split(os.popen("ps -e | grep dota2 | awk '{print $1}'").read())
+        for pid in dota_pids:
+            try:
+                os.kill(int(pid), signal.SIGKILL)
+            except ProcessLookupError:
+                pass
+
     async def clean_resources(self):
         """Clean resoruces.
         
@@ -363,9 +395,9 @@ class DotaService(DotaServiceBase):
         """
         # TODO(tzaman): Currently semi-gracefully. Can be cleaner.
         if self.dota_game is not None:
-            await self.dota_game.close()
+            # await self.dota_game.close()
             self.dota_game = None
-        os.system("ps | grep dota2 | awk '{print $1}' | xargs kill -9")
+        self.stop_dota_pids()
 
     async def clear(self, stream):
         """Cleans resources.
@@ -400,7 +432,8 @@ class DotaService(DotaServiceBase):
             action_folder=self.action_folder,
             host_timescale=config.host_timescale,
             ticks_per_observation=config.ticks_per_observation,
-            render=config.render,
+            game_mode=config.game_mode,
+            host_mode=config.host_mode,
             game_id=config.game_id,
         )
 
@@ -421,6 +454,7 @@ class DotaService(DotaServiceBase):
             pass
 
         if data is None:
+            await stream.send_message(Observation(status=Status.Value('FAILED_PRECONDITION')))
             raise ValueError('Worldstate queue empty while lua bot is ready!')
 
         self.dota_game.dota_time = data.dota_time
@@ -451,8 +485,6 @@ class DotaService(DotaServiceBase):
         # We've started to assume our queue will only have 1 item.
         data = await self.dota_game.worldstate_queue.get()
 
-        # TODO(tzaman): I've seen empty worldstates on occasions. How to deal with that?
-
         # Update the tick
         self.dota_game.dota_time = data.dota_time
 
@@ -475,6 +507,7 @@ async def serve(server, *, host, port):
 
 async def grpc_main(loop, handler, host, port):
     server = Server([handler], loop=loop)
+    asyncio.create_task(handler.watchdog())
     await serve(server, host=host, port=port)
 
 
@@ -492,30 +525,4 @@ def main(grpc_host, grpc_port, dota_path, action_folder, session_expiration_time
         port=grpc_port,
     )
 
-    try:
-        loop.run_until_complete(tasks)
-    except KeyboardInterrupt:
-        # Optionally show a message if the shutdown may take a while
-        print("Attempting graceful shutdown, press Ctrl+C again to exit…", flush=True)
-
-        # Do not show `asyncio.CancelledError` exceptions during shutdown
-        # (a lot of these may be generated, skip this if you prefer to see them)
-        def shutdown_exception_handler(loop, context):
-            if "exception" not in context \
-            or not isinstance(context["exception"], asyncio.CancelledError):
-                loop.default_exception_handler(context)
-
-        loop.set_exception_handler(shutdown_exception_handler)
-
-        # Handle shutdown gracefully by waiting for all tasks to be cancelled
-        tasks = asyncio.gather(
-            *asyncio.Task.all_tasks(loop=loop), loop=loop, return_exceptions=True)
-        tasks.add_done_callback(lambda t: loop.stop())
-        tasks.cancel()
-
-        # Keep the event loop running until it is either destroyed or all
-        # tasks have really terminated
-        while not tasks.done() and not loop.is_closed():
-            loop.run_forever()
-    finally:
-        loop.close()
+    loop.run_until_complete(tasks)
