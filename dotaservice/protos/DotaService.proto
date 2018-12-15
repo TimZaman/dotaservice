@@ -1,11 +1,20 @@
 syntax = "proto2";
 
 import "dotaservice/protos/dota_gcmessages_common_bot_script.proto";
+import "dotaservice/protos/dota_shared_enums.proto";
 // import "google/protobuf/empty.proto";
 
 enum Status {
+  // From google/rpc/code.proto
   OK = 0;
   RESOURCE_EXHAUSTED = 8;
+  FAILED_PRECONDITION = 9;
+}
+
+enum HostMode {
+  DEDICATED = 0;
+  GUI = 1;
+  GUI_MENU = 2;
 }
 
 message Empty {}
@@ -20,11 +29,11 @@ message Observation {
 }
 
 message Config {
-  // Intentionally empty.
   optional string game_id = 1;
-  required uint32 host_timescale = 2;
+  optional uint32 host_timescale = 2 [default = 1];
   required uint32 ticks_per_observation = 3;
-  optional bool render = 4 [default = false];
+  optional HostMode host_mode = 5 [default = DEDICATED];
+  optional DOTA_GameMode game_mode = 6 [default = DOTA_GAMEMODE_MO];
 }
 
 service DotaService {
