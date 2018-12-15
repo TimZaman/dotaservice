@@ -123,11 +123,13 @@ class Policy(nn.Module):
         self.affine1b = nn.Linear(2, 128)
         self.affine1c = nn.Linear(2, 128)
 
+        self.rnn = nn.LSTM(input_size=128, hidden_size=128, num_layers=1)
+
         self.affine2a = nn.Linear(128, 2)
         self.affine2b = nn.Linear(128, 2)
         self.affine2c = nn.Linear(128, 3)
 
-    def forward(self, xa, xb, xc):
+    def forward(self, xa, xb, xc, hidden):
         logger.debug('policy(xa={}, xb={}, xc={})'.format(xa, xb, xc))
 
         xa = self.affine1a(xa)
@@ -135,7 +137,10 @@ class Policy(nn.Module):
         xc = self.affine1c(xc)
 
         x = F.relu(xa + xb + xc)
-
+        
+        x, hidden = self.rnn(x.unsqueeze(1), hidden)
+        x = x.squeeze(1)
+        
         action_scores_x = self.affine2a(x)
         action_scores_y = self.affine2b(x)
         action_scores_enum = self.affine2c(x)
@@ -144,55 +149,15 @@ class Policy(nn.Module):
                 'x': F.softmax(action_scores_x, dim=1),
                 'y': F.softmax(action_scores_y, dim=1),
                 'enum': F.softmax(action_scores_enum, dim=1),
-                }
+                }, hidden
 
 
 policy = Policy()
-optimizer = optim.Adam(policy.parameters(), lr=1e-2)  # 1e-2 is obscene, 1e-4 seems slow.
+optimizer = optim.Adam(policy.parameters(), lr=1e-3)  # 1e-2 is obscene, 1e-4 seems slow.
 eps = np.finfo(np.float32).eps.item()
 
 if pretrained_model:
-    policy.load_state_dict(torch.load(pretrained_model), strict=True)
-
-
-def select_action(world_state, step=None):
-    actions = {}
-
-    # Preprocess the state
-    unit = get_hero_unit(world_state)
-
-    # Location Input
-    location_state = np.array([unit.location.x, unit.location.y]) / 7000.  # maps the map between [-1 and 1]
-    location_state = torch.from_numpy(location_state).float().unsqueeze(0)
-
-    # Health and dotatime input
-    hp_rel = 1. - (unit.health / unit.health_max) # Map between [0 and 1]
-    dota_time_norm = dota_time = world_state.dota_time / 1200.  # Normalize by 20 minutes
-    env_state = torch.from_numpy(np.array([hp_rel, dota_time_norm])).float().unsqueeze(0) 
-
-
-    # Nearest creep input
-    closest_unit, distance = get_nearest_creep_to_hero(world_state, hero_unit=unit)
-    MAX_CREEP_DIST = 1200.
-    if closest_unit is not None and distance < MAX_CREEP_DIST:
-        creep_hp = 1. - (closest_unit.health / closest_unit.health_max)  # [1 (dead) : 0 (full hp)]
-        distance = 1. - (distance / MAX_CREEP_DIST)  # [1 (close): 0 (far)] 
-        actions['DOTA_UNIT_ORDER_ATTACK_TARGET'] = {}
-        actions['DOTA_UNIT_ORDER_ATTACK_TARGET']['handle'] = closest_unit.handle
-    else :
-        creep_hp = 0
-        distance = 0
-
-    creep_state = torch.from_numpy(np.array([creep_hp, distance])).float().unsqueeze(0) 
-
-    probs = policy(xa=location_state, xb=env_state, xc=creep_state)
-
-    for k, prob in probs.items():
-        m = Categorical(prob)
-        action = m.sample()
-        actions[k] = {'action': action.item(), 'prob': prob, 'logprob' :m.log_prob(action)}
-
-    return actions
+    policy.load_state_dict(torch.load(pretrained_model), strict=False)
 
 
 def finish_episode(rewards, log_probs):
@@ -312,9 +277,10 @@ class Actor:
 
         rewards = []
         log_probs = []
+        hidden = None
         for step in range(N_STEPS):  # Steps/actions in the environment
             prev_obs = obs
-            action = select_action(obs, step=step)
+            action, hidden = self.select_action(world_state=obs, hidden=hidden, step=step)
             logger.debug('action:{}'.format(action))
 
             log_probs.append({'x': action['x']['logprob'],
@@ -340,6 +306,45 @@ class Actor:
         logger.info(self.log_prefix + 'Done. reward_sum={:.2f}'.format(reward_sum))
         return rewards, log_probs
 
+    def select_action(self, world_state, hidden, step=None):
+        actions = {}
+
+        # Preprocess the state
+        unit = get_hero_unit(world_state)
+
+        # Location Input
+        location_state = np.array([unit.location.x, unit.location.y]) / 7000.  # maps the map between [-1 and 1]
+        location_state = torch.from_numpy(location_state).float().unsqueeze(0)
+
+        # Health and dotatime input
+        hp_rel = 1. - (unit.health / unit.health_max) # Map between [0 and 1]
+        dota_time_norm = dota_time = world_state.dota_time / 1200.  # Normalize by 20 minutes
+        env_state = torch.from_numpy(np.array([hp_rel, dota_time_norm])).float().unsqueeze(0) 
+
+
+        # Nearest creep input
+        closest_unit, distance = get_nearest_creep_to_hero(world_state, hero_unit=unit)
+        MAX_CREEP_DIST = 1200.
+        if closest_unit is not None and distance < MAX_CREEP_DIST:
+            creep_hp = 1. - (closest_unit.health / closest_unit.health_max)  # [1 (dead) : 0 (full hp)]
+            distance = 1. - (distance / MAX_CREEP_DIST)  # [1 (close): 0 (far)] 
+            actions['DOTA_UNIT_ORDER_ATTACK_TARGET'] = {}
+            actions['DOTA_UNIT_ORDER_ATTACK_TARGET']['handle'] = closest_unit.handle
+        else :
+            creep_hp = 0
+            distance = 0
+
+        creep_state = torch.from_numpy(np.array([creep_hp, distance])).float().unsqueeze(0) 
+
+        probs, hidden = policy(xa=location_state, xb=env_state, xc=creep_state, hidden=hidden)
+
+        for k, prob in probs.items():
+            m = Categorical(prob)
+            action = m.sample()
+            actions[k] = {'action': action.item(), 'prob': prob, 'logprob' :m.log_prob(action)}
+
+        return actions, hidden
+
 
 def discount_rewards(rewards, gamma=0.99):
     R = 0
@@ -352,7 +357,7 @@ def discount_rewards(rewards, gamma=0.99):
 async def main():
     loop = asyncio.get_event_loop()
     n_episodes = 10000000
-    batch_size = 2
+    batch_size = 4
     config = Config(
         ticks_per_observation=30,
         host_timescale=10,
@@ -392,7 +397,7 @@ async def main():
                 
         reward_sum = sum(reward_counter.values())
         avg_reward = reward_sum / batch_size
-        logger.info('Episode={} avg_reward={:.2f} loss={:.2f}, steps/s={:.2f}'.format(
+        logger.info('Episode={} avg_reward={:.2f} loss={:.3f}, steps/s={:.2f}'.format(
             episode, avg_reward, loss, steps_per_s))
 
         if USE_CHECKPOINTS:
