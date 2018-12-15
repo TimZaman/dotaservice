@@ -1,11 +1,13 @@
 from collections import Counter
 from time import time
 import asyncio
+import logging
 import math
 import os
 import time
 import uuid
 
+from google.cloud import storage
 from google.protobuf.json_format import MessageToDict
 from grpclib.client import Channel
 from tensorboardX import SummaryWriter
@@ -24,9 +26,6 @@ from dotaservice.protos.DotaService_pb2 import Empty
 from dotaservice.protos.DotaService_pb2 import HostMode
 from dotaservice.protos.DotaService_pb2 import Status
 
-
-import logging
-
 logger = logging.getLogger(__name__)
 handler = logging.StreamHandler()
 formatter = logging.Formatter('%(asctime)s %(levelname)-8s %(message)s')
@@ -36,16 +35,23 @@ logger.setLevel(logging.INFO)
 
 torch.manual_seed(7)
 
+client = storage.Client()
+bucket = client.get_bucket('dotaservice')
+
 USE_CHECKPOINTS = True
 N_STEPS = 150
-start_episode = 4297
+start_episode = 4823
 MODEL_FILENAME_FMT = "model_%09d.pt"
-pretrained_model = None
-pretrained_model = 'runs/Dec12_21-41-31_Tims-Mac-Pro.local/' + MODEL_FILENAME_FMT % start_episode
 
+# pretrained_model = None
+pretrained_model = 'runs/Dec14_21-11-34_Tims-Mac-Pro.local/' + MODEL_FILENAME_FMT % start_episode
+model_blob = bucket.get_blob(pretrained_model)
+pretrained_model = '/tmp/mdl.pt'
+model_blob.download_to_filename(pretrained_model)
 
 if USE_CHECKPOINTS:
     writer = SummaryWriter()
+    events_filename = writer.file_writer.event_writer._ev_writer._file_name
     log_dir = writer.file_writer.get_logdir()
 
 xp_to_reach_level = {
@@ -357,7 +363,7 @@ def discount_rewards(rewards, gamma=0.99):
 async def main():
     loop = asyncio.get_event_loop()
     n_episodes = 10000000
-    batch_size = 4
+    batch_size = 1
     config = Config(
         ticks_per_observation=30,
         host_timescale=10,
@@ -406,8 +412,14 @@ async def main():
             writer.add_scalar('mean_reward', avg_reward, episode)
             for k, v in reward_counter.items():
                 writer.add_scalar('reward_{}'.format(k), v / batch_size, episode)
-            filename = os.path.join(log_dir, MODEL_FILENAME_FMT % episode)
-            torch.save(policy.state_dict(), filename)
+            filename = MODEL_FILENAME_FMT % episode
+            rel_path = os.path.join(log_dir, filename)
+            torch.save(policy.state_dict(), rel_path)
+            # Upload to GCP.
+            blob = bucket.blob(rel_path)
+            blob.upload_from_filename(filename=rel_path)  # Model
+            blob = bucket.blob(events_filename)
+            blob.upload_from_filename(filename=events_filename)  # Events file
         
 
 if __name__ == '__main__':
