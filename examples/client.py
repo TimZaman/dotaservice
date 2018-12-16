@@ -5,6 +5,7 @@ import logging
 import math
 import os
 import time
+import traceback
 import uuid
 
 from google.cloud import storage
@@ -40,7 +41,7 @@ bucket = client.get_bucket('dotaservice')
 
 USE_CHECKPOINTS = False
 N_STEPS = 150
-START_EPISODE = 5232
+START_EPISODE = 5491
 MODEL_FILENAME_FMT = "model_%09d.pt"
 TICKS_PER_OBSERVATION = 30
 N_DELAY_ENUMS = 5
@@ -48,9 +49,12 @@ HOST_TIMESCALE = 10
 N_EPISODES = 10000000
 BATCH_SIZE = 1
 HOST_MODE = HostMode.Value('DEDICATED')
+# HOST = '35.247.27.224'
 HOST = 'localhost'
+LEARNING_RATE = 1e-4
+eps = np.finfo(np.float32).eps.item()
 
-pretrained_model = 'runs/Dec15_10-22-04_dockermaker/' + MODEL_FILENAME_FMT % START_EPISODE
+pretrained_model = 'runs/Dec16_08-56-36_dockermaker/' + MODEL_FILENAME_FMT % START_EPISODE
 model_blob = bucket.get_blob(pretrained_model)
 pretrained_model = '/tmp/mdl.pt'
 model_blob.download_to_filename(pretrained_model)
@@ -139,41 +143,62 @@ class Policy(nn.Module):
         self.affine1b = nn.Linear(2, 128)
         self.affine1c = nn.Linear(2, 128)
 
+        self.affine1d1 = nn.Linear(3, 32)
+        self.affine1d2 = nn.Linear(32, 128)
+
         self.rnn = nn.LSTM(input_size=128, hidden_size=128, num_layers=1)
 
         self.affine2a = nn.Linear(128, 2)
         self.affine2b = nn.Linear(128, 2)
         self.affine2c = nn.Linear(128, 3)
         self.affine2d = nn.Linear(128, N_DELAY_ENUMS)
+        self.affine2e = nn.Linear(128, 128)
 
-    def forward(self, xa, xb, xc, hidden):
-        logger.debug('policy(xa={}, xb={}, xc={})'.format(xa, xb, xc))
+    def forward(self, xa, xb, enemy_nonheroes, hidden):
+        logger.debug('policy(xa={}, xb={}, enemy_nonheroes={})'.format(xa, xb, enemy_nonheroes))
 
         xa = self.affine1a(xa)
         xb = self.affine1b(xb)
-        xc = self.affine1c(xc)
 
-        x = F.relu(xa + xb + xc)
+        unit_embedding = []
+        for unit_m in enemy_nonheroes:
+            unit_m = torch.from_numpy(unit_m)
+            xd1 = F.relu(self.affine1d1(unit_m))
+            xd2 = self.affine1d2(xd1)
+            unit_embedding.append(xd2)
+
+        # Create the variable length embedding for use in LSTM and attention head.
+        unit_embedding = torch.stack(unit_embedding)  # shape: (n_units, 128)
+
+        # We max over unit dim to have a fixed output shape bc the LSTM needs to learn about these units.
+        unit_max, _ = torch.max(unit_embedding, dim=0)  # shape: (128,)
+
+        # Combine for LSTM.
+        x = F.relu(xa + xb + unit_max)
         
+        # LSTM
         x, hidden = self.rnn(x.unsqueeze(1), hidden)
         x = x.squeeze(1)
-        
+
+        # Heads.
         action_scores_x = self.affine2a(x)
         action_scores_y = self.affine2b(x)
         action_scores_enum = self.affine2c(x)
         action_delay_enum = self.affine2d(x)
+        action_unit_attention = self.affine2e(x)  # shape: (1, 128)
+        action_unit_attention = torch.mm(action_unit_attention, unit_embedding.t())  # shape (1, n)
 
         return {
                 'x': F.softmax(action_scores_x, dim=1),
                 'y': F.softmax(action_scores_y, dim=1),
                 'enum': F.softmax(action_scores_enum, dim=1),
                 'delay': F.softmax(action_delay_enum, dim=1),
+                'unit': F.softmax(action_unit_attention, dim=1),
                 }, hidden
 
 
 policy = Policy()
-optimizer = optim.Adam(policy.parameters(), lr=1e-3)  # 1e-2 is obscene, 1e-4 seems slow.
-eps = np.finfo(np.float32).eps.item()
+optimizer = optim.Adam(policy.parameters(), lr=LEARNING_RATE)
 
 if pretrained_model:
     policy.load_state_dict(torch.load(pretrained_model), strict=False)
@@ -201,22 +226,6 @@ def get_hero_unit(state):
             and unit.name == 'npc_dota_hero_nevermore':
             return unit
     raise ValueError("hero {} not found in state:\n{}".format(id, state))
-
-
-def location_distance(lhs, rhs):
-    return math.sqrt( (lhs.x-rhs.x)**2  +  (lhs.y-rhs.y)**2 )
-
-
-def get_nearest_attackable_unit_to_hero(state, hero_unit):
-    min_d = None
-    closest_unit = None
-    for unit in state.units:
-        if unit.team_id != hero_unit.team_id and unit.is_alive:
-            d = location_distance(hero_unit.location, unit.location)
-            if min_d is None or d < min_d:
-                min_d = d
-                closest_unit = unit
-    return closest_unit, min_d
 
 
 class Actor:
@@ -275,6 +284,7 @@ class Actor:
             except Exception as e:
                 logger.error(self.log_prefix + 'Exception call; retrying ({}/{}).:\n{}'.format(
                     i, self.EXCEPTION_RETRIES, e))
+                traceback.print_exc()
                 # We always disconnect the channel upon exceptions.
                 self.disconnect()
             await asyncio.sleep(1)
@@ -289,11 +299,7 @@ class Actor:
             action, hidden = self.select_action(world_state=obs, hidden=hidden, step=step)
             logger.debug(self.log_prefix + 'action:{}'.format(action))
 
-            log_probs.append({'x': action['x']['logprob'],
-                              'y': action['y']['logprob'],
-                              'enum': action['enum']['logprob'],
-                              'delay': action['delay']['logprob'],
-                              })
+            log_probs.append({k: v['logprob'] for k, v in action.items() if 'logprob' in v})
 
             action_pb = self.action_to_pb(action=action, state=obs)
 
@@ -312,42 +318,53 @@ class Actor:
         logger.info(self.log_prefix + 'Finished. reward_sum={:.2f}'.format(reward_sum))
         return rewards, log_probs
 
+
+    def unit_matrix(self, state, hero_unit, unit_type=CMsgBotWorldState.UnitType.Value('LANE_CREEP')):
+        # Prepopulate with invalid creep.
+        handles = [-1]
+        m = [np.array([0, 0, 0], dtype=np.float32)]
+
+        for unit in state.units:
+            if unit.team_id != hero_unit.team_id and unit.is_alive \
+                and unit.unit_type == unit_type:
+                rel_hp = (unit.health / unit.health_max)  # [0 (dead) : 1 (full hp)]
+                distance_x = (hero_unit.location.x - unit.location.x) / 3000.
+                distance_y = (hero_unit.location.y - unit.location.y) / 3000.
+                m.append(np.array([rel_hp, distance_x, distance_y], dtype=np.float32))
+                handles.append(unit.handle)
+        return m, handles
+
     def select_action(self, world_state, hidden, step=None):
         actions = {}
 
         # Preprocess the state
-        unit = get_hero_unit(world_state)
+        hero_unit = get_hero_unit(world_state)
 
         # Location Input
-        location_state = np.array([unit.location.x, unit.location.y]) / 7000.  # maps the map between [-1 and 1]
+        location_state = np.array([hero_unit.location.x, hero_unit.location.y]) / 7000.  # maps the map between [-1 and 1]
         location_state = torch.from_numpy(location_state).float().unsqueeze(0)
 
         # Health and dotatime input
-        hp_rel = 1. - (unit.health / unit.health_max) # Map between [0 and 1]
+        hp_rel = 1. - (hero_unit.health / hero_unit.health_max) # Map between [0 and 1]
         dota_time_norm = dota_time = world_state.dota_time / 1200.  # Normalize by 20 minutes
         env_state = torch.from_numpy(np.array([hp_rel, dota_time_norm])).float().unsqueeze(0) 
 
+        # Process the enemy_nonheroes
+        enemy_nonheroes, handles = self.unit_matrix(state=world_state, hero_unit=hero_unit)
 
-        # Nearest creep input
-        closest_unit, distance = get_nearest_attackable_unit_to_hero(world_state, hero_unit=unit)
-        MAX_CREEP_DIST = 1200.
-        if closest_unit is not None and distance < MAX_CREEP_DIST:
-            creep_hp = 1. - (closest_unit.health / closest_unit.health_max)  # [1 (dead) : 0 (full hp)]
-            distance = 1. - (distance / MAX_CREEP_DIST)  # [1 (close): 0 (far)] 
-            actions['DOTA_UNIT_ORDER_ATTACK_TARGET'] = {}
-            actions['DOTA_UNIT_ORDER_ATTACK_TARGET']['handle'] = closest_unit.handle
-        else :
-            creep_hp = 0
-            distance = 0
-
-        creep_state = torch.from_numpy(np.array([creep_hp, distance])).float().unsqueeze(0) 
-
-        probs, hidden = policy(xa=location_state, xb=env_state, xc=creep_state, hidden=hidden)
-
+        probs, hidden = policy(
+            xa=location_state,
+            xb=env_state,
+            enemy_nonheroes=enemy_nonheroes,
+            hidden=hidden,
+        )
+            
         for k, prob in probs.items():
             m = Categorical(prob)
             action = m.sample()
             actions[k] = {'action': action.item(), 'prob': prob, 'logprob' :m.log_prob(action)}
+
+        actions['unit']['handle'] = handles[actions['unit']['action']]
 
         return actions, hidden
 
@@ -370,12 +387,9 @@ class Actor:
             action_pb.moveToLocation.CopyFrom(m)
         elif action_enum == 2:
             action_pb.actionType = CMsgBotWorldState.Action.Type.Value(
-                                'DOTA_UNIT_ORDER_ATTACK_TARGET')
+                'DOTA_UNIT_ORDER_ATTACK_TARGET')
             m = CMsgBotWorldState.Action.AttackTarget()
-            if 'DOTA_UNIT_ORDER_ATTACK_TARGET' in action:
-                m.target = action['DOTA_UNIT_ORDER_ATTACK_TARGET']['handle']
-            else:
-                m.target = -1
+            m.target = action['unit']['handle']
             m.once = False
             action_pb.attackTarget.CopyFrom(m)
         else:
