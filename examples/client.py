@@ -62,6 +62,7 @@ if USE_CHECKPOINTS:
     writer = SummaryWriter()
     events_filename = writer.file_writer.event_writer._ev_writer._file_name
     log_dir = writer.file_writer.get_logdir()
+    logger.info('Checkpointing to: {}'.format(log_dir))
 
 xp_to_reach_level = {
     1: 0,
@@ -205,6 +206,7 @@ def get_hero_unit(state):
 def location_distance(lhs, rhs):
     return math.sqrt( (lhs.x-rhs.x)**2  +  (lhs.y-rhs.y)**2 )
 
+
 def get_nearest_creep_to_hero(state, hero_unit):
     min_d = None
     closest_unit = None
@@ -219,7 +221,7 @@ def get_nearest_creep_to_hero(state, hero_unit):
 
 class Actor:
 
-    ENV_RETRY_DELAY = 15
+    ENV_RETRY_DELAY = 5
     EXCEPTION_RETRIES = 5
 
     def __init__(self, config, host='127.0.0.1', port=13337, name=''):
@@ -290,6 +292,7 @@ class Actor:
             log_probs.append({'x': action['x']['logprob'],
                               'y': action['y']['logprob'],
                               'enum': action['enum']['logprob'],
+                              'delay': action['delay']['logprob'],
                               })
 
             action_pb = self.action_to_pb(action=action, state=obs)
