@@ -17,6 +17,7 @@ from google.protobuf.message import DecodeError
 from google.protobuf.json_format import MessageToDict
 from grpclib.server import Server
 
+from dotaservice import __version__
 from dotaservice.protos.dota_gcmessages_common_bot_script_pb2 import CMsgBotWorldState
 from dotaservice.protos.dota_shared_enums_pb2 import DOTA_GAMERULES_STATE_GAME_IN_PROGRESS
 from dotaservice.protos.dota_shared_enums_pb2 import DOTA_GAMERULES_STATE_PRE_GAME
@@ -497,7 +498,7 @@ class DotaService(DotaServiceBase):
 
 async def serve(server, *, host, port):
     await server.start(host, port)
-    print('Serving on {}:{}'.format(host, port))
+    print('DotaService {} serving on {}:{}'.format(__version__, host, port))
     try:
         await server.wait_closed()
     except asyncio.CancelledError:
