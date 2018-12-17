@@ -39,21 +39,27 @@ torch.manual_seed(7)
 client = storage.Client()
 bucket = client.get_bucket('dotaservice')
 
-USE_CHECKPOINTS = False
-N_STEPS = 150
-START_EPISODE = 5491
+# Static variables
+TEAM_ID_RADIANT = 2
+TEAM_ID_DIRE = 3
+OPPOSITE_TEAM = {TEAM_ID_DIRE: TEAM_ID_RADIANT, TEAM_ID_RADIANT: TEAM_ID_DIRE}
+
+# Variables
+USE_CHECKPOINTS = True
+N_STEPS = 300
+START_EPISODE = 6013
 MODEL_FILENAME_FMT = "model_%09d.pt"
-TICKS_PER_OBSERVATION = 30
+TICKS_PER_OBSERVATION = 15
 N_DELAY_ENUMS = 5
 HOST_TIMESCALE = 10
 N_EPISODES = 10000000
-BATCH_SIZE = 1
-HOST_MODE = HostMode.Value('DEDICATED')
+BATCH_SIZE = 16
+HOST_MODE = HostMode.Value('GUI')
 HOST = 'localhost'
 LEARNING_RATE = BATCH_SIZE * 1e-4
 eps = np.finfo(np.float32).eps.item()
 
-pretrained_model = 'runs/Dec16_08-56-36_dockermaker/' + MODEL_FILENAME_FMT % START_EPISODE
+pretrained_model = 'runs/Dec17_00-14-12_dockermaker/' + MODEL_FILENAME_FMT % START_EPISODE
 model_blob = bucket.get_blob(pretrained_model)
 pretrained_model = '/tmp/mdl.pt'
 model_blob.download_to_filename(pretrained_model)
@@ -108,18 +114,19 @@ def get_reward(prev_obs, obs):
     """Get the reward."""
     unit_init = get_hero_unit(prev_obs)
     unit = get_hero_unit(obs)
-
     reward = {'xp': 0, 'hp': 0, 'death': 0, 'dist': 0, 'lh': 0}
 
+    # XP Reward
     xp_init = get_total_xp(level=unit_init.level, xp_needed_to_level=unit_init.xp_needed_to_level)
     xp = get_total_xp(level=unit.level, xp_needed_to_level=unit.xp_needed_to_level)
+    reward['xp'] = (xp - xp_init) * 0.002  # One creep is around 40 xp.
 
-    reward['xp'] = (xp - xp_init) * 0.002  # One creep will result in 0.114 reward
-
+    # HP and death reward
     if unit_init.is_alive and unit.is_alive:
-        hp_init = unit_init.health / unit_init.health_max
-        hp = unit.health / unit.health_max
-        reward['hp'] = (hp - hp_init) * 2.0
+        hp_rel_init = unit_init.health / unit_init.health_max
+        hp_rel = unit.health / unit.health_max
+        low_hp_factor = 1. + (1 - hp_rel) ** 2  # hp_rel=0 -> 2; hp_rel=0.5->1.25; hp_rel=1 -> 1.
+        reward['hp'] = (hp_rel - hp_rel_init) * low_hp_factor
     if unit_init.is_alive and not unit.is_alive:
         reward['death'] = - 0.5  # Death should be a big penalty
 
@@ -127,73 +134,103 @@ def get_reward(prev_obs, obs):
     lh = unit.last_hits - unit_init.last_hits
     reward['lh'] = lh * 0.5
 
+    # Deny reward
+    denies = unit.denies - unit_init.denies
+    reward['denies'] = denies * 0.5
+
     # Microreward for distance to help nudge to mid initially.
     dist_mid = math.sqrt(unit.location.x**2 + unit.location.y**2)
     reward['dist'] = -(dist_mid / 8000.) * 0.001
 
     return reward
 
-
 class Policy(nn.Module):
+
+    MAX_MOVE_SPEED = 550
+    MAX_MOVE_IN_OBS = (MAX_MOVE_SPEED / 30.) * 30
+    N_MOVE_ENUMS = 9
+    MOVE_ENUMS = np.arange(N_MOVE_ENUMS, dtype=np.float32) - int(N_MOVE_ENUMS / 2)
+    MOVE_ENUMS *= 550 / (N_MOVE_ENUMS - 1) * 2
+
     def __init__(self):
         super(Policy, self).__init__()
         self.affine1a = nn.Linear(2, 128)
         self.affine1b = nn.Linear(2, 128)
         self.affine1c = nn.Linear(2, 128)
 
-        self.affine1d1 = nn.Linear(3, 32)
-        self.affine1d2 = nn.Linear(32, 128)
+        self.affine_unit_enh1 = nn.Linear(3, 32)
+        self.affine_unit_enh2 = nn.Linear(32, 128)
+
+        self.affine_unit_anh1 = nn.Linear(3, 32)
+        self.affine_unit_anh2 = nn.Linear(32, 128)
+
+        self.affine_pre_rnn = nn.Linear(128*4, 128)
 
         self.rnn = nn.LSTM(input_size=128, hidden_size=128, num_layers=1)
-        self.dropout = nn.Dropout(0.2)
 
-        self.affine2a = nn.Linear(128, 2)
-        self.affine2b = nn.Linear(128, 2)
+        self.affine_move_x = nn.Linear(128, self.N_MOVE_ENUMS)
+        self.affine_move_y = nn.Linear(128, self.N_MOVE_ENUMS)
         self.affine2c = nn.Linear(128, 3)
         self.affine2d = nn.Linear(128, N_DELAY_ENUMS)
-        self.affine2e = nn.Linear(128, 128)
+        self.affine_unit_attention = nn.Linear(128, 128)
 
-    def forward(self, xa, xb, enemy_nonheroes, hidden):
-        logger.debug('policy(xa={}, xb={}, enemy_nonheroes={})'.format(xa, xb, enemy_nonheroes))
+    def forward(self, loc, env, enemy_nonheroes, allied_nonheroes, hidden):
+        logger.debug('policy(loc={}, env={}, enemy_nonheroes={}, allied_nonheroes={})'.format(
+            loc, env, enemy_nonheroes, allied_nonheroes))
 
-        xa = self.affine1a(xa)
-        xb = self.affine1b(xb)
+        loc = self.affine1a(loc)
+        env = self.affine1b(env)
 
-        unit_embedding = []
+        enh_embedding = []
         for unit_m in enemy_nonheroes:
             unit_m = torch.from_numpy(unit_m)
-            xd1 = F.relu(self.affine1d1(unit_m))
-            xd2 = self.affine1d2(xd1)
-            unit_embedding.append(xd2)
+            enh1 = F.relu(self.affine_unit_enh1(unit_m))
+            enh2 = self.affine_unit_enh2(enh1)
+            enh_embedding.append(enh2)
 
         # Create the variable length embedding for use in LSTM and attention head.
-        unit_embedding = torch.stack(unit_embedding)  # shape: (n_units, 128)
-
+        enh_embedding = torch.stack(enh_embedding)  # shape: (n_units, 128)
         # We max over unit dim to have a fixed output shape bc the LSTM needs to learn about these units.
-        unit_max, _ = torch.max(unit_embedding, dim=0)  # shape: (128,)
+        enh_embedding_max, _ = torch.max(enh_embedding, dim=0)  # shape: (128,)
+        enh_embedding_max = enh_embedding_max.unsqueeze(0)
+
+        anh_embedding = []
+        for unit_m in allied_nonheroes:
+            unit_m = torch.from_numpy(unit_m)
+            anh1 = F.relu(self.affine_unit_anh1(unit_m))
+            anh2 = self.affine_unit_anh2(anh1)
+            anh_embedding.append(anh2)
+
+        # Create the variable length embedding for use in LSTM and attention head.
+        anh_embedding = torch.stack(anh_embedding)  # shape: (n_units, 128)
+        # We max over unit dim to have a fixed output shape bc the LSTM needs to learn about these units.
+        anh_embedding_max, _ = torch.max(anh_embedding, dim=0)  # shape: (128,)
+        anh_embedding_max = anh_embedding_max.unsqueeze(0)
+
+        # Combined all units.
+        unit_embedding = torch.cat((enh_embedding, anh_embedding), 0)  # (n, 128)
 
         # Combine for LSTM.
-        x = F.relu(xa + xb + unit_max)
+        x = torch.cat((loc, env, enh_embedding_max, anh_embedding_max), 1)  # (512,)
+        x = F.relu(self.affine_pre_rnn(x))
         
         # LSTM
         x, hidden = self.rnn(x.unsqueeze(1), hidden)
-        x = self.dropout(x)
         x = x.squeeze(1)
 
         # Heads.
-        action_scores_x = self.affine2a(x)
-        action_scores_y = self.affine2b(x)
+        action_scores_x = self.affine_move_x(x)
+        action_scores_y = self.affine_move_y(x)
         action_scores_enum = self.affine2c(x)
         action_delay_enum = self.affine2d(x)
-        action_unit_attention = self.affine2e(x)  # shape: (1, 128)
+        action_unit_attention = self.affine_unit_attention(x)  # shape: (1, 256)
         action_unit_attention = torch.mm(action_unit_attention, unit_embedding.t())  # shape (1, n)
-
         return {
                 'x': F.softmax(action_scores_x, dim=1),
                 'y': F.softmax(action_scores_y, dim=1),
                 'enum': F.softmax(action_scores_enum, dim=1),
                 'delay': F.softmax(action_delay_enum, dim=1),
-                'unit': F.softmax(action_unit_attention, dim=1),
+                'target_unit': F.softmax(action_unit_attention, dim=1),
                 }, hidden
 
 
@@ -318,15 +355,13 @@ class Actor:
         logger.info(self.log_prefix + 'Finished. reward_sum={:.2f}'.format(reward_sum))
         return rewards, log_probs
 
-
-    def unit_matrix(self, state, hero_unit, unit_type=CMsgBotWorldState.UnitType.Value('LANE_CREEP')):
+    def unit_matrix(self, state, hero_unit, team_id, unit_types):
         # Prepopulate with invalid creep.
         handles = [-1]
         m = [np.array([0, 0, 0], dtype=np.float32)]
 
         for unit in state.units:
-            if unit.team_id != hero_unit.team_id and unit.is_alive \
-                and unit.unit_type == unit_type:
+            if unit.team_id == team_id and unit.is_alive and unit.unit_type in unit_types:
                 rel_hp = (unit.health / unit.health_max)  # [0 (dead) : 1 (full hp)]
                 distance_x = (hero_unit.location.x - unit.location.x) / 3000.
                 distance_y = (hero_unit.location.y - unit.location.y) / 3000.
@@ -349,13 +384,28 @@ class Actor:
         dota_time_norm = dota_time = world_state.dota_time / 1200.  # Normalize by 20 minutes
         env_state = torch.from_numpy(np.array([hp_rel, dota_time_norm])).float().unsqueeze(0) 
 
-        # Process the enemy_nonheroes
-        enemy_nonheroes, handles = self.unit_matrix(state=world_state, hero_unit=hero_unit)
+        # Process units
+        enemy_nonheroes, enemy_nonhero_handles = self.unit_matrix(
+            state=world_state,
+            hero_unit=hero_unit,
+            unit_types=[CMsgBotWorldState.UnitType.Value('LANE_CREEP'), CMsgBotWorldState.UnitType.Value('CREEP_HERO')],
+            team_id=OPPOSITE_TEAM[hero_unit.team_id],
+            )
+
+        allied_nonheroes, allied_nonhero_handles = self.unit_matrix(
+            state=world_state,
+            hero_unit=hero_unit,
+            unit_types=[CMsgBotWorldState.UnitType.Value('LANE_CREEP'), CMsgBotWorldState.UnitType.Value('CREEP_HERO')],
+            team_id=hero_unit.team_id,
+            )
+
+        unit_handles = enemy_nonhero_handles + allied_nonhero_handles
 
         probs, hidden = policy(
-            xa=location_state,
-            xb=env_state,
+            loc=location_state,
+            env=env_state,
             enemy_nonheroes=enemy_nonheroes,
+            allied_nonheroes=allied_nonheroes,
             hidden=hidden,
         )
             
@@ -364,7 +414,7 @@ class Actor:
             action = m.sample()
             actions[k] = {'action': action.item(), 'prob': prob, 'logprob' :m.log_prob(action)}
 
-        actions['unit']['handle'] = handles[actions['unit']['action']]
+        actions['target_unit']['handle'] = unit_handles[actions['target_unit']['action']]
 
         return actions, hidden
 
@@ -381,15 +431,15 @@ class Actor:
                 'DOTA_UNIT_ORDER_MOVE_TO_POSITION')
             m = CMsgBotWorldState.Action.MoveToLocation()
             hero_location = hero_unit.location
-            m.location.x = hero_location.x + 350 if action['x']['action'] else hero_location.x - 350
-            m.location.y = hero_location.y + 350 if action['y']['action'] else hero_location.y - 350
+            m.location.x = hero_location.x + Policy.MOVE_ENUMS[action['x']['action']]
+            m.location.y = hero_location.x + Policy.MOVE_ENUMS[action['y']['action']]
             m.location.z = 0
             action_pb.moveToLocation.CopyFrom(m)
         elif action_enum == 2:
             action_pb.actionType = CMsgBotWorldState.Action.Type.Value(
                 'DOTA_UNIT_ORDER_ATTACK_TARGET')
             m = CMsgBotWorldState.Action.AttackTarget()
-            m.target = action['unit']['handle']
+            m.target = action['target_unit']['handle']
             m.once = True
             action_pb.attackTarget.CopyFrom(m)
         else:
