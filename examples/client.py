@@ -27,6 +27,8 @@ from dotaservice.protos.DotaService_pb2 import Empty
 from dotaservice.protos.DotaService_pb2 import HostMode
 from dotaservice.protos.DotaService_pb2 import Status
 
+from dotaworld.unit import isHeroUnit, isCreepUnit
+
 logger = logging.getLogger(__name__)
 handler = logging.StreamHandler()
 formatter = logging.Formatter('%(asctime)s %(levelname)-8s %(message)s')
@@ -39,6 +41,7 @@ torch.manual_seed(7)
 client = storage.Client()
 bucket = client.get_bucket('dotaservice')
 
+TEST_HERO_NAME = 'npc_dota_hero_nevermore'
 USE_CHECKPOINTS = False
 N_STEPS = 150
 START_EPISODE = 5491
@@ -223,10 +226,9 @@ def finish_episode(rewards, log_probs):
 
 def get_hero_unit(state):
     for unit in state.units:
-        if unit.unit_type == CMsgBotWorldState.UnitType.Value('HERO') \
-            and unit.name == 'npc_dota_hero_nevermore':
+        if isHeroUnit(unit) and unit.name == TEST_HERO_NAME:
             return unit
-    raise ValueError("hero {} not found in state:\n{}".format(id, state))
+    raise ValueError("hero {} not found in state:\n{}".format(TEST_HERO_NAME, state))
 
 
 class Actor:
@@ -320,14 +322,13 @@ class Actor:
         return rewards, log_probs
 
 
-    def unit_matrix(self, state, hero_unit, unit_type=CMsgBotWorldState.UnitType.Value('LANE_CREEP')):
+    def unit_matrix(self, state, hero_unit, unitTypeTest=isCreepUnit):
         # Prepopulate with invalid creep.
         handles = [-1]
         m = [np.array([0, 0, 0], dtype=np.float32)]
 
         for unit in state.units:
-            if unit.team_id != hero_unit.team_id and unit.is_alive \
-                and unit.unit_type == unit_type:
+            if unit.team_id != hero_unit.team_id and unit.is_alive and unitTypeTest(unit):
                 rel_hp = (unit.health / unit.health_max)  # [0 (dead) : 1 (full hp)]
                 distance_x = (hero_unit.location.x - unit.location.x) / 3000.
                 distance_y = (hero_unit.location.y - unit.location.y) / 3000.
