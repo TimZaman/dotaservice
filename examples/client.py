@@ -26,6 +26,7 @@ from dotaservice.protos.DotaService_pb2 import Config
 from dotaservice.protos.DotaService_pb2 import Empty
 from dotaservice.protos.DotaService_pb2 import HostMode
 from dotaservice.protos.DotaService_pb2 import Status
+from dotaworld.unit_helper import isHeroUnit, isCreepUnit
 
 logger = logging.getLogger(__name__)
 handler = logging.StreamHandler()
@@ -38,6 +39,9 @@ torch.manual_seed(7)
 
 client = storage.Client()
 bucket = client.get_bucket('dotaservice')
+
+# Test variales
+TEST_HERO_NAME = "npc_dota_hero_nevermore"
 
 # Static variables
 TEAM_ID_RADIANT = 2
@@ -259,10 +263,9 @@ def finish_episode(rewards, log_probs):
 
 def get_hero_unit(state):
     for unit in state.units:
-        if unit.unit_type == CMsgBotWorldState.UnitType.Value('HERO') \
-            and unit.name == 'npc_dota_hero_nevermore':
+        if isHeroUnit(unit) and unit.name == TEST_HERO_NAME:
             return unit
-    raise ValueError("hero {} not found in state:\n{}".format(id, state))
+    raise ValueError("hero {} not found in state:\n{}".format(TEST_HERO_NAME, state))
 
 
 class Actor:
@@ -355,13 +358,13 @@ class Actor:
         logger.info(self.log_prefix + 'Finished. reward_sum={:.2f}'.format(reward_sum))
         return rewards, log_probs
 
-    def unit_matrix(self, state, hero_unit, team_id, unit_types):
+    def unit_matrix(self, state, hero_unit, team_id, unit_types_filter=isCreepUnit):
         # Prepopulate with invalid creep.
         handles = [-1]
         m = [np.array([0, 0, 0], dtype=np.float32)]
 
         for unit in state.units:
-            if unit.team_id == team_id and unit.is_alive and unit.unit_type in unit_types:
+            if unit.team_id == team_id and unit.is_alive and unit_types_filter(unit):
                 rel_hp = (unit.health / unit.health_max)  # [0 (dead) : 1 (full hp)]
                 distance_x = (hero_unit.location.x - unit.location.x) / 3000.
                 distance_y = (hero_unit.location.y - unit.location.y) / 3000.
@@ -388,15 +391,15 @@ class Actor:
         enemy_nonheroes, enemy_nonhero_handles = self.unit_matrix(
             state=world_state,
             hero_unit=hero_unit,
-            unit_types=[CMsgBotWorldState.UnitType.Value('LANE_CREEP'), CMsgBotWorldState.UnitType.Value('CREEP_HERO')],
             team_id=OPPOSITE_TEAM[hero_unit.team_id],
+            unit_types_filter=isCreepUnit
             )
 
         allied_nonheroes, allied_nonhero_handles = self.unit_matrix(
             state=world_state,
             hero_unit=hero_unit,
-            unit_types=[CMsgBotWorldState.UnitType.Value('LANE_CREEP'), CMsgBotWorldState.UnitType.Value('CREEP_HERO')],
             team_id=hero_unit.team_id,
+            unit_types_filter=isCreepUnit
             )
 
         unit_handles = enemy_nonhero_handles + allied_nonhero_handles
