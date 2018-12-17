@@ -49,9 +49,8 @@ HOST_TIMESCALE = 10
 N_EPISODES = 10000000
 BATCH_SIZE = 1
 HOST_MODE = HostMode.Value('DEDICATED')
-# HOST = '35.247.27.224'
 HOST = 'localhost'
-LEARNING_RATE = 1e-4
+LEARNING_RATE = BATCH_SIZE * 1e-4
 eps = np.finfo(np.float32).eps.item()
 
 pretrained_model = 'runs/Dec16_08-56-36_dockermaker/' + MODEL_FILENAME_FMT % START_EPISODE
@@ -112,7 +111,6 @@ def get_reward(prev_obs, obs):
 
     reward = {'xp': 0, 'hp': 0, 'death': 0, 'dist': 0, 'lh': 0}
 
-
     xp_init = get_total_xp(level=unit_init.level, xp_needed_to_level=unit_init.xp_needed_to_level)
     xp = get_total_xp(level=unit.level, xp_needed_to_level=unit.xp_needed_to_level)
 
@@ -121,7 +119,7 @@ def get_reward(prev_obs, obs):
     if unit_init.is_alive and unit.is_alive:
         hp_init = unit_init.health / unit_init.health_max
         hp = unit.health / unit.health_max
-        reward['hp'] = (hp - hp_init) * 1.0
+        reward['hp'] = (hp - hp_init) * 2.0
     if unit_init.is_alive and not unit.is_alive:
         reward['death'] = - 0.5  # Death should be a big penalty
 
@@ -129,9 +127,9 @@ def get_reward(prev_obs, obs):
     lh = unit.last_hits - unit_init.last_hits
     reward['lh'] = lh * 0.5
 
-    # Help him get to mid, for minor speed boost
+    # Microreward for distance to help nudge to mid initially.
     dist_mid = math.sqrt(unit.location.x**2 + unit.location.y**2)
-    reward['dist'] = -(dist_mid / 8000.) * 0.01
+    reward['dist'] = -(dist_mid / 8000.) * 0.001
 
     return reward
 
@@ -147,6 +145,7 @@ class Policy(nn.Module):
         self.affine1d2 = nn.Linear(32, 128)
 
         self.rnn = nn.LSTM(input_size=128, hidden_size=128, num_layers=1)
+        self.dropout = nn.Dropout(0.2)
 
         self.affine2a = nn.Linear(128, 2)
         self.affine2b = nn.Linear(128, 2)
@@ -178,6 +177,7 @@ class Policy(nn.Module):
         
         # LSTM
         x, hidden = self.rnn(x.unsqueeze(1), hidden)
+        x = self.dropout(x)
         x = x.squeeze(1)
 
         # Heads.
@@ -390,7 +390,7 @@ class Actor:
                 'DOTA_UNIT_ORDER_ATTACK_TARGET')
             m = CMsgBotWorldState.Action.AttackTarget()
             m.target = action['unit']['handle']
-            m.once = False
+            m.once = True
             action_pb.attackTarget.CopyFrom(m)
         else:
             raise ValueError("unknown action {}".format(action_enum))
