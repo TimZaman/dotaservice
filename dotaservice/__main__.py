@@ -21,7 +21,8 @@ def get_default_action_path():
     if platform == "linux" or platform == "linux2":
         action_path = "/tmp/"
     elif platform == "darwin":
-        action_path = "/Volumes/ramdisk/"
+        #action_path = "/Volumes/ramdisk/"
+        action_path = "/tmp/"
     return action_path
 
 
