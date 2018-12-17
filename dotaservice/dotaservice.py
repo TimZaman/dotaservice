@@ -157,7 +157,7 @@ class DotaGame(object):
 
         # Copy all the bot files into the action folder.
         lua_files = glob.glob(LUA_FILES_GLOB)
-        assert len(lua_files) == 6
+        assert len(lua_files) == 7
         for filename in lua_files:
             shutil.copy(filename, bot_path)
 
