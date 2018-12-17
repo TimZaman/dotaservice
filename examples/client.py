@@ -207,7 +207,7 @@ def location_distance(lhs, rhs):
     return math.sqrt( (lhs.x-rhs.x)**2  +  (lhs.y-rhs.y)**2 )
 
 
-def get_nearest_creep_to_hero(state, hero_unit):
+def get_nearest_attackable_unit_to_hero(state, hero_unit):
     min_d = None
     closest_unit = None
     for unit in state.units:
@@ -329,7 +329,7 @@ class Actor:
 
 
         # Nearest creep input
-        closest_unit, distance = get_nearest_creep_to_hero(world_state, hero_unit=unit)
+        closest_unit, distance = get_nearest_attackable_unit_to_hero(world_state, hero_unit=unit)
         MAX_CREEP_DIST = 1200.
         if closest_unit is not None and distance < MAX_CREEP_DIST:
             creep_hp = 1. - (closest_unit.health / closest_unit.health_max)  # [1 (dead) : 0 (full hp)]
