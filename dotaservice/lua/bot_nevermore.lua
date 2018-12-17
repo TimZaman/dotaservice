@@ -111,8 +111,8 @@ function Think()
     -- print('(lua) Think() dota_time=', dota_time, 'game_state=', game_state, 'step=', step)
 
     -- To guarantee the dotaservice has received a worldstate, skip this function that amount
-    -- of times on first run.
-    if step == config.ticks_per_observation then
+    -- of times on first run. Take twice the amount to be safe.
+    if step == config.ticks_per_observation * 2 then
         -- When we went through exactly this amount calls, it's guaranteed the dotaservice has
         -- received at least one tick, from which we can calibrate.
 
