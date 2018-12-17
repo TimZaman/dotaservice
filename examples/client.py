@@ -136,7 +136,7 @@ def get_reward(prev_obs, obs):
 
     # Deny reward
     denies = unit.denies - unit_init.denies
-    reward['denies'] = denies * 0.5
+    reward['denies'] = denies * 0.2
 
     # Microreward for distance to help nudge to mid initially.
     dist_mid = math.sqrt(unit.location.x**2 + unit.location.y**2)
@@ -147,10 +147,10 @@ def get_reward(prev_obs, obs):
 class Policy(nn.Module):
 
     MAX_MOVE_SPEED = 550
-    MAX_MOVE_IN_OBS = (MAX_MOVE_SPEED / 30.) * 30
+    MAX_MOVE_IN_OBS = (MAX_MOVE_SPEED / 30.) * TICKS_PER_OBSERVATION
     N_MOVE_ENUMS = 9
     MOVE_ENUMS = np.arange(N_MOVE_ENUMS, dtype=np.float32) - int(N_MOVE_ENUMS / 2)
-    MOVE_ENUMS *= 550 / (N_MOVE_ENUMS - 1) * 2
+    MOVE_ENUMS *= MAX_MOVE_IN_OBS / (N_MOVE_ENUMS - 1) * 2
 
     def __init__(self):
         super(Policy, self).__init__()
@@ -212,11 +212,18 @@ class Policy(nn.Module):
 
         # Combine for LSTM.
         x = torch.cat((loc, env, enh_embedding_max, anh_embedding_max), 1)  # (512,)
+
+        # Add internal noise
+        x = F.dropout(x, p=0.5, training=self.training)
+
         x = F.relu(self.affine_pre_rnn(x))
-        
+
         # LSTM
         x, hidden = self.rnn(x.unsqueeze(1), hidden)
         x = x.squeeze(1)
+
+        # Add internal noise.
+        x = F.dropout(x, p=0.5, training=self.training)
 
         # Heads.
         action_scores_x = self.affine_move_x(x)
@@ -432,7 +439,7 @@ class Actor:
             m = CMsgBotWorldState.Action.MoveToLocation()
             hero_location = hero_unit.location
             m.location.x = hero_location.x + Policy.MOVE_ENUMS[action['x']['action']]
-            m.location.y = hero_location.x + Policy.MOVE_ENUMS[action['y']['action']]
+            m.location.y = hero_location.y + Policy.MOVE_ENUMS[action['y']['action']]
             m.location.z = 0
             action_pb.moveToLocation.CopyFrom(m)
         elif action_enum == 2:
