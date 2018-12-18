@@ -6,6 +6,7 @@ import math
 import os
 import time
 import traceback
+from pprint import pprint, pformat
 import uuid
 
 from google.cloud import storage
@@ -32,7 +33,7 @@ handler = logging.StreamHandler()
 formatter = logging.Formatter('%(asctime)s %(levelname)-8s %(message)s')
 handler.setFormatter(formatter)
 logger.addHandler(handler)
-logger.setLevel(logging.INFO)
+logger.setLevel(logging.DEBUG)
 
 torch.manual_seed(7)
 
@@ -47,22 +48,23 @@ OPPOSITE_TEAM = {TEAM_ID_DIRE: TEAM_ID_RADIANT, TEAM_ID_RADIANT: TEAM_ID_DIRE}
 # Variables
 USE_CHECKPOINTS = True
 N_STEPS = 300
-START_EPISODE = 6013
+START_EPISODE = 0
 MODEL_FILENAME_FMT = "model_%09d.pt"
 TICKS_PER_OBSERVATION = 15
 N_DELAY_ENUMS = 5
 HOST_TIMESCALE = 10
-N_EPISODES = 10000000
-BATCH_SIZE = 16
-HOST_MODE = HostMode.Value('GUI')
+N_EPISODES = 1000000
+BATCH_SIZE = 1
+HOST_MODE = HostMode.Value('DEDICATED')
 HOST = 'localhost'
-LEARNING_RATE = BATCH_SIZE * 1e-4
+LEARNING_RATE = 1e-3
 eps = np.finfo(np.float32).eps.item()
 
-pretrained_model = 'runs/Dec17_00-14-12_dockermaker/' + MODEL_FILENAME_FMT % START_EPISODE
-model_blob = bucket.get_blob(pretrained_model)
-pretrained_model = '/tmp/mdl.pt'
-model_blob.download_to_filename(pretrained_model)
+pretrained_model = None
+# pretrained_model = 'runs/Dec18_02-14-26_Tims-Mac-Pro.local/' + MODEL_FILENAME_FMT % START_EPISODE
+# model_blob = bucket.get_blob(pretrained_model)
+# pretrained_model = '/tmp/mdl.pt'
+# model_blob.download_to_filename(pretrained_model)
 
 # Derivates.
 DELAY_ENUM_TO_STEP = math.floor(TICKS_PER_OBSERVATION / N_DELAY_ENUMS)
@@ -154,9 +156,8 @@ class Policy(nn.Module):
 
     def __init__(self):
         super(Policy, self).__init__()
-        self.affine1a = nn.Linear(2, 128)
-        self.affine1b = nn.Linear(2, 128)
-        self.affine1c = nn.Linear(2, 128)
+        self.affine_loc = nn.Linear(2, 128)
+        self.affine_env = nn.Linear(2, 128)
 
         self.affine_unit_enh1 = nn.Linear(3, 32)
         self.affine_unit_enh2 = nn.Linear(32, 128)
@@ -167,19 +168,20 @@ class Policy(nn.Module):
         self.affine_pre_rnn = nn.Linear(128*4, 128)
 
         self.rnn = nn.LSTM(input_size=128, hidden_size=128, num_layers=1)
+        self.ln = nn.LayerNorm(128)
 
         self.affine_move_x = nn.Linear(128, self.N_MOVE_ENUMS)
         self.affine_move_y = nn.Linear(128, self.N_MOVE_ENUMS)
-        self.affine2c = nn.Linear(128, 3)
-        self.affine2d = nn.Linear(128, N_DELAY_ENUMS)
+        self.affine_head_enum = nn.Linear(128, 3)
+        self.affine_head_delay = nn.Linear(128, N_DELAY_ENUMS)
         self.affine_unit_attention = nn.Linear(128, 128)
 
     def forward(self, loc, env, enemy_nonheroes, allied_nonheroes, hidden):
         logger.debug('policy(loc={}, env={}, enemy_nonheroes={}, allied_nonheroes={})'.format(
             loc, env, enemy_nonheroes, allied_nonheroes))
 
-        loc = self.affine1a(loc)
-        env = self.affine1b(env)
+        loc = F.relu(self.affine_loc(loc))
+        env = F.relu(self.affine_env(env))
 
         enh_embedding = []
         for unit_m in enemy_nonheroes:
@@ -213,23 +215,23 @@ class Policy(nn.Module):
         # Combine for LSTM.
         x = torch.cat((loc, env, enh_embedding_max, anh_embedding_max), 1)  # (512,)
 
-        # Add internal noise
-        x = F.dropout(x, p=0.5, training=self.training)
+        # Add some internal noise
+        x = F.dropout(x, p=0.3, training=self.training)
 
         x = F.relu(self.affine_pre_rnn(x))
+
+        # TODO(tzaman) Maybe add parameter noise here.
+        x = self.ln(x)
 
         # LSTM
         x, hidden = self.rnn(x.unsqueeze(1), hidden)
         x = x.squeeze(1)
 
-        # Add internal noise.
-        x = F.dropout(x, p=0.5, training=self.training)
-
         # Heads.
         action_scores_x = self.affine_move_x(x)
         action_scores_y = self.affine_move_y(x)
-        action_scores_enum = self.affine2c(x)
-        action_delay_enum = self.affine2d(x)
+        action_scores_enum = self.affine_head_enum(x)
+        action_delay_enum = self.affine_head_delay(x)
         action_unit_attention = self.affine_unit_attention(x)  # shape: (1, 256)
         action_unit_attention = torch.mm(action_unit_attention, unit_embedding.t())  # shape (1, n)
         return {
@@ -341,7 +343,8 @@ class Actor:
         for step in range(N_STEPS):  # Steps/actions in the environment
             prev_obs = obs
             action, hidden = self.select_action(world_state=obs, hidden=hidden, step=step)
-            logger.debug(self.log_prefix + 'action:{}'.format(action))
+
+            logger.debug('action:\n' + pformat(action))
 
             log_probs.append({k: v['logprob'] for k, v in action.items() if 'logprob' in v})
 
@@ -415,15 +418,28 @@ class Actor:
             allied_nonheroes=allied_nonheroes,
             hidden=hidden,
         )
-            
-        for k, prob in probs.items():
-            m = Categorical(prob)
-            action = m.sample()
-            actions[k] = {'action': action.item(), 'prob': prob, 'logprob' :m.log_prob(action)}
 
-        actions['target_unit']['handle'] = unit_handles[actions['target_unit']['action']]
+        actions['enum'] = self.sample(probs, 'enum')
+        actions['delay'] = self.sample(probs, 'delay')
+
+        if actions['enum']['action'] == 0:  # Nothing
+            pass
+        elif actions['enum']['action'] == 1:  # Move
+            actions['x'] = self.sample(probs, 'x')
+            actions['y'] = self.sample(probs, 'y')
+        elif actions['enum']['action'] == 2:  # Attack
+            actions['target_unit'] = self.sample(probs, 'target_unit')
+            actions['target_unit']['handle'] = unit_handles[actions['target_unit']['action']]
+        else:
+            ValueError("Invalid Action Selection.")
 
         return actions, hidden
+
+    @staticmethod
+    def sample(probs, key):
+        m = Categorical(probs[key])
+        action = m.sample()
+        return {'action': action.item(), 'probs': probs[key], 'logprob' :m.log_prob(action)}
 
     def action_to_pb(self, action, state):
         hero_unit = get_hero_unit(state)
