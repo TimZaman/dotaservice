@@ -428,7 +428,10 @@ class Actor:
 
         if not hero_unit.is_alive:
             # Dead man talking. Can only do nothing.
-            probs['enum'] = torch.tensor([1, 0, 0]).float()
+            # TODO(tzaman): come up with something more pytorchy here
+            x = probs['enum'].clone()
+            x[0][1:] = 0
+            probs['enum'] = x
 
         if probs['target_unit'].shape[1] == 0:
             # If there are no units to target, we cannot perform 'action'
