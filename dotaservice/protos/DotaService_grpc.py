@@ -36,7 +36,7 @@ class DotaServiceBase(abc.ABC):
             '/DotaService/step': grpclib.const.Handler(
                 self.step,
                 grpclib.const.Cardinality.UNARY_UNARY,
-                dotaservice.protos.DotaService_pb2.Action,
+                dotaservice.protos.dota_gcmessages_common_bot_script_pb2.CMsgBotWorldState.Actions,
                 dotaservice.protos.DotaService_pb2.Observation,
             ),
             '/DotaService/clear': grpclib.const.Handler(
@@ -60,7 +60,7 @@ class DotaServiceStub:
         self.step = grpclib.client.UnaryUnaryMethod(
             channel,
             '/DotaService/step',
-            dotaservice.protos.DotaService_pb2.Action,
+            dotaservice.protos.dota_gcmessages_common_bot_script_pb2.CMsgBotWorldState.Actions,
             dotaservice.protos.DotaService_pb2.Observation,
         )
         self.clear = grpclib.client.UnaryUnaryMethod(

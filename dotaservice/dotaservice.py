@@ -83,7 +83,6 @@ class DotaGame(object):
         self.game_id = game_id
         if not self.game_id:
             self.game_id = str(uuid.uuid1())
-        self._dota_time = None
         self.dota_bot_path = os.path.join(self.dota_path, 'dota', 'scripts', 'vscripts',
                                           self.BOTS_FOLDER_NAME)
         self.bot_path = self._create_bot_path()
@@ -106,18 +105,6 @@ class DotaGame(object):
             'ticks_per_observation': self.ticks_per_observation,
         }
         self.write_static_config(data=config)
-
-    @property
-    def dota_time(self):
-        return self._dota_time
-
-    @dota_time.setter
-    def dota_time(self, value):
-        # TODO(tzaman): check that new value is larger than old one.
-        if self._dota_time is not None and value < self._dota_time:
-            raise ValueError('New dota time {} is larger than the old one {}'.format(
-                value, self._dota_time))
-        self._dota_time = value
 
     def write_static_config(self, data):
         self._write_bot_data_file(filename_stem=self.CONFIG_FILENAME, data=data)
@@ -278,7 +265,6 @@ class DotaGame(object):
         # Decode the payload.
         world_state = CMsgBotWorldState()
         world_state.ParseFromString(data)
-        dotatime = world_state.dota_time
         gamestate = world_state.game_state
         print('(py) worldstate @ dotatime={}, gamestate={}'.format(dotatime, gamestate))
         return world_state
@@ -457,8 +443,6 @@ class DotaService(DotaServiceBase):
             await stream.send_message(Observation(status=Status.Value('FAILED_PRECONDITION')))
             raise ValueError('Worldstate queue empty while lua bot is ready!')
 
-        self.dota_game.dota_time = data.dota_time
-
         # Now write the calibration file.
         config = {
             'calibration_dota_time': data.dota_time,
@@ -473,20 +457,14 @@ class DotaService(DotaServiceBase):
         print('DotaService::step()')
         self.set_call_timer()
         request = await stream.recv_message()
-        action = MessageToDict(request.action)
+        actions = MessageToDict(request)
 
-        # Add the dotatime to the dict for verification.
-        action['dota_time'] = self.dota_game.dota_time
+        print('(python) actions=', actions)
 
-        print('(python) action=', action)
-
-        self.dota_game.write_action(data=action)
+        self.dota_game.write_action(data=actions)
 
         # We've started to assume our queue will only have 1 item.
         data = await self.dota_game.worldstate_queue.get()
-
-        # Update the tick
-        self.dota_game.dota_time = data.dota_time
 
         # Make sure indeed the queue is empty and we're entirely in sync.
         assert self.dota_game.worldstate_queue.qsize() == 0

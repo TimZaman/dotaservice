@@ -19,10 +19,6 @@ enum HostMode {
 
 message Empty {}
 
-message Action {
-  required CMsgBotWorldState.Action action = 1;
-}
-
 message Observation {
   required Status status = 1;
   optional CMsgBotWorldState world_state = 2;
@@ -31,14 +27,15 @@ message Observation {
 message Config {
   optional string game_id = 1;
   required uint32 ticks_per_observation = 3;
-  // TODO(tzaman): rework below, as host_mode impacts the settings (gui= timescale 1, etc)
+  // TODO(tzaman): Rework below, as host_mode impacts the settings (gui= timescale 1, no timeouts, etc)
   optional uint32 host_timescale = 2 [default = 1];
   optional HostMode host_mode = 5 [default = DEDICATED];
   optional DOTA_GameMode game_mode = 6 [default = DOTA_GAMEMODE_MO];
+  // TODO(tzaman): Add hero picks for both teams in a priority repeated list.
 }
 
 service DotaService {
   rpc reset (Config) returns (Observation) {}  // TODO(tzaman): add version and hostname in response.
-  rpc step (Action) returns (Observation) {}
+  rpc step (CMsgBotWorldState.Actions) returns (Observation) {}
   rpc clear (Empty) returns (Empty) {}
 }

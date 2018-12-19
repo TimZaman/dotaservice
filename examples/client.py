@@ -10,7 +10,6 @@ from pprint import pprint, pformat
 import uuid
 
 from google.cloud import storage
-from google.protobuf.json_format import MessageToDict
 from grpclib.client import Channel
 from tensorboardX import SummaryWriter
 from torch.distributions import Categorical
@@ -22,7 +21,6 @@ import torch.optim as optim
 
 from dotaservice.protos.dota_gcmessages_common_bot_script_pb2 import CMsgBotWorldState
 from dotaservice.protos.DotaService_grpc import DotaServiceStub
-from dotaservice.protos.DotaService_pb2 import Action
 from dotaservice.protos.DotaService_pb2 import Config
 from dotaservice.protos.DotaService_pb2 import Empty
 from dotaservice.protos.DotaService_pb2 import HostMode
@@ -112,10 +110,10 @@ def get_total_xp(level, xp_needed_to_level):
     return xp_to_reach_level[level] + missing_xp_for_next_level
 
 
-def get_reward(prev_obs, obs):
+def get_reward(prev_obs, obs, player_id):
     """Get the reward."""
-    unit_init = get_hero_unit(prev_obs)
-    unit = get_hero_unit(obs)
+    unit_init = get_hero_unit(prev_obs, player_id=player_id)
+    unit = get_hero_unit(obs, player_id=player_id)
     reward = {'xp': 0, 'hp': 0, 'death': 0, 'lh': 0, 'denies': 0}
 
     # XP Reward
@@ -271,12 +269,12 @@ def finish_episode(rewards, log_probs):
     return loss
 
 
-def get_hero_unit(state):
+def get_hero_unit(state, player_id):
     for unit in state.units:
         if unit.unit_type == CMsgBotWorldState.UnitType.Value('HERO') \
-            and unit.name == 'npc_dota_hero_nevermore':
+            and unit.player_id == player_id:
             return unit
-    raise ValueError("hero {} not found in state:\n{}".format(id, state))
+    raise ValueError("hero {} not found in state:\n{}".format(player_id, state))
 
 
 class Actor:
@@ -345,22 +343,27 @@ class Actor:
         rewards = []
         log_probs = []
         hidden = None
+        player_id = 0
         for step in range(N_STEPS):  # Steps/actions in the environment
             prev_obs = obs
-            action, hidden = self.select_action(world_state=obs, hidden=hidden, step=step)
+            action, hidden = self.select_action(world_state=obs, hidden=hidden, player_id=player_id)
 
             logger.debug('action:\n' + pformat(action))
 
             log_probs.append({k: v['logprob'] for k, v in action.items() if 'logprob' in v})
 
-            action_pb = self.action_to_pb(action=action, state=obs)
+            action_pb = self.action_to_pb(action=action, state=obs, player_id=player_id)
+            action_pb.player = player_id
 
-            response = await asyncio.wait_for(self.env.step(Action(action=action_pb)), timeout=15)
+            actions_pb = CMsgBotWorldState.Actions(actions=[action_pb])
+            actions_pb.dota_time = obs.dota_time
+
+            response = await asyncio.wait_for(self.env.step(actions_pb), timeout=15)
             if response.status != Status.Value('OK'):
                 raise ValueError(self.log_prefix + 'Step reponse invalid:\n{}'.format(response))
             obs = response.world_state
 
-            reward = get_reward(prev_obs=prev_obs, obs=obs)
+            reward = get_reward(prev_obs=prev_obs, obs=obs, player_id=player_id)
 
             logger.debug(self.log_prefix + 'step={} reward={:.3f}\n'.format(step, sum(reward.values())))
             rewards.append(reward)
@@ -382,11 +385,11 @@ class Actor:
                 handles.append(unit.handle)
         return m, handles
 
-    def select_action(self, world_state, hidden, step=None):
+    def select_action(self, world_state, hidden, player_id):
         actions = {}
 
         # Preprocess the state
-        hero_unit = get_hero_unit(world_state)
+        hero_unit = get_hero_unit(world_state, player_id=player_id)
 
         # Location Input
         location_state = np.array([hero_unit.location.x, hero_unit.location.y]) / 7000.  # maps the map between [-1 and 1]
@@ -422,6 +425,10 @@ class Actor:
             hidden=hidden,
         )
 
+        if not hero_unit.is_alive:
+            # Dead man talking. Can only do nothing.
+            probs['enum'] = torch.tensor([1, 0, 0]).float()
+
         if probs['target_unit'].shape[1] == 0:
             # If there are no units to target, we cannot perform 'action'
             # TODO(tzaman): come up with something nice and generic here.
@@ -451,8 +458,10 @@ class Actor:
         action = m.sample()
         return {'action': action.item(), 'probs': probs[key], 'logprob' :m.log_prob(action)}
 
-    def action_to_pb(self, action, state):
-        hero_unit = get_hero_unit(state)
+    @staticmethod
+    def action_to_pb(action, state, player_id):
+        # TODO(tzaman): Recrease the scope of this function. Make it a converter only.
+        hero_unit = get_hero_unit(state, player_id=player_id)
 
         action_pb = CMsgBotWorldState.Action()
         action_pb.actionDelay = action['delay']['action'] * DELAY_ENUM_TO_STEP
