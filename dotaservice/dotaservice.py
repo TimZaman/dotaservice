@@ -1,3 +1,4 @@
+from pprint import pprint, pformat
 from struct import unpack
 from sys import platform
 import asyncio
@@ -11,6 +12,7 @@ import re
 import shutil
 import signal
 import time
+import traceback
 import uuid
 
 from google.protobuf.message import DecodeError
@@ -27,15 +29,14 @@ from dotaservice.protos.DotaService_pb2 import HostMode
 from dotaservice.protos.DotaService_pb2 import Observation
 from dotaservice.protos.DotaService_pb2 import Status
 
+logger = logging.getLogger(__name__)
+handler = logging.StreamHandler()
+formatter = logging.Formatter('%(asctime)s %(levelname)-8s %(message)s')
+handler.setFormatter(formatter)
+logger.addHandler(handler)
+logger.setLevel(logging.INFO)
 
 LUA_FILES_GLOB = pkg_resources.resource_filename('dotaservice', 'lua/*.lua')
-
-# logging.basicConfig(level=logging.DEBUG)  # This logging is a bit overwhelming
-
-
-def kill_processes_and_children(pid, sig=signal.SIGTERM):
-    # TODO(tzaman): removed problematic `psutil`. Just use `os.$`?
-    pass
 
 
 def verify_game_path(game_path):
@@ -163,12 +164,12 @@ class DotaGame(object):
                             m_demo = self.RE_DEMO.search(line)
                             if m_demo:
                                 self.demo_path_rel = m_demo.group(1)
-                                print("(py) demo_path_rel='{}'".format(self.demo_path_rel))
+                                logger.debug("demo_path_rel={}".format(self.demo_path_rel))
                         m_luadry = self.RE_LUARDY.search(line)
                         if m_luadry:
                             config_json = m_luadry.group(1)
                             lua_config = json.loads(config_json)
-                            print('(py) lua_config = ', lua_config)
+                            logger.debug('lua_config={}'.format(lua_config))
                             self.lua_config_future.set_result(lua_config)
                             return
             await asyncio.sleep(0.2)
@@ -251,7 +252,7 @@ class DotaGame(object):
             try:
                 shutil.move(demo_path_abs, self.bot_path)
             except Exception as e:  # Fail silently.
-                print(e)
+                logger.error(e)
 
     @classmethod
     async def _world_state_from_reader(cls, reader):
@@ -265,8 +266,8 @@ class DotaGame(object):
         # Decode the payload.
         world_state = CMsgBotWorldState()
         world_state.ParseFromString(data)
-        gamestate = world_state.game_state
-        print('(py) worldstate @ dotatime={}, gamestate={}'.format(dotatime, gamestate))
+        logger.debug('Received world_state: dotatime={}, gamestate={}'.format(
+            world_state.dota_time, world_state.game_state))
         return world_state
 
     async def _worldstate_listener(self, port):
@@ -356,7 +357,7 @@ class DotaService(DotaServiceBase):
             return False
         dt = time.time() - self._time_last_call
         if dt > self.session_expiration_time:
-            print("Session expired!")
+            logger.info("Session expired.")
             return True
         return False
 
@@ -390,7 +391,7 @@ class DotaService(DotaServiceBase):
 
         Should be called when a user is done with a game, or when you want to nuke resources.
         """
-        print('DotaService::clear()')
+        logger.debug('DotaService::clear()')
         await self.clean_resources()
         self._ready = True
         await stream.send_message(Empty())
@@ -400,15 +401,16 @@ class DotaService(DotaServiceBase):
 
         This method should start up the dota game and the other required services.
         """
-        print('DotaService::reset()')
+        logger.debug('DotaService::reset()')
         if not self.ready:
-            print('Resource currently exhausted: returning response.')
+            logger.info('Resource currently exhausted: returning response.')
             await stream.send_message(Observation(status=Status.Value('RESOURCE_EXHAUSTED')))
             return
+        logger.info('Starting new game.')
         self._ready = False
         self.set_call_timer()
         config = await stream.recv_message()
-        print('config=\n', config)
+        logger.debug('config=\n{}'.format(config))
 
         await self.clean_resources()
 
@@ -427,9 +429,9 @@ class DotaService(DotaServiceBase):
         asyncio.create_task(self.dota_game.run())
 
         # We first wait for the lua config. TODO(tzaman): do this in DotaGame?
-        print('(py) reset is awaiting lua config')
+        logger.debug('::reset is awaiting lua config..')
         lua_config = await self.dota_game.lua_config_future
-        print('(py) lua config received=', lua_config)
+        logger.debug('lua config received={}'.format(lua_config))
 
         # Cycle through the queue until its empty, then only using the latest worldstate.
         data = None
@@ -447,19 +449,19 @@ class DotaService(DotaServiceBase):
         config = {
             'calibration_dota_time': data.dota_time,
         }
-        print('(py) writing live config=', config)
+        logger.debug('Writing live_config={}'.format(config))
         self.dota_game.write_live_config(data=config)
 
         # Return the reponse
         await stream.send_message(Observation(status=Status.Value('OK'), world_state=data))
 
     async def step(self, stream):
-        print('DotaService::step()')
+        logger.debug('DotaService::step()')
         self.set_call_timer()
         request = await stream.recv_message()
         actions = MessageToDict(request)
 
-        print('(python) actions=', actions)
+        logger.debug('actions=\n{}'.format(pformat(actions)))
 
         self.dota_game.write_action(data=actions)
 
@@ -475,7 +477,7 @@ class DotaService(DotaServiceBase):
 
 async def serve(server, *, host, port):
     await server.start(host, port)
-    print('DotaService {} serving on {}:{}'.format(__version__, host, port))
+    logger.info('DotaService {} serving on {}:{}'.format(__version__, host, port))
     try:
         await server.wait_closed()
     except asyncio.CancelledError:

@@ -1,4 +1,5 @@
 from collections import Counter
+from pprint import pprint, pformat
 from time import time
 import asyncio
 import logging
@@ -6,7 +7,6 @@ import math
 import os
 import time
 import traceback
-from pprint import pprint, pformat
 import uuid
 
 from google.cloud import storage
@@ -171,8 +171,9 @@ class Policy(nn.Module):
         self.affine_unit_attention = nn.Linear(128, 128)
 
     def forward(self, loc, env, enemy_nonheroes, allied_nonheroes, hidden):
-        logger.debug('policy(loc={}, env={}, enemy_nonheroes={}, allied_nonheroes={})'.format(
-            loc, env, enemy_nonheroes, allied_nonheroes))
+        logger.debug('policy(inputs=\n{}'.format(
+            pformat({'loc': loc, 'env': env, 'enemy_nonheroes': enemy_nonheroes,
+            'allied_nonheroes': allied_nonheroes})))
 
         loc = F.relu(self.affine_loc(loc))
         env = F.relu(self.affine_env(env))
