@@ -183,6 +183,8 @@ class Policy(nn.Module):
         loc = F.relu(self.affine_loc(loc))
         env = F.relu(self.affine_env(env))
 
+        unit_embedding = torch.empty([0, 128])
+
         enh_embedding = []
         for unit_m in enemy_nonheroes:
             unit_m = torch.from_numpy(unit_m)
@@ -190,11 +192,16 @@ class Policy(nn.Module):
             enh2 = self.affine_unit_enh2(enh1)
             enh_embedding.append(enh2)
 
-        # Create the variable length embedding for use in LSTM and attention head.
-        enh_embedding = torch.stack(enh_embedding)  # shape: (n_units, 128)
-        # We max over unit dim to have a fixed output shape bc the LSTM needs to learn about these units.
-        enh_embedding_max, _ = torch.max(enh_embedding, dim=0)  # shape: (128,)
-        enh_embedding_max = enh_embedding_max.unsqueeze(0)
+        if enh_embedding:
+            # Create the variable length embedding for use in LSTM and attention head.
+            enh_embedding = torch.stack(enh_embedding)  # shape: (n_units, 128)
+            # We max over unit dim to have a fixed output shape bc the LSTM needs to learn about these units.
+            enh_embedding_max, _ = torch.max(enh_embedding, dim=0)  # shape: (128,)
+            enh_embedding_max = enh_embedding_max.unsqueeze(0) # shape: (1, 128)
+            unit_embedding = torch.cat((unit_embedding, enh_embedding), 0)  # (n, 128)
+        else:
+            enh_embedding_max = torch.zeros(1, 128)
+
 
         anh_embedding = []
         for unit_m in allied_nonheroes:
@@ -203,14 +210,15 @@ class Policy(nn.Module):
             anh2 = self.affine_unit_anh2(anh1)
             anh_embedding.append(anh2)
 
-        # Create the variable length embedding for use in LSTM and attention head.
-        anh_embedding = torch.stack(anh_embedding)  # shape: (n_units, 128)
-        # We max over unit dim to have a fixed output shape bc the LSTM needs to learn about these units.
-        anh_embedding_max, _ = torch.max(anh_embedding, dim=0)  # shape: (128,)
-        anh_embedding_max = anh_embedding_max.unsqueeze(0)
-
-        # Combined all units.
-        unit_embedding = torch.cat((enh_embedding, anh_embedding), 0)  # (n, 128)
+        if anh_embedding:
+            # Create the variable length embedding for use in LSTM and attention head.
+            anh_embedding = torch.stack(anh_embedding)  # shape: (n_units, 128)
+            # We max over unit dim to have a fixed output shape bc the LSTM needs to learn about these units.
+            anh_embedding_max, _ = torch.max(anh_embedding, dim=0)  # shape: (128,)
+            anh_embedding_max = anh_embedding_max.unsqueeze(0)
+            unit_embedding = torch.cat((unit_embedding, anh_embedding), 0)  # (n, 128)
+        else:
+            anh_embedding_max = torch.zeros(1, 128)
 
         # Combine for LSTM.
         x = torch.cat((loc, env, enh_embedding_max, anh_embedding_max), 1)  # (512,)
@@ -234,6 +242,7 @@ class Policy(nn.Module):
         action_delay_enum = self.affine_head_delay(x)
         action_unit_attention = self.affine_unit_attention(x)  # shape: (1, 256)
         action_unit_attention = torch.mm(action_unit_attention, unit_embedding.t())  # shape (1, n)
+
         return {
                 'x': F.softmax(action_scores_x, dim=1),
                 'y': F.softmax(action_scores_y, dim=1),
@@ -366,10 +375,8 @@ class Actor:
         return rewards, log_probs
 
     def unit_matrix(self, state, hero_unit, team_id, unit_types):
-        # Prepopulate with invalid creep.
-        handles = [-1]
-        m = [np.array([0, 0, 0], dtype=np.float32)]
-
+        handles = []
+        m = []
         for unit in state.units:
             if unit.team_id == team_id and unit.is_alive and unit.unit_type in unit_types:
                 rel_hp = (unit.health / unit.health_max)  # [0 (dead) : 1 (full hp)]
@@ -418,6 +425,13 @@ class Actor:
             allied_nonheroes=allied_nonheroes,
             hidden=hidden,
         )
+
+        if probs['target_unit'].shape[1] == 0:
+            # If there are no units to target, we cannot perform 'action'
+            # TODO(tzaman): come up with something nice and generic here.
+            x = probs['enum'].clone()
+            x[0][2] = 0
+            probs['enum'] = x
 
         actions['enum'] = self.sample(probs, 'enum')
         actions['delay'] = self.sample(probs, 'delay')
