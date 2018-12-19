@@ -182,7 +182,6 @@ class Policy(nn.Module):
 
         enh_embedding = []
         for unit_m in enemy_nonheroes:
-            unit_m = torch.from_numpy(unit_m)
             enh1 = F.relu(self.affine_unit_enh1(unit_m))
             enh2 = self.affine_unit_enh2(enh1)
             enh_embedding.append(enh2)
@@ -200,7 +199,6 @@ class Policy(nn.Module):
 
         anh_embedding = []
         for unit_m in allied_nonheroes:
-            unit_m = torch.from_numpy(unit_m)
             anh1 = F.relu(self.affine_unit_anh1(unit_m))
             anh2 = self.affine_unit_anh2(anh1)
             anh_embedding.append(anh2)
@@ -382,7 +380,7 @@ class Actor:
                 rel_hp = (unit.health / unit.health_max)  # [0 (dead) : 1 (full hp)]
                 distance_x = (hero_unit.location.x - unit.location.x) / 3000.
                 distance_y = (hero_unit.location.y - unit.location.y) / 3000.
-                m.append(np.array([rel_hp, distance_x, distance_y], dtype=np.float32))
+                m.append(torch.Tensor([rel_hp, distance_x, distance_y]))
                 handles.append(unit.handle)
         return m, handles
 
@@ -393,13 +391,12 @@ class Actor:
         hero_unit = get_hero_unit(world_state, player_id=player_id)
 
         # Location Input
-        location_state = np.array([hero_unit.location.x, hero_unit.location.y]) / 7000.  # maps the map between [-1 and 1]
-        location_state = torch.from_numpy(location_state).float().unsqueeze(0)
+        location_state = torch.Tensor([hero_unit.location.x, hero_unit.location.y]).unsqueeze(0) / 7000.  # maps the map between [-1 and 1]
 
         # Health and dotatime input
         hp_rel = 1. - (hero_unit.health / hero_unit.health_max) # Map between [0 and 1]
         dota_time_norm = dota_time = world_state.dota_time / 1200.  # Normalize by 20 minutes
-        env_state = torch.from_numpy(np.array([hp_rel, dota_time_norm])).float().unsqueeze(0) 
+        env_state = torch.Tensor([hp_rel, dota_time_norm]).float().unsqueeze(0) 
 
         # Process units
         enemy_nonheroes, enemy_nonhero_handles = self.unit_matrix(
@@ -457,9 +454,13 @@ class Actor:
         return actions, hidden
 
     @staticmethod
-    def sample(probs, key):
+    def sample(probs, key, greedy=False):
         m = Categorical(probs[key])
-        action = m.sample()
+        if greedy:
+            _, indices = torch.max(probs[key][0], 0)
+            action = indices
+        else:
+            action = m.sample()
         return {'action': action.item(), 'probs': probs[key], 'logprob' :m.log_prob(action)}
 
     @staticmethod
@@ -544,6 +545,7 @@ async def main():
         avg_reward = reward_sum / BATCH_SIZE
         logger.info('Episode={} avg_reward={:.2f} loss={:.3f}, steps/s={:.2f}'.format(
             episode, avg_reward, loss, steps_per_s))
+        logger.debug('Subrewards:\n{}'.format(pformat(reward_counter)))
 
         if USE_CHECKPOINTS:
             writer.add_scalar('steps per s', steps_per_s, episode)
