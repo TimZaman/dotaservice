@@ -32,7 +32,7 @@ function Think()
             if i == 1 and GetTeam() == TEAM_RADIANT then
                 SelectHero( v, "npc_dota_hero_nevermore" );
             else
-                SelectHero( v, "npc_dota_hero_wisp" );
+                SelectHero( v, "npc_dota_hero_sniper" );
             end
 		end
 	end
