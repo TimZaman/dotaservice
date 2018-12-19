@@ -87,7 +87,8 @@ class DotaGame(object):
         self.dota_bot_path = os.path.join(self.dota_path, 'dota', 'scripts', 'vscripts',
                                           self.BOTS_FOLDER_NAME)
         self.bot_path = self._create_bot_path()
-        self.worldstate_queue = asyncio.Queue(loop=asyncio.get_event_loop())
+        self.worldstate_queue_radiant = asyncio.Queue(loop=asyncio.get_event_loop())
+        # self.worldstate_queue_dire = asyncio.Queue(loop=asyncio.get_event_loop())
         self.lua_config_future = asyncio.get_event_loop().create_future()
         self._write_config()
         self.process = None
@@ -177,8 +178,10 @@ class DotaGame(object):
     async def run(self):
         # Start the worldstate listener(s).
         asyncio.create_task(self._run_dota())
-        asyncio.create_task(self._worldstate_listener(port=self.PORT_WORLDSTATE_RADIANT))
-        # asyncio.create_task(self.worldstate_listener(port=self.PORT_WORLDSTATE_DIRE))
+        asyncio.create_task(self._worldstate_listener(
+            port=self.PORT_WORLDSTATE_RADIANT, queue=self.worldstate_queue_radiant))
+        # asyncio.create_task(self._worldstate_listener(
+        #     port=self.PORT_WORLDSTATE_DIRE, queue=self.worldstate_queue_radiant))
 
     async def _run_dota(self):
         script_path = os.path.join(self.dota_path, self.DOTA_SCRIPT_FILENAME)
@@ -270,7 +273,8 @@ class DotaGame(object):
             world_state.dota_time, world_state.game_state))
         return world_state
 
-    async def _worldstate_listener(self, port):
+    @classmethod
+    async def _worldstate_listener(self, port, queue):
         while True:  # TODO(tzaman): finite retries.
             try:
                 await asyncio.sleep(0.5)
@@ -288,7 +292,7 @@ class DotaGame(object):
                     has_units = len(world_state.units) > 0
                     if is_in_game and has_units:
                         # Only regard worldstates that are actionable (in-game + has units).
-                        self.worldstate_queue.put_nowait(world_state)
+                        queue.put_nowait(world_state)
                 except DecodeError as e:
                     pass
         except asyncio.CancelledError:
@@ -437,7 +441,8 @@ class DotaService(DotaServiceBase):
         data = None
         try:
             while True:
-                data = await asyncio.wait_for(self.dota_game.worldstate_queue.get(), timeout=0.2)
+                data = await asyncio.wait_for(
+                    self.dota_game.worldstate_queue_radiant.get(), timeout=0.2)
         except asyncio.TimeoutError:
             pass
 
@@ -466,10 +471,10 @@ class DotaService(DotaServiceBase):
         self.dota_game.write_action(data=actions)
 
         # We've started to assume our queue will only have 1 item.
-        data = await self.dota_game.worldstate_queue.get()
+        data = await self.dota_game.worldstate_queue_radiant.get()
 
         # Make sure indeed the queue is empty and we're entirely in sync.
-        assert self.dota_game.worldstate_queue.qsize() == 0
+        assert self.dota_game.worldstate_queue_radiant.qsize() == 0
 
         # Return the reponse.
         await stream.send_message(Observation(status=Status.Value('OK'), world_state=data))
