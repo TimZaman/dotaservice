@@ -116,7 +116,7 @@ def get_reward(prev_obs, obs):
     """Get the reward."""
     unit_init = get_hero_unit(prev_obs)
     unit = get_hero_unit(obs)
-    reward = {'xp': 0, 'hp': 0, 'death': 0, 'dist': 0, 'lh': 0}
+    reward = {'xp': 0, 'hp': 0, 'death': 0, 'lh': 0, 'denies': 0}
 
     # XP Reward
     xp_init = get_total_xp(level=unit_init.level, xp_needed_to_level=unit_init.xp_needed_to_level)
@@ -139,10 +139,6 @@ def get_reward(prev_obs, obs):
     # Deny reward
     denies = unit.denies - unit_init.denies
     reward['denies'] = denies * 0.2
-
-    # Microreward for distance to help nudge to mid initially.
-    dist_mid = math.sqrt(unit.location.x**2 + unit.location.y**2)
-    reward['dist'] = -(dist_mid / 8000.) * 0.001
 
     return reward
 
