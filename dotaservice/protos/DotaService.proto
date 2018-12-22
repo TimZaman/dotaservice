@@ -34,8 +34,12 @@ message Config {
   // TODO(tzaman): Add hero picks for both teams in a priority repeated list.
 }
 
+message Actions {
+  required CMsgBotWorldState.Actions actions = 1; 
+}
+
 service DotaService {
   rpc reset (Config) returns (Observation) {}  // TODO(tzaman): add version and hostname in response.
-  rpc step (CMsgBotWorldState.Actions) returns (Observation) {}
+  rpc step (Actions) returns (Observation) {}
   rpc clear (Empty) returns (Empty) {}
 }

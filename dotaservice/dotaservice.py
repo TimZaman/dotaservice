@@ -149,6 +149,8 @@ class DotaGame(object):
         for filename in lua_files:
             shutil.copy(filename, bot_path)
 
+        # shutil.copy('/Users/tzaman/dev/dotaservice/botcpp/botcpp_radiant.so', bot_path)
+
         # Finally, symlink DOTA to this folder.
         os.symlink(src=bot_path, dst=self.dota_bot_path)
         return bot_path
@@ -464,7 +466,7 @@ class DotaService(DotaServiceBase):
         logger.debug('DotaService::step()')
         self.set_call_timer()
         request = await stream.recv_message()
-        actions = MessageToDict(request)
+        actions = MessageToDict(request.actions)
 
         logger.debug('actions=\n{}'.format(pformat(actions)))
 
