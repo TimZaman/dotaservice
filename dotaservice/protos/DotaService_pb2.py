@@ -22,7 +22,7 @@ DESCRIPTOR = _descriptor.FileDescriptor(
   package='',
   syntax='proto2',
   serialized_options=None,
-  serialized_pb=_b('\n$dotaservice/protos/DotaService.proto\x1a:dotaservice/protos/dota_gcmessages_common_bot_script.proto\x1a*dotaservice/protos/dota_shared_enums.proto\"\x07\n\x05\x45mpty\"O\n\x0bObservation\x12\x17\n\x06status\x18\x01 \x02(\x0e\x32\x07.Status\x12\'\n\x0bworld_state\x18\x02 \x01(\x0b\x32\x12.CMsgBotWorldState\"\xb1\x01\n\x06\x43onfig\x12\x0f\n\x07game_id\x18\x01 \x01(\t\x12\x1d\n\x15ticks_per_observation\x18\x03 \x02(\r\x12\x19\n\x0ehost_timescale\x18\x02 \x01(\r:\x01\x31\x12\'\n\thost_mode\x18\x05 \x01(\x0e\x32\t.HostMode:\tDEDICATED\x12\x33\n\tgame_mode\x18\x06 \x01(\x0e\x32\x0e.DOTA_GameMode:\x10\x44OTA_GAMEMODE_MO\"6\n\x07\x41\x63tions\x12+\n\x07\x61\x63tions\x18\x01 \x02(\x0b\x32\x1a.CMsgBotWorldState.Actions*A\n\x06Status\x12\x06\n\x02OK\x10\x00\x12\x16\n\x12RESOURCE_EXHAUSTED\x10\x08\x12\x17\n\x13\x46\x41ILED_PRECONDITION\x10\t*0\n\x08HostMode\x12\r\n\tDEDICATED\x10\x00\x12\x07\n\x03GUI\x10\x01\x12\x0c\n\x08GUI_MENU\x10\x02\x32l\n\x0b\x44otaService\x12 \n\x05reset\x12\x07.Config\x1a\x0c.Observation\"\x00\x12 \n\x04step\x12\x08.Actions\x1a\x0c.Observation\"\x00\x12\x19\n\x05\x63lear\x12\x06.Empty\x1a\x06.Empty\"\x00')
+  serialized_pb=_b('\n$dotaservice/protos/DotaService.proto\x1a:dotaservice/protos/dota_gcmessages_common_bot_script.proto\x1a*dotaservice/protos/dota_shared_enums.proto\"\"\n\x07Status2\x12\x17\n\x06status\x18\x01 \x02(\x0e\x32\x07.Status\"\x07\n\x05\x45mpty\"g\n\x0bObservation\x12\x17\n\x06status\x18\x01 \x02(\x0e\x32\x07.Status\x12\x16\n\x07team_id\x18\x02 \x01(\x0e\x32\x05.Team\x12\'\n\x0bworld_state\x18\x03 \x01(\x0b\x32\x12.CMsgBotWorldState\"\xb1\x01\n\x06\x43onfig\x12\x0f\n\x07game_id\x18\x01 \x01(\t\x12\x1d\n\x15ticks_per_observation\x18\x03 \x02(\r\x12\x19\n\x0ehost_timescale\x18\x02 \x01(\r:\x01\x31\x12\'\n\thost_mode\x18\x05 \x01(\x0e\x32\t.HostMode:\tDEDICATED\x12\x33\n\tgame_mode\x18\x06 \x01(\x0e\x32\x0e.DOTA_GameMode:\x10\x44OTA_GAMEMODE_MO\"N\n\x07\x41\x63tions\x12+\n\x07\x61\x63tions\x18\x01 \x02(\x0b\x32\x1a.CMsgBotWorldState.Actions\x12\x16\n\x07team_id\x18\x02 \x02(\x0e\x32\x05.Team\"\x17\n\x04Init\x12\x0f\n\x07team_id\x18\x01 \x02(\r*A\n\x06Status\x12\x06\n\x02OK\x10\x00\x12\x16\n\x12RESOURCE_EXHAUSTED\x10\x08\x12\x17\n\x13\x46\x41ILED_PRECONDITION\x10\t*\x1d\n\x04Team\x12\x0b\n\x07RADIANT\x10\x02\x12\x08\n\x04\x44IRE\x10\x03*0\n\x08HostMode\x12\r\n\tDEDICATED\x10\x00\x12\x07\n\x03GUI\x10\x01\x12\x0c\n\x08GUI_MENU\x10\x02\x32\xa7\x01\n\x0b\x44otaService\x12\x1c\n\x05reset\x12\x07.Config\x1a\x08.Status2\"\x00\x12#\n\ninitialize\x12\x05.Init\x1a\x0c.Observation\"\x00\x12 \n\x04step\x12\x08.Actions\x1a\x0c.Observation\"\x00\x12\x18\n\x05\x63lose\x12\x05.Init\x1a\x06.Empty\"\x00\x12\x19\n\x05\x63lear\x12\x06.Empty\x1a\x06.Empty\"\x00')
   ,
   dependencies=[dotaservice_dot_protos_dot_dota__gcmessages__common__bot__script__pb2.DESCRIPTOR,dotaservice_dot_protos_dot_dota__shared__enums__pb2.DESCRIPTOR,])
 
@@ -47,12 +47,35 @@ _STATUS = _descriptor.EnumDescriptor(
   ],
   containing_type=None,
   serialized_options=None,
-  serialized_start=470,
-  serialized_end=535,
+  serialized_start=579,
+  serialized_end=644,
 )
 _sym_db.RegisterEnumDescriptor(_STATUS)
 
 Status = enum_type_wrapper.EnumTypeWrapper(_STATUS)
+_TEAM = _descriptor.EnumDescriptor(
+  name='Team',
+  full_name='Team',
+  filename=None,
+  file=DESCRIPTOR,
+  values=[
+    _descriptor.EnumValueDescriptor(
+      name='RADIANT', index=0, number=2,
+      serialized_options=None,
+      type=None),
+    _descriptor.EnumValueDescriptor(
+      name='DIRE', index=1, number=3,
+      serialized_options=None,
+      type=None),
+  ],
+  containing_type=None,
+  serialized_options=None,
+  serialized_start=646,
+  serialized_end=675,
+)
+_sym_db.RegisterEnumDescriptor(_TEAM)
+
+Team = enum_type_wrapper.EnumTypeWrapper(_TEAM)
 _HOSTMODE = _descriptor.EnumDescriptor(
   name='HostMode',
   full_name='HostMode',
@@ -74,8 +97,8 @@ _HOSTMODE = _descriptor.EnumDescriptor(
   ],
   containing_type=None,
   serialized_options=None,
-  serialized_start=537,
-  serialized_end=585,
+  serialized_start=677,
+  serialized_end=725,
 )
 _sym_db.RegisterEnumDescriptor(_HOSTMODE)
 
@@ -83,10 +106,43 @@ HostMode = enum_type_wrapper.EnumTypeWrapper(_HOSTMODE)
 OK = 0
 RESOURCE_EXHAUSTED = 8
 FAILED_PRECONDITION = 9
+RADIANT = 2
+DIRE = 3
 DEDICATED = 0
 GUI = 1
 GUI_MENU = 2
 
+
+
+_STATUS2 = _descriptor.Descriptor(
+  name='Status2',
+  full_name='Status2',
+  filename=None,
+  file=DESCRIPTOR,
+  containing_type=None,
+  fields=[
+    _descriptor.FieldDescriptor(
+      name='status', full_name='Status2.status', index=0,
+      number=1, type=14, cpp_type=8, label=2,
+      has_default_value=False, default_value=0,
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      serialized_options=None, file=DESCRIPTOR),
+  ],
+  extensions=[
+  ],
+  nested_types=[],
+  enum_types=[
+  ],
+  serialized_options=None,
+  is_extendable=False,
+  syntax='proto2',
+  extension_ranges=[],
+  oneofs=[
+  ],
+  serialized_start=144,
+  serialized_end=178,
+)
 
 
 _EMPTY = _descriptor.Descriptor(
@@ -108,8 +164,8 @@ _EMPTY = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=144,
-  serialized_end=151,
+  serialized_start=180,
+  serialized_end=187,
 )
 
 
@@ -128,8 +184,15 @@ _OBSERVATION = _descriptor.Descriptor(
       is_extension=False, extension_scope=None,
       serialized_options=None, file=DESCRIPTOR),
     _descriptor.FieldDescriptor(
-      name='world_state', full_name='Observation.world_state', index=1,
-      number=2, type=11, cpp_type=10, label=1,
+      name='team_id', full_name='Observation.team_id', index=1,
+      number=2, type=14, cpp_type=8, label=1,
+      has_default_value=False, default_value=2,
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      serialized_options=None, file=DESCRIPTOR),
+    _descriptor.FieldDescriptor(
+      name='world_state', full_name='Observation.world_state', index=2,
+      number=3, type=11, cpp_type=10, label=1,
       has_default_value=False, default_value=None,
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
@@ -146,8 +209,8 @@ _OBSERVATION = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=153,
-  serialized_end=232,
+  serialized_start=189,
+  serialized_end=292,
 )
 
 
@@ -205,8 +268,8 @@ _CONFIG = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=235,
-  serialized_end=412,
+  serialized_start=295,
+  serialized_end=472,
 )
 
 
@@ -224,6 +287,13 @@ _ACTIONS = _descriptor.Descriptor(
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
       serialized_options=None, file=DESCRIPTOR),
+    _descriptor.FieldDescriptor(
+      name='team_id', full_name='Actions.team_id', index=1,
+      number=2, type=14, cpp_type=8, label=2,
+      has_default_value=False, default_value=2,
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      serialized_options=None, file=DESCRIPTOR),
   ],
   extensions=[
   ],
@@ -236,22 +306,66 @@ _ACTIONS = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=414,
-  serialized_end=468,
+  serialized_start=474,
+  serialized_end=552,
 )
 
+
+_INIT = _descriptor.Descriptor(
+  name='Init',
+  full_name='Init',
+  filename=None,
+  file=DESCRIPTOR,
+  containing_type=None,
+  fields=[
+    _descriptor.FieldDescriptor(
+      name='team_id', full_name='Init.team_id', index=0,
+      number=1, type=13, cpp_type=3, label=2,
+      has_default_value=False, default_value=0,
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      serialized_options=None, file=DESCRIPTOR),
+  ],
+  extensions=[
+  ],
+  nested_types=[],
+  enum_types=[
+  ],
+  serialized_options=None,
+  is_extendable=False,
+  syntax='proto2',
+  extension_ranges=[],
+  oneofs=[
+  ],
+  serialized_start=554,
+  serialized_end=577,
+)
+
+_STATUS2.fields_by_name['status'].enum_type = _STATUS
 _OBSERVATION.fields_by_name['status'].enum_type = _STATUS
+_OBSERVATION.fields_by_name['team_id'].enum_type = _TEAM
 _OBSERVATION.fields_by_name['world_state'].message_type = dotaservice_dot_protos_dot_dota__gcmessages__common__bot__script__pb2._CMSGBOTWORLDSTATE
 _CONFIG.fields_by_name['host_mode'].enum_type = _HOSTMODE
 _CONFIG.fields_by_name['game_mode'].enum_type = dotaservice_dot_protos_dot_dota__shared__enums__pb2._DOTA_GAMEMODE
 _ACTIONS.fields_by_name['actions'].message_type = dotaservice_dot_protos_dot_dota__gcmessages__common__bot__script__pb2._CMSGBOTWORLDSTATE_ACTIONS
+_ACTIONS.fields_by_name['team_id'].enum_type = _TEAM
+DESCRIPTOR.message_types_by_name['Status2'] = _STATUS2
 DESCRIPTOR.message_types_by_name['Empty'] = _EMPTY
 DESCRIPTOR.message_types_by_name['Observation'] = _OBSERVATION
 DESCRIPTOR.message_types_by_name['Config'] = _CONFIG
 DESCRIPTOR.message_types_by_name['Actions'] = _ACTIONS
+DESCRIPTOR.message_types_by_name['Init'] = _INIT
 DESCRIPTOR.enum_types_by_name['Status'] = _STATUS
+DESCRIPTOR.enum_types_by_name['Team'] = _TEAM
 DESCRIPTOR.enum_types_by_name['HostMode'] = _HOSTMODE
 _sym_db.RegisterFileDescriptor(DESCRIPTOR)
+
+Status2 = _reflection.GeneratedProtocolMessageType('Status2', (_message.Message,), dict(
+  DESCRIPTOR = _STATUS2,
+  __module__ = 'dotaservice.protos.DotaService_pb2'
+  # @@protoc_insertion_point(class_scope:Status2)
+  ))
+_sym_db.RegisterMessage(Status2)
 
 Empty = _reflection.GeneratedProtocolMessageType('Empty', (_message.Message,), dict(
   DESCRIPTOR = _EMPTY,
@@ -281,6 +395,13 @@ Actions = _reflection.GeneratedProtocolMessageType('Actions', (_message.Message,
   ))
 _sym_db.RegisterMessage(Actions)
 
+Init = _reflection.GeneratedProtocolMessageType('Init', (_message.Message,), dict(
+  DESCRIPTOR = _INIT,
+  __module__ = 'dotaservice.protos.DotaService_pb2'
+  # @@protoc_insertion_point(class_scope:Init)
+  ))
+_sym_db.RegisterMessage(Init)
+
 
 
 _DOTASERVICE = _descriptor.ServiceDescriptor(
@@ -289,8 +410,8 @@ _DOTASERVICE = _descriptor.ServiceDescriptor(
   file=DESCRIPTOR,
   index=0,
   serialized_options=None,
-  serialized_start=587,
-  serialized_end=695,
+  serialized_start=728,
+  serialized_end=895,
   methods=[
   _descriptor.MethodDescriptor(
     name='reset',
@@ -298,22 +419,40 @@ _DOTASERVICE = _descriptor.ServiceDescriptor(
     index=0,
     containing_service=None,
     input_type=_CONFIG,
+    output_type=_STATUS2,
+    serialized_options=None,
+  ),
+  _descriptor.MethodDescriptor(
+    name='initialize',
+    full_name='DotaService.initialize',
+    index=1,
+    containing_service=None,
+    input_type=_INIT,
     output_type=_OBSERVATION,
     serialized_options=None,
   ),
   _descriptor.MethodDescriptor(
     name='step',
     full_name='DotaService.step',
-    index=1,
+    index=2,
     containing_service=None,
     input_type=_ACTIONS,
     output_type=_OBSERVATION,
     serialized_options=None,
   ),
   _descriptor.MethodDescriptor(
+    name='close',
+    full_name='DotaService.close',
+    index=3,
+    containing_service=None,
+    input_type=_INIT,
+    output_type=_EMPTY,
+    serialized_options=None,
+  ),
+  _descriptor.MethodDescriptor(
     name='clear',
     full_name='DotaService.clear',
-    index=2,
+    index=4,
     containing_service=None,
     input_type=_EMPTY,
     output_type=_EMPTY,

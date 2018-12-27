@@ -18,7 +18,15 @@ class DotaServiceBase(abc.ABC):
         pass
 
     @abc.abstractmethod
+    async def initialize(self, stream):
+        pass
+
+    @abc.abstractmethod
     async def step(self, stream):
+        pass
+
+    @abc.abstractmethod
+    async def close(self, stream):
         pass
 
     @abc.abstractmethod
@@ -31,6 +39,12 @@ class DotaServiceBase(abc.ABC):
                 self.reset,
                 grpclib.const.Cardinality.UNARY_UNARY,
                 dotaservice.protos.DotaService_pb2.Config,
+                dotaservice.protos.DotaService_pb2.Status2,
+            ),
+            '/DotaService/initialize': grpclib.const.Handler(
+                self.initialize,
+                grpclib.const.Cardinality.UNARY_UNARY,
+                dotaservice.protos.DotaService_pb2.Init,
                 dotaservice.protos.DotaService_pb2.Observation,
             ),
             '/DotaService/step': grpclib.const.Handler(
@@ -38,6 +52,12 @@ class DotaServiceBase(abc.ABC):
                 grpclib.const.Cardinality.UNARY_UNARY,
                 dotaservice.protos.DotaService_pb2.Actions,
                 dotaservice.protos.DotaService_pb2.Observation,
+            ),
+            '/DotaService/close': grpclib.const.Handler(
+                self.close,
+                grpclib.const.Cardinality.UNARY_UNARY,
+                dotaservice.protos.DotaService_pb2.Init,
+                dotaservice.protos.DotaService_pb2.Empty,
             ),
             '/DotaService/clear': grpclib.const.Handler(
                 self.clear,
@@ -55,6 +75,12 @@ class DotaServiceStub:
             channel,
             '/DotaService/reset',
             dotaservice.protos.DotaService_pb2.Config,
+            dotaservice.protos.DotaService_pb2.Status2,
+        )
+        self.initialize = grpclib.client.UnaryUnaryMethod(
+            channel,
+            '/DotaService/initialize',
+            dotaservice.protos.DotaService_pb2.Init,
             dotaservice.protos.DotaService_pb2.Observation,
         )
         self.step = grpclib.client.UnaryUnaryMethod(
@@ -62,6 +88,12 @@ class DotaServiceStub:
             '/DotaService/step',
             dotaservice.protos.DotaService_pb2.Actions,
             dotaservice.protos.DotaService_pb2.Observation,
+        )
+        self.close = grpclib.client.UnaryUnaryMethod(
+            channel,
+            '/DotaService/close',
+            dotaservice.protos.DotaService_pb2.Init,
+            dotaservice.protos.DotaService_pb2.Empty,
         )
         self.clear = grpclib.client.UnaryUnaryMethod(
             channel,

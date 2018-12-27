@@ -2,7 +2,7 @@ local config = require('bots/config')
 local dkjson = require('game/dkjson')
 local pprint = require('bots/pprint')
 
-local ACTION_FILENAME = 'bots/action'
+local ACTION_FILENAME = 'bots/actions_t' .. GetTeam()
 local LIVE_CONFIG_FILENAME = 'bots/live_config_auto'
 
 local debug_text = nil
@@ -37,7 +37,8 @@ end
 
 
 local function get_new_action(dota_time, player_id)
-    -- print('(lua) get_new_action @', dota_time)
+    -- print('(lua) get_new_action @', dota_time, ' player_id=', player_id)
+    -- print('ACTION_FILENAME=', ACTION_FILENAME)
     local file_fn = nil
     while true do
         -- Try to load the file first
@@ -56,7 +57,7 @@ local function get_new_action(dota_time, player_id)
                 print("(lua) JSON Decode Error=", err, " at pos=", pos)
             end
             
-            if data.dotaTime == dota_time then
+            if data.dotaTime == dota_time or data.dotaTime == nil then
                 -- Now find correponding player id
                 for _, action in pairs(data.actions) do
                     if action.player == player_id then
@@ -104,25 +105,30 @@ local action = nil
 local act_at_step = nil
 
 function Think()
-
-    step = step + 1
-    if GetTeam() == TEAM_DIRE then
-        -- For now, just focus on radiant. We can add DIRE action files some time later.
-        do return end
-    end
     
-    if GetBot():GetPlayerID() ~= 0 then  -- TODO (tzaman): Get controllable bot IDs here somehow
+    step = step + 1
+
+    -- if GetTeam() == TEAM_DIRE then
+    --     -- For now, just focus on radiant. We can add DIRE action files some time later.
+    --     do return end
+    -- end
+    
+    -- TODO (tzaman): Get controllable bot IDs here somehow
+    if GetBot():GetPlayerID() ~= 0 and GetBot():GetPlayerID() ~= 5  then
         do return end
     end
 
     local dota_time = DotaTime()
     local game_state = GetGameState()
 
-    -- Only keep track of this for calibration purposes.
+    -- Only keep track of this for cliabration purposes.
     if live_config == nil then
         dota_time_to_step_map[dota_time] = step
     end
+    -- print('bot id=', GetBot():GetPlayerID(), 'step=', step, ' time=', DotaTime())
 
+    -- x = 10000.4
+    -- for i=1,100000000 do x = x/2.2 end
     -- print('(lua) Think() dota_time=', dota_time, 'game_state=', game_state, 'step=', step)
 
     -- To guarantee the dotaservice has received a worldstate, skip this function that amount
@@ -139,10 +145,11 @@ function Think()
         -- The live configuration gives us back the last time at which dota sent out a 
         -- world state signal.
         live_config = data_from_file(LIVE_CONFIG_FILENAME)
-        print('(lua) live_config =', pprint.pformat(live_config))
+        print('(lua) received live_config =', pprint.pformat(live_config))
 
         -- We now relate when this was sent out, to the step we were at.
         worldstate_step_offset = dota_time_to_step_map[live_config.calibration_dota_time]
+        -- print('worldstate_step_offset:', worldstate_step_offset)
     end
 
     if worldstate_step_offset == nil then
@@ -154,8 +161,8 @@ function Think()
         -- TODO(tzaman): read the action file here, and check that it contains an
         -- action with the right timestep.
         action = get_new_action(dota_time, GetBot():GetPlayerID())
-        -- print('(lua) action =', dump(action))
-        -- debug_text = dump(action)
+        -- print('(lua) received action =', dump(action))
+
         debug_text = pprint.pformat(action)
 
         act_at_step = step + action.actionDelay  -- TODO(tzaman) does this still work if not defined?

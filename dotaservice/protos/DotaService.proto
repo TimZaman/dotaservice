@@ -11,17 +11,33 @@ enum Status {
   FAILED_PRECONDITION = 9;
 }
 
+enum Team {
+  RADIANT = 2;
+  DIRE = 3;
+}
+
 enum HostMode {
   DEDICATED = 0;
   GUI = 1;
   GUI_MENU = 2;
 }
 
+message Status2{
+  required Status status = 1;
+}
+
 message Empty {}
+
+// message InitialObservation {
+//   required Status status = 1;
+//   optional CMsgBotWorldState world_state_dire = 2;
+//   optional CMsgBotWorldState world_state_radiant = 3;
+// }
 
 message Observation {
   required Status status = 1;
-  optional CMsgBotWorldState world_state = 2;
+  optional Team team_id = 2;
+  optional CMsgBotWorldState world_state = 3;
 }
 
 message Config {
@@ -36,10 +52,17 @@ message Config {
 
 message Actions {
   required CMsgBotWorldState.Actions actions = 1; 
+  required Team team_id = 2;
+}
+
+message Init {
+  required uint32 team_id =1;
 }
 
 service DotaService {
-  rpc reset (Config) returns (Observation) {}  // TODO(tzaman): add version and hostname in response.
+  rpc reset (Config) returns (Status2) {}  // TODO(tzaman): add version and hostname in response.
+  rpc initialize (Init) returns (Observation) {}
   rpc step (Actions) returns (Observation) {}
+  rpc close (Init) returns (Empty) {}
   rpc clear (Empty) returns (Empty) {}
 }
