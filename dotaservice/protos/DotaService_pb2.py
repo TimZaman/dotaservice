@@ -22,7 +22,7 @@ DESCRIPTOR = _descriptor.FileDescriptor(
   package='',
   syntax='proto2',
   serialized_options=None,
-  serialized_pb=_b('\n$dotaservice/protos/DotaService.proto\x1a:dotaservice/protos/dota_gcmessages_common_bot_script.proto\x1a*dotaservice/protos/dota_shared_enums.proto\"\"\n\x07Status2\x12\x17\n\x06status\x18\x01 \x02(\x0e\x32\x07.Status\"\x07\n\x05\x45mpty\"g\n\x0bObservation\x12\x17\n\x06status\x18\x01 \x02(\x0e\x32\x07.Status\x12\x16\n\x07team_id\x18\x02 \x01(\x0e\x32\x05.Team\x12\'\n\x0bworld_state\x18\x03 \x01(\x0b\x32\x12.CMsgBotWorldState\"\xb1\x01\n\x06\x43onfig\x12\x0f\n\x07game_id\x18\x01 \x01(\t\x12\x1d\n\x15ticks_per_observation\x18\x03 \x02(\r\x12\x19\n\x0ehost_timescale\x18\x02 \x01(\r:\x01\x31\x12\'\n\thost_mode\x18\x05 \x01(\x0e\x32\t.HostMode:\tDEDICATED\x12\x33\n\tgame_mode\x18\x06 \x01(\x0e\x32\x0e.DOTA_GameMode:\x10\x44OTA_GAMEMODE_MO\"N\n\x07\x41\x63tions\x12+\n\x07\x61\x63tions\x18\x01 \x02(\x0b\x32\x1a.CMsgBotWorldState.Actions\x12\x16\n\x07team_id\x18\x02 \x02(\x0e\x32\x05.Team\"\x17\n\x04Init\x12\x0f\n\x07team_id\x18\x01 \x02(\r*A\n\x06Status\x12\x06\n\x02OK\x10\x00\x12\x16\n\x12RESOURCE_EXHAUSTED\x10\x08\x12\x17\n\x13\x46\x41ILED_PRECONDITION\x10\t*\x1d\n\x04Team\x12\x0b\n\x07RADIANT\x10\x02\x12\x08\n\x04\x44IRE\x10\x03*0\n\x08HostMode\x12\r\n\tDEDICATED\x10\x00\x12\x07\n\x03GUI\x10\x01\x12\x0c\n\x08GUI_MENU\x10\x02\x32\xa7\x01\n\x0b\x44otaService\x12\x1c\n\x05reset\x12\x07.Config\x1a\x08.Status2\"\x00\x12#\n\ninitialize\x12\x05.Init\x1a\x0c.Observation\"\x00\x12 \n\x04step\x12\x08.Actions\x1a\x0c.Observation\"\x00\x12\x18\n\x05\x63lose\x12\x05.Init\x1a\x06.Empty\"\x00\x12\x19\n\x05\x63lear\x12\x06.Empty\x1a\x06.Empty\"\x00')
+  serialized_pb=_b('\n$dotaservice/protos/DotaService.proto\x1a:dotaservice/protos/dota_gcmessages_common_bot_script.proto\x1a*dotaservice/protos/dota_shared_enums.proto\"\"\n\x07Status2\x12\x17\n\x06status\x18\x01 \x02(\x0e\x32\x07.Status\"\x07\n\x05\x45mpty\"g\n\x0bObservation\x12\x17\n\x06status\x18\x01 \x02(\x0e\x32\x07.Status\x12\x16\n\x07team_id\x18\x02 \x01(\x0e\x32\x05.Team\x12\'\n\x0bworld_state\x18\x03 \x01(\x0b\x32\x12.CMsgBotWorldState\"\xb1\x01\n\x06\x43onfig\x12\x0f\n\x07game_id\x18\x01 \x01(\t\x12\x1d\n\x15ticks_per_observation\x18\x03 \x02(\r\x12\x19\n\x0ehost_timescale\x18\x02 \x01(\r:\x01\x31\x12\'\n\thost_mode\x18\x05 \x01(\x0e\x32\t.HostMode:\tDEDICATED\x12\x33\n\tgame_mode\x18\x06 \x01(\x0e\x32\x0e.DOTA_GameMode:\x10\x44OTA_GAMEMODE_MO\"N\n\x07\x41\x63tions\x12+\n\x07\x61\x63tions\x18\x01 \x02(\x0b\x32\x1a.CMsgBotWorldState.Actions\x12\x16\n\x07team_id\x18\x02 \x02(\x0e\x32\x05.Team\"\x17\n\x04Init\x12\x0f\n\x07team_id\x18\x01 \x02(\r*S\n\x06Status\x12\x06\n\x02OK\x10\x00\x12\x16\n\x12RESOURCE_EXHAUSTED\x10\x08\x12\x17\n\x13\x46\x41ILED_PRECONDITION\x10\t\x12\x10\n\x0cOUT_OF_RANGE\x10\x0b*\x1d\n\x04Team\x12\x0b\n\x07RADIANT\x10\x02\x12\x08\n\x04\x44IRE\x10\x03*0\n\x08HostMode\x12\r\n\tDEDICATED\x10\x00\x12\x07\n\x03GUI\x10\x01\x12\x0c\n\x08GUI_MENU\x10\x02\x32\xa7\x01\n\x0b\x44otaService\x12\x1c\n\x05reset\x12\x07.Config\x1a\x08.Status2\"\x00\x12#\n\ninitialize\x12\x05.Init\x1a\x0c.Observation\"\x00\x12 \n\x04step\x12\x08.Actions\x1a\x0c.Observation\"\x00\x12\x18\n\x05\x63lose\x12\x05.Init\x1a\x06.Empty\"\x00\x12\x19\n\x05\x63lear\x12\x06.Empty\x1a\x06.Empty\"\x00')
   ,
   dependencies=[dotaservice_dot_protos_dot_dota__gcmessages__common__bot__script__pb2.DESCRIPTOR,dotaservice_dot_protos_dot_dota__shared__enums__pb2.DESCRIPTOR,])
 
@@ -44,11 +44,15 @@ _STATUS = _descriptor.EnumDescriptor(
       name='FAILED_PRECONDITION', index=2, number=9,
       serialized_options=None,
       type=None),
+    _descriptor.EnumValueDescriptor(
+      name='OUT_OF_RANGE', index=3, number=11,
+      serialized_options=None,
+      type=None),
   ],
   containing_type=None,
   serialized_options=None,
   serialized_start=579,
-  serialized_end=644,
+  serialized_end=662,
 )
 _sym_db.RegisterEnumDescriptor(_STATUS)
 
@@ -70,8 +74,8 @@ _TEAM = _descriptor.EnumDescriptor(
   ],
   containing_type=None,
   serialized_options=None,
-  serialized_start=646,
-  serialized_end=675,
+  serialized_start=664,
+  serialized_end=693,
 )
 _sym_db.RegisterEnumDescriptor(_TEAM)
 
@@ -97,8 +101,8 @@ _HOSTMODE = _descriptor.EnumDescriptor(
   ],
   containing_type=None,
   serialized_options=None,
-  serialized_start=677,
-  serialized_end=725,
+  serialized_start=695,
+  serialized_end=743,
 )
 _sym_db.RegisterEnumDescriptor(_HOSTMODE)
 
@@ -106,6 +110,7 @@ HostMode = enum_type_wrapper.EnumTypeWrapper(_HOSTMODE)
 OK = 0
 RESOURCE_EXHAUSTED = 8
 FAILED_PRECONDITION = 9
+OUT_OF_RANGE = 11
 RADIANT = 2
 DIRE = 3
 DEDICATED = 0
@@ -410,8 +415,8 @@ _DOTASERVICE = _descriptor.ServiceDescriptor(
   file=DESCRIPTOR,
   index=0,
   serialized_options=None,
-  serialized_start=728,
-  serialized_end=895,
+  serialized_start=746,
+  serialized_end=913,
   methods=[
   _descriptor.MethodDescriptor(
     name='reset',

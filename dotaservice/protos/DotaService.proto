@@ -9,6 +9,7 @@ enum Status {
   OK = 0;
   RESOURCE_EXHAUSTED = 8;
   FAILED_PRECONDITION = 9;
+  OUT_OF_RANGE = 11;
 }
 
 enum Team {

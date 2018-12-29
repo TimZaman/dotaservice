@@ -182,8 +182,8 @@ class DotaGame(object):
             await asyncio.sleep(0.2)
 
     async def run(self):
-        # Start the worldstate listener(s).
         asyncio.create_task(self._run_dota())
+        # Start the worldstate listener(s).
         asyncio.create_task(self._worldstate_listener(
             port=self.PORT_WORLDSTATE_RADIANT, queue=self.worldstate_queue_radiant, team_id='radiant'))
         asyncio.create_task(self._worldstate_listener(
@@ -243,25 +243,47 @@ class DotaGame(object):
             kill_processes_and_children(pid=self.process.pid)
             raise
 
-    async def close(self):
-        # TODO(tzaman): close async stuff?
 
-        # Make the bot flush.
-        # self.write_action(data='FLUSH', team_id=team_id)
-
-        # Stop the recording
-        self.process.stdin.write(b"tv_stoprecord\n")
-        self.process.stdin.write(b"quit\n")
-        await self.process.stdin.drain()
-        await asyncio.sleep(1)
-
+    def _move_recording(self):
+        logger.info('::_move_recording')
         # Move the recording.
+        # TODO(tzaman): high-level: make recordings optional.
+        # TODO(tzaman): retain discarded recordings:
+        #   EXAMPLE FROM CONSOLE:
+        #   EX: "Discarding replay replays/auto-20181228-2311-start-dotaservice.dem"
+        #   EX: "Renamed replay replays/auto-20181228-2311-start-dotaservice.dem to replays/discarded/replays/auto-20181228-2311-start-dotaservice.dem"
         if self.demo_path_rel is not None:
             demo_path_abs = os.path.join(self.dota_path, 'dota', self.demo_path_rel)
             try:
                 shutil.move(demo_path_abs, self.bot_path)
             except Exception as e:  # Fail silently.
                 logger.error(e)
+
+    async def close(self):
+        logger.info('::close')
+
+        # logger.info('deleting worldqueues')
+        # del self.worldstate_queue_radiant
+        # del self.world_state_dire
+
+        # self.worldstate_queue_radiant.put_nowait(None)
+        # self.world_state_dire.put_nowait(None)
+
+        # If the process still exists, clean up.
+        if self.process.returncode is None:
+            logger.info('flushing bot')
+            # Make the bot flush.
+            for team_id in [Team.Value('RADIANT'), Team.Value('DIRE')]:
+                self.write_action(data='FLUSH', team_id=team_id)
+            # Stop and move the recording
+            logger.info('stopping recording')
+            self.process.stdin.write(b"tv_stoprecord\n")
+            self.process.stdin.write(b"quit\n")
+            await self.process.stdin.drain()
+            await asyncio.sleep(1)
+
+        self._move_recording()
+
 
     @classmethod
     async def _world_state_from_reader(cls, reader, team_id):
@@ -397,10 +419,12 @@ class DotaService(DotaServiceBase):
         self.stop_dota_pids()
 
     async def close(self, stream):
-        request = await stream.recv_message()
-        team_id = request.team_id
-        self.dota_game.write_action(data='FLUSH', team_id=team_id)
-        await stream.send_message(Empty())
+        pass
+        # TODO(tzaman): remove me
+    #     request = await stream.recv_message()
+    #     team_id = request.team_id
+    #     self.dota_game.write_action(data='FLUSH', team_id=team_id)
+    #     await stream.send_message(Empty())
 
     async def clear(self, stream):
         """Cleans resources.
@@ -489,14 +513,9 @@ class DotaService(DotaServiceBase):
         logger.debug('Writing live_config={}'.format(config))
         self.dota_game.write_live_config(data=config)
 
-        # data_radiant = await self.dota_game.worldstate_queue_radiant.get()
-        # data_dire = await self.dota_game.worldstate_queue_dire.get()
-
         # Return the reponse
         await stream.send_message(Status2(
             status=Status.Value('OK'),
-            # world_state_radiant=data_radiant,
-            # world_state_dire=data_dire,
             ))
 
 
@@ -534,20 +553,27 @@ class DotaService(DotaServiceBase):
 
         self.dota_game.write_action(data=actions, team_id=team_id)
 
-        if team_id == Team.Value('RADIANT'):
-            queue = self.dota_game.worldstate_queue_radiant
-        else:
-            queue = self.dota_game.worldstate_queue_dire
+        # if team_id == Team.Value('RADIANT'):
+        #     queue = self.dota_game.worldstate_queue_radiant
+        # else:
+        #     queue = self.dota_game.worldstate_queue_dire
         
-        data = await queue.get()
-        
+        # data = await queue.get()
+
+        # if data == None:  # HACK
+        #     await stream.send_message(Observation(
+        #         status=Status.Value('OUT_OF_RANGE'),
+        #         team_id=team_id,
+        #         ))
+        #     return
+
         # Make sure indeed the queue is empty and we're entirely in sync.
-        assert queue.qsize() == 0
+        # assert queue.qsize() == 0
 
         # Return the reponse.
         await stream.send_message(Observation(
             status=Status.Value('OK'),
-            world_state=data,
+            # world_state=data,
             team_id=team_id,
             ))
 

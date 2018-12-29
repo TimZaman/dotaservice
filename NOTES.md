@@ -198,3 +198,21 @@ a black screen on the replays.
 When using the GUI, the terminal's stdin doesn't pipe to dota's console anymore.
 
 Maybe we can use `host_force_frametime_to_equal_tick_interval` and `host_framerate` to speed things up.
+
+Maybe use these:
+* dota_bot_use_machine_learned_weights 
+* dota_spectator_auto_spectate_bot_games 
+* dota_override_dire_team_logo
+* mp_defaultteam
+* cl_team
+
+Dota sends out the dire and radiant worldstates out in below order. This is quite problematic
+because a radiant move always needs to be made, even before the dire has received their observation.
+1) Send out radiant worldstate
+2) Invoke all lua scripts for radiant team
+3) Send out dire worldstate
+4) Invoke all lua scripts for radiant team
+5) repeat (1)
+
+
+
