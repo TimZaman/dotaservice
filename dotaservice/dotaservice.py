@@ -412,20 +412,24 @@ class DotaService(DotaServiceBase):
         logger.debug('::reset: lua config received={}'.format(lua_config))
 
         # Cycle through the queue until its empty, then only using the latest worldstate.
-
         data = {TEAM_RADIANT: None, TEAM_DIRE: None}
-        try:
-            while True:
-                # Deplete the queue.
-                for team_id in self.dota_game.worldstate_queues:
+        for team_id in self.dota_game.worldstate_queues:
+            try:
+                while True:
+                    # Deplete the queue.
                     queue = self.dota_game.worldstate_queues[team_id]
-                    data[team_id] = await asyncio.wait_for(queue.get(), timeout=0.5)
-        except asyncio.TimeoutError:
-            pass
+                    data[team_id] = await asyncio.wait_for(queue.get(), timeout=1)
+            except asyncio.TimeoutError:
+                pass
 
         assert data[TEAM_RADIANT] is not None
         assert data[TEAM_DIRE] is not None
-        assert data[TEAM_RADIANT].dota_time == data[TEAM_DIRE].dota_time
+
+        if data[TEAM_RADIANT].dota_time != data[TEAM_DIRE].dota_time:
+            raise ValueError(
+                'dota_time discrepancy in depleting initial worldstate queue.\n'
+                'radiant={:.2f}, dire={:.2f}'.format(data[TEAM_RADIANT].dota_time, data[TEAM_DIRE].dota_time))
+
         last_dota_time = data[TEAM_RADIANT].dota_time
 
         # Now write the calibration file.
