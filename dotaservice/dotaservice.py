@@ -25,11 +25,9 @@ from dotaservice.protos.dota_shared_enums_pb2 import DOTA_GAMERULES_STATE_GAME_I
 from dotaservice.protos.dota_shared_enums_pb2 import DOTA_GAMERULES_STATE_PRE_GAME
 from dotaservice.protos.DotaService_grpc import DotaServiceBase
 from dotaservice.protos.DotaService_pb2 import Empty
-from dotaservice.protos.DotaService_pb2 import HostMode
-from dotaservice.protos.DotaService_pb2 import Team
-from dotaservice.protos.DotaService_pb2 import Status2
-from dotaservice.protos.DotaService_pb2 import Observation
-from dotaservice.protos.DotaService_pb2 import Init
+from dotaservice.protos.DotaService_pb2 import HOST_MODE_DEDICATED, HOST_MODE_GUI, HOST_MODE_GUI_MENU
+from dotaservice.protos.DotaService_pb2 import TEAM_RADIANT, TEAM_DIRE
+from dotaservice.protos.DotaService_pb2 import Observation, ObserveConfig, InitialObservation
 from dotaservice.protos.DotaService_pb2 import Status
 
 logger = logging.getLogger(__name__)
@@ -64,8 +62,7 @@ class DotaGame(object):
     CONSOLE_LOGS_GLOB = 'console*.log'
     DOTA_SCRIPT_FILENAME = 'dota.sh'
     LIVE_CONFIG_FILENAME = 'live_config_auto'
-    PORT_WORLDSTATE_DIRE = 12121
-    PORT_WORLDSTATE_RADIANT = 12120
+    PORT_WORLDSTATES = {TEAM_RADIANT: 12120, TEAM_DIRE: 12121} 
     RE_DEMO =  re.compile(r'playdemo[ \t](.*dem)')
     RE_LUARDY = re.compile(r'LUARDY[ \t](\{.*\})')
     WORLDSTATE_PAYLOAD_BYTES = 4
@@ -90,15 +87,23 @@ class DotaGame(object):
         self.dota_bot_path = os.path.join(self.dota_path, 'dota', 'scripts', 'vscripts',
                                           self.BOTS_FOLDER_NAME)
         self.bot_path = self._create_bot_path()
-        self.worldstate_queue_radiant = asyncio.Queue(loop=asyncio.get_event_loop())
-        self.worldstate_queue_dire = asyncio.Queue(loop=asyncio.get_event_loop())
+        # self.worldstate_queue_radiant = asyncio.Queue(loop=asyncio.get_event_loop())
+        # self.worldstate_queue_dire = asyncio.Queue(loop=asyncio.get_event_loop())
+        self.worldstate_queues = {
+            TEAM_RADIANT: asyncio.Queue(loop=asyncio.get_event_loop()),
+            TEAM_DIRE: asyncio.Queue(loop=asyncio.get_event_loop()),
+        }
         self.lua_config_future = asyncio.get_event_loop().create_future()
         self._write_config()
         self.process = None
         self.demo_path_rel = None
 
+        if self.host_mode != HOST_MODE_DEDICATED:
+            # TODO(tzaman): Change the proto so that there are per-hostmode settings?
+            self.host_timescale = 1
+
         has_display = 'DISPLAY' in os.environ
-        if not has_display and HostMode.Value('DEDICATED'):
+        if not has_display and host_mode == HOST_MODE_DEDICATED:
             raise ValueError('GUI requested but no display detected.')
             exit(-1)
         super().__init__()
@@ -115,6 +120,7 @@ class DotaGame(object):
         self._write_bot_data_file(filename_stem=self.CONFIG_FILENAME, data=data)
 
     def write_live_config(self, data):
+        logger.debug('Writing live_config={}'.format(data))
         self._write_bot_data_file(filename_stem=self.LIVE_CONFIG_FILENAME, data=data)
         
     def write_action(self, data, team_id):
@@ -184,10 +190,9 @@ class DotaGame(object):
     async def run(self):
         asyncio.create_task(self._run_dota())
         # Start the worldstate listener(s).
-        asyncio.create_task(self._worldstate_listener(
-            port=self.PORT_WORLDSTATE_RADIANT, queue=self.worldstate_queue_radiant, team_id='radiant'))
-        asyncio.create_task(self._worldstate_listener(
-            port=self.PORT_WORLDSTATE_DIRE, queue=self.worldstate_queue_dire, team_id='dire'))
+        for team_id in self.worldstate_queues:
+            asyncio.create_task(self._worldstate_listener(
+                port=self.PORT_WORLDSTATES[team_id], queue=self.worldstate_queues[team_id], team_id=team_id))
 
     async def _run_dota(self):
         script_path = os.path.join(self.dota_path, self.DOTA_SCRIPT_FILENAME)
@@ -197,8 +202,8 @@ class DotaGame(object):
             script_path,
             # '-botworldstatesocket_threaded',
             '-botworldstatetosocket_frames {}'.format(self.ticks_per_observation),
-            '-botworldstatetosocket_radiant {}'.format(self.PORT_WORLDSTATE_RADIANT),
-            '-botworldstatetosocket_dire {}'.format(self.PORT_WORLDSTATE_DIRE),
+            '-botworldstatetosocket_radiant {}'.format(self.PORT_WORLDSTATES[TEAM_RADIANT]),
+            '-botworldstatetosocket_dire {}'.format(self.PORT_WORLDSTATES[TEAM_DIRE]),
             '-con_logfile scripts/vscripts/bots/{}'.format(self.CONSOLE_LOG_FILENAME),
             '-con_timestamp',
             '-console',
@@ -219,14 +224,14 @@ class DotaGame(object):
             '+tv_transmitall 1',  # TODO(tzaman): what does this do exactly?
         ]
 
-        if self.host_mode == HostMode.Value('DEDICATED'):
+        if self.host_mode == HOST_MODE_DEDICATED:
             args.append('-dedicated')
-        if self.host_mode == HostMode.Value('DEDICATED') or \
-            self.host_mode == HostMode.Value('GUI'):
+        if self.host_mode == HOST_MODE_DEDICATED or \
+            self.host_mode == HOST_MODE_GUI:
             args.append('-fill_with_bots')
             args.extend(['+map', 'start gamemode {}'.format(self.game_mode)])
             args.append('+sv_lan 1')
-        if self.host_mode == HostMode.Value('GUI_MENU'):
+        if self.host_mode == HOST_MODE_GUI_MENU:
             args.append('+sv_lan 0')
 
         create = asyncio.create_subprocess_exec(
@@ -262,18 +267,11 @@ class DotaGame(object):
     async def close(self):
         logger.info('::close')
 
-        # logger.info('deleting worldqueues')
-        # del self.worldstate_queue_radiant
-        # del self.world_state_dire
-
-        # self.worldstate_queue_radiant.put_nowait(None)
-        # self.world_state_dire.put_nowait(None)
-
         # If the process still exists, clean up.
         if self.process.returncode is None:
             logger.info('flushing bot')
             # Make the bot flush.
-            for team_id in [Team.Value('RADIANT'), Team.Value('DIRE')]:
+            for team_id in [TEAM_RADIANT, TEAM_DIRE]:
                 self.write_action(data='FLUSH', team_id=team_id)
             # Stop and move the recording
             logger.info('stopping recording')
@@ -293,7 +291,7 @@ class DotaGame(object):
             raise ValueError('Invalid worldstate payload')
         n_bytes = unpack("@I", data)[0]
         # Receive the payload given the length.
-        data = await asyncio.wait_for(reader.read(n_bytes), timeout=1)
+        data = await asyncio.wait_for(reader.read(n_bytes), timeout=2)
         # Decode the payload.
         world_state = CMsgBotWorldState()
         world_state.ParseFromString(data)
@@ -329,12 +327,9 @@ class DotaGame(object):
 
 class DotaService(DotaServiceBase):
 
-    WATCHDOG_TIMER = 10
-
-    def __init__(self, dota_path, action_folder, session_expiration_time):
+    def __init__(self, dota_path, action_folder):
         self.dota_path = dota_path
         self.action_folder = action_folder
-        self.session_expiration_time = session_expiration_time
 
         # Initial assertions.
         verify_game_path(self.dota_path)
@@ -354,44 +349,13 @@ class DotaService(DotaServiceBase):
                         .format(self.action_folder))
 
         self.dota_game = None
-        self._ready = True
-        self._time_last_call = time.time()
         super().__init__()
 
-    
-    async def watchdog(self):
-        """The watchdog checks for timeouts, then cleans resources."""
-        while True:
-            await asyncio.sleep(self.WATCHDOG_TIMER)
-            if self._ready == False and self.session_expired:
-                self._ready = True
-                await self.clean_resources()
-
     @property
-    def ready(self):
-        """Check if we are ready to play.
-
-        The session will also be checked for expiration.
-        """
-        if not self._ready:
-            if self.session_expired:
-                self._ready = True
-        return self._ready
-
-    def set_call_timer(self):
-        self._time_last_call = time.time()
-
-    @property
-    def session_expired(self):
-        """Sessions expire after time sime, after which the current resource is available."""
-        if self._ready:
-            # Not applicable: when it's ready, there's no session, so not expired.
-            return False
-        dt = time.time() - self._time_last_call
-        if dt > self.session_expiration_time:
-            logger.info("Session expired.")
-            return True
-        return False
+    def observe_timeout(self):
+        if self.dota_game.host_mode == HOST_MODE_DEDICATED:
+            return 10
+        return 3600
 
     @staticmethod
     def stop_dota_pids():
@@ -418,37 +382,13 @@ class DotaService(DotaServiceBase):
             self.dota_game = None
         self.stop_dota_pids()
 
-    async def close(self, stream):
-        pass
-        # TODO(tzaman): remove me
-    #     request = await stream.recv_message()
-    #     team_id = request.team_id
-    #     self.dota_game.write_action(data='FLUSH', team_id=team_id)
-    #     await stream.send_message(Empty())
-
-    async def clear(self, stream):
-        """Cleans resources.
-
-        Should be called when a user is done with a game, or when you want to nuke resources.
-        """
-        logger.debug('DotaService::clear()')
-        await self.clean_resources()
-        self._ready = True
-        await stream.send_message(Empty())
-
     async def reset(self, stream):
         """reset method.
 
         This method should start up the dota game and the other required services.
         """
         logger.debug('DotaService::reset()')
-        if not self.ready:
-            logger.info('Resource currently exhausted: returning response.')
-            await stream.send_message(Observation(status=Status.Value('RESOURCE_EXHAUSTED')))
-            return
-        logger.info('Starting new game.')
-        self._ready = False
-        self.set_call_timer()
+
         config = await stream.recv_message()
         logger.debug('config=\n{}'.format(config))
 
@@ -474,63 +414,53 @@ class DotaService(DotaServiceBase):
         logger.debug('::reset: lua config received={}'.format(lua_config))
 
         # Cycle through the queue until its empty, then only using the latest worldstate.
-        data = None
+
+        data = {TEAM_RADIANT: None, TEAM_DIRE: None}
         try:
             while True:
-                data = await asyncio.wait_for(
-                    self.dota_game.worldstate_queue_radiant.get(), timeout=0.2)
+                # Deplete the queue.
+                for team_id in self.dota_game.worldstate_queues:
+                    queue = self.dota_game.worldstate_queues[team_id]
+                    data[team_id] = await asyncio.wait_for(queue.get(), timeout=0.5)
         except asyncio.TimeoutError:
             pass
 
-        if data is None:
-            await stream.send_message(Status2(status=Status.Value('FAILED_PRECONDITION')))
-            raise ValueError('Worldstate queue (radiant) empty while lua bot is ready!')
-
-        data_radiant = data
-
-        # TODO(tzaman): plz no copy paste
-        # Cycle through the queue until its empty, then only using the latest worldstate.
-        data = None
-        try:
-            while True:
-                data = await asyncio.wait_for(
-                    self.dota_game.worldstate_queue_dire.get(), timeout=0.2)
-        except asyncio.TimeoutError:
-            pass
-
-        if data is None:
-            await stream.send_message(Status2(status=Status.Value('FAILED_PRECONDITION')))
-            raise ValueError('Worldstate queue (dire) empty while lua bot is ready!')
-
-        data_dire = data
-
-        assert data_radiant.dota_time == data_dire.dota_time
+        assert data[TEAM_RADIANT] is not None
+        assert data[TEAM_DIRE] is not None
+        assert data[TEAM_RADIANT].dota_time == data[TEAM_DIRE].dota_time
+        last_dota_time = data[TEAM_RADIANT].dota_time
 
         # Now write the calibration file.
         config = {
-            'calibration_dota_time': data.dota_time,
+            'calibration_dota_time': last_dota_time
         }
-        logger.debug('Writing live_config={}'.format(config))
         self.dota_game.write_live_config(data=config)
 
         # Return the reponse
-        await stream.send_message(Status2(
-            status=Status.Value('OK'),
-            ))
+        await stream.send_message(InitialObservation(
+            world_state_radiant=data[TEAM_RADIANT],
+            world_state_dire=data[TEAM_DIRE],
+        ))
 
 
-    async def initialize(self, stream):
-        logger.debug('DotaService::initialize()')
-        self.set_call_timer()
+    async def observe(self, stream):
+        logger.debug('DotaService::observe()')
+
         request = await stream.recv_message()
         team_id = request.team_id
 
-        if team_id == Team.Value('RADIANT'):
-            queue = self.dota_game.worldstate_queue_radiant
-        else:
-            queue = self.dota_game.worldstate_queue_dire
-        
-        data = await queue.get()
+        queue = self.dota_game.worldstate_queues[team_id]
+
+        try:
+            data = await asyncio.wait_for(queue.get(), timeout=self.observe_timeout)
+        except asyncio.TimeoutError:
+            # A timeout probably means the game is done
+            # TODO(tzaman): how does one know when a game is finished?
+            await stream.send_message(Observation(
+                status=Status.Value('RESOURCE_EXHAUSTED'),
+                team_id=team_id,
+                ))
+            return     
 
         # Make sure indeed the queue is empty and we're entirely in sync.
         assert queue.qsize() == 0
@@ -542,9 +472,9 @@ class DotaService(DotaServiceBase):
             team_id=team_id,
             ))
 
-    async def step(self, stream):
-        logger.debug('DotaService::step()')
-        self.set_call_timer()
+    async def act(self, stream):
+        logger.debug('DotaService::act()')
+
         request = await stream.recv_message()
         team_id = request.team_id
         actions = MessageToDict(request.actions)
@@ -553,29 +483,8 @@ class DotaService(DotaServiceBase):
 
         self.dota_game.write_action(data=actions, team_id=team_id)
 
-        # if team_id == Team.Value('RADIANT'):
-        #     queue = self.dota_game.worldstate_queue_radiant
-        # else:
-        #     queue = self.dota_game.worldstate_queue_dire
-        
-        # data = await queue.get()
-
-        # if data == None:  # HACK
-        #     await stream.send_message(Observation(
-        #         status=Status.Value('OUT_OF_RANGE'),
-        #         team_id=team_id,
-        #         ))
-        #     return
-
-        # Make sure indeed the queue is empty and we're entirely in sync.
-        # assert queue.qsize() == 0
-
         # Return the reponse.
-        await stream.send_message(Observation(
-            status=Status.Value('OK'),
-            # world_state=data,
-            team_id=team_id,
-            ))
+        await stream.send_message(Empty())
 
 
 
@@ -592,15 +501,13 @@ async def serve(server, *, host, port):
 
 async def grpc_main(loop, handler, host, port):
     server = Server([handler], loop=loop)
-    asyncio.create_task(handler.watchdog())
     await serve(server, host=host, port=port)
 
 
-def main(grpc_host, grpc_port, dota_path, action_folder, session_expiration_time):
+def main(grpc_host, grpc_port, dota_path, action_folder):
     dota_service = DotaService(
         dota_path=dota_path,
         action_folder=action_folder,
-        session_expiration_time=session_expiration_time,
         )
     loop = asyncio.get_event_loop()
     tasks = grpc_main(

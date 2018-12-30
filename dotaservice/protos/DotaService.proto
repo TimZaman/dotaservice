@@ -13,27 +13,17 @@ enum Status {
 }
 
 enum Team {
-  RADIANT = 2;
-  DIRE = 3;
+  TEAM_RADIANT = 2;
+  TEAM_DIRE = 3;
 }
 
 enum HostMode {
-  DEDICATED = 0;
-  GUI = 1;
-  GUI_MENU = 2;
-}
-
-message Status2{
-  required Status status = 1;
+  HOST_MODE_DEDICATED = 0;
+  HOST_MODE_GUI = 1;
+  HOST_MODE_GUI_MENU = 2;
 }
 
 message Empty {}
-
-// message InitialObservation {
-//   required Status status = 1;
-//   optional CMsgBotWorldState world_state_dire = 2;
-//   optional CMsgBotWorldState world_state_radiant = 3;
-// }
 
 message Observation {
   required Status status = 1;
@@ -41,12 +31,18 @@ message Observation {
   optional CMsgBotWorldState world_state = 3;
 }
 
-message Config {
+message InitialObservation {
+  optional Status status = 1;
+  optional CMsgBotWorldState world_state_radiant = 2;
+  optional CMsgBotWorldState world_state_dire = 3;
+}
+
+message GameConfig {
   optional string game_id = 1;
   required uint32 ticks_per_observation = 3;
   // TODO(tzaman): Rework below, as host_mode impacts the settings (gui= timescale 1, no timeouts, etc)
   optional uint32 host_timescale = 2 [default = 1];
-  optional HostMode host_mode = 5 [default = DEDICATED];
+  optional HostMode host_mode = 5 [default = HOST_MODE_DEDICATED];
   optional DOTA_GameMode game_mode = 6 [default = DOTA_GAMEMODE_MO];
   // TODO(tzaman): Add hero picks for both teams in a priority repeated list.
 }
@@ -56,14 +52,12 @@ message Actions {
   required Team team_id = 2;
 }
 
-message Init {
-  required uint32 team_id =1;
+message ObserveConfig {
+  required Team team_id = 1;
 }
 
 service DotaService {
-  rpc reset (Config) returns (Status2) {}  // TODO(tzaman): add version and hostname in response.
-  rpc initialize (Init) returns (Observation) {}
-  rpc step (Actions) returns (Observation) {}
-  rpc close (Init) returns (Empty) {}
-  rpc clear (Empty) returns (Empty) {}
+  rpc reset (GameConfig) returns (InitialObservation) {}  // TODO(tzaman): add version and hostname in response.
+  rpc observe (ObserveConfig) returns (Observation) {}
+  rpc act (Actions) returns (Empty) {}
 }

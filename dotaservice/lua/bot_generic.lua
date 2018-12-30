@@ -28,6 +28,13 @@ local function act(action)
             do return end
         end
         unit = GetBotByHandle(action.attackTarget.target)
+
+        -- d = GetUnitToUnitDistance(bot, unit)
+        -- if d > bot:GetAttackRange() then
+        --     -- Too far, cannot attack
+        --     do return end
+        -- end
+
         DebugDrawCircle(unit:GetLocation(), 50, 255, 0, 0)
         bot:Action_AttackUnit(unit, action.attackTarget.once)
     else
