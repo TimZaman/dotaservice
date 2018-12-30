@@ -101,7 +101,7 @@ class DotaGame(object):
             self.host_timescale = 1
 
         has_display = 'DISPLAY' in os.environ
-        if not has_display and host_mode == HOST_MODE_DEDICATED:
+        if not has_display and host_mode != HOST_MODE_DEDICATED:
             raise ValueError('GUI requested but no display detected.')
             exit(-1)
         super().__init__()
