@@ -5,7 +5,7 @@ with open("README.md", "r") as fh:
 
 setuptools.setup(
     name="dotaservice",
-    version="0.2.1",
+    version="0.3.0",
     author="Tim Zaman",
     author_email="timbobel@gmail.com",
     description="DotaService is a service to play Dota 2 through gRPC",
