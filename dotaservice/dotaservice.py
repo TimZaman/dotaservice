@@ -87,8 +87,6 @@ class DotaGame(object):
         self.dota_bot_path = os.path.join(self.dota_path, 'dota', 'scripts', 'vscripts',
                                           self.BOTS_FOLDER_NAME)
         self.bot_path = self._create_bot_path()
-        # self.worldstate_queue_radiant = asyncio.Queue(loop=asyncio.get_event_loop())
-        # self.worldstate_queue_dire = asyncio.Queue(loop=asyncio.get_event_loop())
         self.worldstate_queues = {
             TEAM_RADIANT: asyncio.Queue(loop=asyncio.get_event_loop()),
             TEAM_DIRE: asyncio.Queue(loop=asyncio.get_event_loop()),

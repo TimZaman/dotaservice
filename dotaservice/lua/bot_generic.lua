@@ -29,11 +29,19 @@ local function act(action)
         end
         unit = GetBotByHandle(action.attackTarget.target)
 
-        -- d = GetUnitToUnitDistance(bot, unit)
-        -- if d > bot:GetAttackRange() then
-        --     -- Too far, cannot attack
-        --     do return end
-        -- end
+        d = GetUnitToUnitDistance(bot, unit)
+        if d > bot:GetAttackRange() then
+            -- Too far, cannot attack
+            DebugDrawCircle(bot:GetLocation(), 200, 255, 0, 0)
+            do return end
+        end
+        if bot:GetTeam() == unit:GetTeam() then
+            -- Can only deny < 0.5 unit
+            if unit:GetHealth() / unit:GetMaxHealth() > 0.5 then
+                DebugDrawCircle(bot:GetLocation(), 200, 255, 0, 0)
+                do return end
+            end
+        end
 
         DebugDrawCircle(unit:GetLocation(), 50, 255, 0, 0)
         bot:Action_AttackUnit(unit, action.attackTarget.once)
