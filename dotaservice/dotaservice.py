@@ -70,13 +70,16 @@ class DotaGame(object):
     def __init__(self,
                  dota_path,
                  action_folder,
+                 remove_logs,
                  host_timescale,
                  ticks_per_observation,
                  game_mode,
                  host_mode,
-                 game_id=None):
+                 game_id=None,
+                 ):
         self.dota_path = dota_path
         self.action_folder = action_folder
+        self.remove_logs = remove_logs
         self.host_timescale = host_timescale
         self.ticks_per_observation = ticks_per_observation
         self.game_mode = game_mode
@@ -98,9 +101,9 @@ class DotaGame(object):
 
         if self.host_mode != HOST_MODE_DEDICATED:
             # TODO(tzaman): Change the proto so that there are per-hostmode settings?
-            self.host_timescale = 1
+            self.host_timescale = 3
 
-        has_display = 'DISPLAY' in os.environ
+        has_display = 'DISPLAY' in os.environ or platform == "darwin"
         if not has_display and host_mode != HOST_MODE_DEDICATED:
             raise ValueError('GUI requested but no display detected.')
             exit(-1)
@@ -280,6 +283,9 @@ class DotaGame(object):
 
         self._move_recording()
 
+        if self.remove_logs:
+            shutil.rmtree(self.bot_path, ignore_errors=True)
+
 
     @classmethod
     async def _world_state_from_reader(cls, reader, team_id):
@@ -325,9 +331,10 @@ class DotaGame(object):
 
 class DotaService(DotaServiceBase):
 
-    def __init__(self, dota_path, action_folder):
+    def __init__(self, dota_path, action_folder, remove_logs):
         self.dota_path = dota_path
         self.action_folder = action_folder
+        self.remove_logs = remove_logs
 
         # Initial assertions.
         verify_game_path(self.dota_path)
@@ -396,6 +403,7 @@ class DotaService(DotaServiceBase):
         self.dota_game = DotaGame(
             dota_path=self.dota_path,
             action_folder=self.action_folder,
+            remove_logs=self.remove_logs,
             host_timescale=config.host_timescale,
             ticks_per_observation=config.ticks_per_observation,
             game_mode=config.game_mode,
@@ -418,7 +426,7 @@ class DotaService(DotaServiceBase):
                 while True:
                     # Deplete the queue.
                     queue = self.dota_game.worldstate_queues[team_id]
-                    data[team_id] = await asyncio.wait_for(queue.get(), timeout=1)
+                    data[team_id] = await asyncio.wait_for(queue.get(), timeout=5)
             except asyncio.TimeoutError:
                 pass
 
@@ -506,10 +514,11 @@ async def grpc_main(loop, handler, host, port):
     await serve(server, host=host, port=port)
 
 
-def main(grpc_host, grpc_port, dota_path, action_folder):
+def main(grpc_host, grpc_port, dota_path, action_folder, remove_logs):
     dota_service = DotaService(
         dota_path=dota_path,
         action_folder=action_folder,
+        remove_logs=remove_logs,
         )
     loop = asyncio.get_event_loop()
     tasks = grpc_main(

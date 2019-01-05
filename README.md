@@ -87,7 +87,7 @@ pip3 install -e .
 
 (Optional) Compile the protos for Python (run from repository root):
 ```sh
-python3 -m grpc_tools.protoc -I. --python_out=. --python_grpc_out=. dotaservice/protos/*.proto
+python3 -m grpc_tools.protoc -I. --python_out=. --python_grpc_out=. --grpc_python_out=. dotaservice/protos/*.proto
 ```
 
 ### Benchmarks

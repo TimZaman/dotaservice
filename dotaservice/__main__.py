@@ -32,6 +32,7 @@ if platform not in ["linux", "linux2", "darwin"]:
 parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
 parser.add_argument("--ip", type=str, help="gRPC host ip", default="")
 parser.add_argument("-p", "--port", type=int, help="gRPC port", default=13337)
+parser.add_argument("--remove-logs", type=bool, help="Removes logs after each game", default=True)
 parser.add_argument(
     "--game-path",
     type=str,
@@ -49,4 +50,5 @@ main(
     grpc_port=args.port,
     dota_path=args.game_path,
     action_folder=args.action_path,
+    remove_logs=args.remove_logs,
 )
