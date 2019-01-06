@@ -466,7 +466,7 @@ class DotaService(DotaServiceBase):
 
         try:
             data = await asyncio.wait_for(queue.get(), timeout=self.observe_timeout)
-        except asyncio.TimeoutError:
+        except (asyncio.TimeoutError, asyncio.CancelledError):
             # A timeout probably means the game is done
             # TODO(tzaman): how does one know when a game is finished?
             await stream.send_message(Observation(
