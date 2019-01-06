@@ -33,6 +33,8 @@ parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFo
 parser.add_argument("--ip", type=str, help="gRPC host ip", default="")
 parser.add_argument("-p", "--port", type=int, help="gRPC port", default=13337)
 parser.add_argument("--remove-logs", type=bool, help="Removes logs after each game", default=True)
+parser.add_argument("-l", "--log", dest="log_level", help="Set the logging level",
+                    choices=['DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL'], default='INFO')
 parser.add_argument(
     "--game-path",
     type=str,
@@ -51,4 +53,5 @@ main(
     dota_path=args.game_path,
     action_folder=args.action_path,
     remove_logs=args.remove_logs,
+    log_level=args.log_level,
 )

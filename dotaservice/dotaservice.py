@@ -30,12 +30,8 @@ from dotaservice.protos.DotaService_pb2 import TEAM_RADIANT, TEAM_DIRE
 from dotaservice.protos.DotaService_pb2 import Observation, ObserveConfig, InitialObservation
 from dotaservice.protos.DotaService_pb2 import Status
 
+logging.basicConfig(format='%(asctime)s %(levelname)-8s %(message)s')
 logger = logging.getLogger(__name__)
-handler = logging.StreamHandler()
-formatter = logging.Formatter('%(asctime)s %(levelname)-8s %(message)s')
-handler.setFormatter(formatter)
-logger.addHandler(handler)
-logger.setLevel(logging.INFO)
 
 LUA_FILES_GLOB = pkg_resources.resource_filename('dotaservice', 'lua/*.lua')
 
@@ -235,9 +231,12 @@ class DotaGame(object):
         if self.host_mode == HOST_MODE_GUI_MENU:
             args.append('+sv_lan 0')
 
+        # Supress stdout if the logger level is info.
+        stdout = None if logger.level == 'INFO' else asyncio.subprocess.PIPE
+
         create = asyncio.create_subprocess_exec(
             *args,
-            stdin=asyncio.subprocess.PIPE,
+            stdin=asyncio.subprocess.PIPE, stdout=stdout, stderr=stdout,
         )
         self.process = await create
 
@@ -270,12 +269,12 @@ class DotaGame(object):
 
         # If the process still exists, clean up.
         if self.process.returncode is None:
-            logger.info('flushing bot')
+            logger.debug('flushing bot')
             # Make the bot flush.
             for team_id in [TEAM_RADIANT, TEAM_DIRE]:
                 self.write_action(data='FLUSH', team_id=team_id)
             # Stop and move the recording
-            logger.info('stopping recording')
+            logger.debug('stopping recording')
             self.process.stdin.write(b"tv_stoprecord\n")
             self.process.stdin.write(b"quit\n")
             await self.process.stdin.drain()
@@ -292,7 +291,8 @@ class DotaGame(object):
         # Receive the package length.
         data = await reader.read(cls.WORLDSTATE_PAYLOAD_BYTES)
         if len(data) != cls.WORLDSTATE_PAYLOAD_BYTES:
-            raise ValueError('Invalid worldstate payload')
+            # raise ValueError('Invalid worldstate payload')
+            return None
         n_bytes = unpack("@I", data)[0]
         # Receive the payload given the length.
         data = await asyncio.wait_for(reader.read(n_bytes), timeout=2)
@@ -318,6 +318,9 @@ class DotaGame(object):
                 # This reader is always going to need to keep going to keep the buffers flushed.
                 try:
                     world_state = await self._world_state_from_reader(reader, team_id)
+                    if world_state is None:
+                        logger.debug('Finishing worldstate listener (team_id={})'.format(team_id))
+                        return
                     is_in_game = world_state.game_state in self.ACTIONABLE_GAME_STATES
                     has_units = len(world_state.units) > 0
                     if is_in_game and has_units:
@@ -392,7 +395,7 @@ class DotaService(DotaServiceBase):
 
         This method should start up the dota game and the other required services.
         """
-        logger.debug('DotaService::reset()')
+        logger.info('DotaService::reset()')
 
         config = await stream.recv_message()
         logger.debug('config=\n{}'.format(config))
@@ -514,7 +517,8 @@ async def grpc_main(loop, handler, host, port):
     await serve(server, host=host, port=port)
 
 
-def main(grpc_host, grpc_port, dota_path, action_folder, remove_logs):
+def main(grpc_host, grpc_port, dota_path, action_folder, remove_logs, log_level):
+    logger.setLevel(log_level)
     dota_service = DotaService(
         dota_path=dota_path,
         action_folder=action_folder,
