@@ -197,7 +197,7 @@ class DotaGame(object):
         # TODO(tzaman): all these options should be put in a proto and parsed with gRPC Config.
         args = [
             script_path,
-            # '-botworldstatesocket_threaded',
+            '-botworldstatesocket_threaded',
             '-botworldstatetosocket_frames {}'.format(self.ticks_per_observation),
             '-botworldstatetosocket_radiant {}'.format(self.PORT_WORLDSTATES[TEAM_RADIANT]),
             '-botworldstatetosocket_dire {}'.format(self.PORT_WORLDSTATES[TEAM_DIRE]),
