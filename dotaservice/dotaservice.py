@@ -97,7 +97,7 @@ class DotaGame(object):
 
         if self.host_mode != HOST_MODE_DEDICATED:
             # TODO(tzaman): Change the proto so that there are per-hostmode settings?
-            self.host_timescale = 3
+            self.host_timescale = 1
 
         has_display = 'DISPLAY' in os.environ or platform == "darwin"
         if not has_display and host_mode != HOST_MODE_DEDICATED:
