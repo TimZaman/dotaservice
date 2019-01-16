@@ -2,22 +2,25 @@
 --- AUTHOR: Nostrademous
 -------------------------------------------------------------------------------
 
-local pprint                = require( "bots/pprint" )
+local pprint                    = require( "bots/pprint" )
 
 -- Atomic Actions
-local actionGlyph           = require( "bots/actions/atomic_glyph" )
-local actionLevelAbility    = require( "bots/actions/atomic_level_ability" )
+local actionGlyph               = require( "bots/actions/atomic_glyph" )
+local actionLevelAbility        = require( "bots/actions/atomic_level_ability" )
 
 -- Hero Functions
-local actionNone            = require( "bots/actions/none" )
-local actionClearAction     = require( "bots/actions/clear" )
-local actionBuyback         = require( "bots/actions/buyback" )
-local actionChat            = require( "bots/actions/chat" )
+local actionNone                = require( "bots/actions/none" )
+local actionClearAction         = require( "bots/actions/clear" )
+local actionBuyback             = require( "bots/actions/buyback" )
+local actionChat                = require( "bots/actions/chat" )
 
---local actionMoveToLocation  = require( "bots/actions/move_to_location" )
-local actionMoveDirectly    = require( "bots/actions/move_directly" )
-local actionAttackUnit      = require( "bots/actions/attack_unit" )
+--local actionMoveToLocation      = require( "bots/actions/move_to_location" )
+local actionMoveDirectly        = require( "bots/actions/move_directly" )
+local actionAttackUnit          = require( "bots/actions/attack_unit" )
 
+local actionUseAbilityOnEntity  = require( "bots/actions/use_ability_on_entity" )
+local actionUseAbilityOnLocation= require( "bots/actions/use_ability_on_location" )
+local actionUseAbilityOnTree    = require( "bots/actions/use_ability_on_tree" )
 
 -- Global Variables
 ABILITY_STANDARD = 0
@@ -35,6 +38,9 @@ LookUpTable = {
     ['DOTA_UNIT_ORDER_TRAIN_ABILITY'] = actionLevelAbility,
     ['DOTA_UNIT_ORDER_BUYBACK'] = actionBuyback,
     ['ACTION_CHAT'] = actionChat,
+    ['DOTA_UNIT_ORDER_CAST_POSITION'] = actionUseAbilityOnLocation,
+    ['DOTA_UNIT_ORDER_CAST_TARGET'] = actionUseAbilityOnEntity,
+    ['DOTA_UNIT_ORDER_CAST_TARGET_TREE'] = actionUseAbilityOnTree,
 }
 
 local function table_length(tbl)

@@ -28,6 +28,12 @@ local function act(action)
         tblActions[action.actionType] = {}
     elseif action.actionType == "ACTION_CHAT" then
         tblActions[action.actionType] = {{action.chat.message}, {action.chat.to_allchat}}
+    elseif action.actionType == "DOTA_UNIT_ORDER_CAST_POSITION" then
+        tblactions[action.actionType] = {{action.castLocation.abilitySlot}, {action.castLocation.location.x, action.castLocation.location.y, 0.0}, {0}}
+    elseif action.actionType == "DOTA_UNIT_ORDER_CAST_TARGET" then
+        tblactions[action.actionType] = {{action.castTarget.abilitySlot}, {action.castTarget.target}, {0}}
+    elseif action.actionType == "DOTA_UNIT_ORDER_CAST_TARGET_TREE" then
+        tblactions[action.actionType] = {{action.castTree.abilitySlot}, {action.castTree.tree}, {0}}
     end
     action_proc:Run(GetBot(), tblActions)
 end

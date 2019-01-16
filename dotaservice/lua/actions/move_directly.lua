@@ -10,6 +10,8 @@ MoveDirectly.NumArgs = 3
 -------------------------------------------------
 
 function MoveDirectly:Call( hUnit, vLoc, iType )
+    -- Note: we test for valid conditions here on hUnit, but we shouldn't
+    -- as the agent should only suggest legal and valid actions
     if not hUnit:IsAlive() or hUnit:IsRooted() or hUnit:IsStunned() then
         print("[ERROR] - MoveDirectly under death/root/stun")
         do return end
