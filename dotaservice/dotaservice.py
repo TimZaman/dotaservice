@@ -34,6 +34,7 @@ logging.basicConfig(format='%(asctime)s %(levelname)-8s %(message)s')
 logger = logging.getLogger(__name__)
 
 LUA_FILES_GLOB = pkg_resources.resource_filename('dotaservice', 'lua/*.lua')
+LUA_FILES_GLOB_ACTIONS = pkg_resources.resource_filename('dotaservice', 'lua/actions/*.lua')
 
 
 def verify_game_path(game_path):
@@ -155,6 +156,13 @@ class DotaGame(object):
         lua_files = glob.glob(LUA_FILES_GLOB)
         for filename in lua_files:
             shutil.copy(filename, bot_path)
+
+        # Copy all the bot action files into the actions subdirectory
+        action_path = os.path.join(bot_path, "actions")
+        os.mkdir(action_path)
+        action_files = glob.glob(LUA_FILES_GLOB_ACTIONS)
+        for filename in action_files:
+            shutil.copy(filename, action_path)
 
         # shutil.copy('/Users/tzaman/dev/dotaservice/botcpp/botcpp_radiant.so', bot_path)
 

@@ -7,11 +7,6 @@ local AttackUnit = {}
 AttackUnit.Name = "Attack Unit"
 AttackUnit.NumArgs = 4
 
-local function toboolean(number)
-    if number >= 1 then return true end
-    return false
-end
-
 -------------------------------------------------
 function AttackUnit:Call( hUnit, hTarget, bOnce, iType )
     hTarget = hTarget[1]
@@ -27,7 +22,7 @@ function AttackUnit:Call( hUnit, hTarget, bOnce, iType )
         DebugDrawCircle(vLoc, 25, 255, 0, 0)
         DebugDrawLine(hUnit:GetLocation(), vLoc, 255, 0, 0)
         
-        bOnce = toboolean(bOnce[1])
+        bOnce = bOnce[1]
         if iType == nil or iType == ABILITY_STANDARD then
             hUnit:Action_AttackUnit(hTarget, bOnce)
         elseif iType == ABILITY_PUSH then
