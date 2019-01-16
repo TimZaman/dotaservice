@@ -1,6 +1,7 @@
 local config = require('bots/config')
 local dkjson = require('game/dkjson')
 local pprint = require('bots/pprint')
+local action_proc = require('bots/action_processor')
 
 local ACTION_FILENAME = 'bots/actions_t' .. GetTeam()
 local LIVE_CONFIG_FILENAME = 'bots/live_config_auto'
@@ -10,44 +11,15 @@ local live_config = nil
 
 
 local function act(action)
-    if action == nil then
-        -- If we have no action, draw a big red circle around the hero.
-        DebugDrawCircle(bot:GetLocation(), 200, 255, 0, 0)
-        do return end
+    local tblActions = {}
+    if action.actionType == "DOTA_UNIT_ORDER_NONE" then
+        tblActions[action.actionType] = {}
+    elseif action.actionType == "DOTA_UNIT_ORDER_MOVE_TO_POSITION" then
+        tblActions[action.actionType] = {{action.moveToLocation.location.x, action.moveToLocation.location.y, 0.0}, {0}}
+    elseif action.actionType == "DOTA_UNIT_ORDER_ATTACK_TARGET" then
+        tblActions[action.actionType] = {{action.attackTarget.target}, {1}, {0}}
     end
-    local bot = GetBot()
-    action_type = action.actionType
-    if action_type == 'DOTA_UNIT_ORDER_NONE' then
-        DebugDrawCircle(bot:GetLocation(), 50, 127, 127, 127)
-    elseif  action_type == 'DOTA_UNIT_ORDER_MOVE_TO_POSITION' then
-        move_location = Vector(action.moveToLocation.location.x, action.moveToLocation.location.y)
-        DebugDrawLine(bot:GetLocation(), move_location, 255, 255, 255)
-        bot:Action_MoveDirectly(move_location)
-    elseif  action_type == 'DOTA_UNIT_ORDER_ATTACK_TARGET' then
-        if action.attackTarget.target == -1 then  -- Invalid target. Do nothing.
-            do return end
-        end
-        unit = GetBotByHandle(action.attackTarget.target)
-
-        d = GetUnitToUnitDistance(bot, unit)
-        if d > bot:GetAttackRange() then
-            -- Too far, cannot attack
-            DebugDrawCircle(bot:GetLocation(), 200, 255, 0, 0)
-            do return end
-        end
-        if bot:GetTeam() == unit:GetTeam() then
-            -- Can only deny < 0.5 unit
-            if unit:GetHealth() / unit:GetMaxHealth() > 0.5 then
-                DebugDrawCircle(bot:GetLocation(), 200, 255, 0, 0)
-                do return end
-            end
-        end
-
-        DebugDrawCircle(unit:GetLocation(), 50, 255, 0, 0)
-        bot:Action_AttackUnit(unit, action.attackTarget.once)
-    else
-        print('Invalid action_type=', action_type)
-    end
+    action_proc:Run(GetBot(), tblActions)
 end
 
 
