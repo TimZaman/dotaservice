@@ -17,7 +17,15 @@ local function act(action)
     elseif action.actionType == "DOTA_UNIT_ORDER_MOVE_TO_POSITION" then
         tblActions[action.actionType] = {{action.moveToLocation.location.x, action.moveToLocation.location.y, 0.0}, {0}}
     elseif action.actionType == "DOTA_UNIT_ORDER_ATTACK_TARGET" then
-        tblActions[action.actionType] = {{action.attackTarget.target}, {1}, {0}}
+        tblActions[action.actionType] = {{action.attackTarget.target}, {action.attackTarget.once}, {0}}
+    elseif action.actionType == "DOTA_UNIT_ORDER_TRAIN_ABILITY" then
+        tblActions[action.actionType] = {{action.ability}}
+    elseif action.actionType == "DOTA_UNIT_ORDER_GLYPH" then
+        tblActions[action.actionType] = {}
+    elseif action.actionType == "DOTA_UNIT_ORDER_STOP" then
+        tblActions[action.actionType] = {{1}}
+    elseif action.actionType == "DOTA_UNIT_ORDER_BUYBACK" then
+        tblActions[action.actionType] = {}
     end
     action_proc:Run(GetBot(), tblActions)
 end
