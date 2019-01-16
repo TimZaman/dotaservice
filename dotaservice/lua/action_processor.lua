@@ -10,8 +10,8 @@ local actionLevelAbility    = require( "bots/atomic_level_ability" )
 
 -- Hero Functions
 local actionNone            = require( "bots/none" )
---local actionClearAction     = require( "bots/clear" )
---local actionBuyback         = require( "bots/buyback" )
+local actionClearAction     = require( "bots/clear" )
+local actionBuyback         = require( "bots/buyback" )
 
 --local actionMoveToLocation  = require( "bots/move_to_location" )
 local actionMoveDirectly    = require( "bots/move_directly" )
@@ -30,9 +30,9 @@ LookUpTable = {
     ['DOTA_UNIT_ORDER_MOVE_TO_POSITION'] = actionMoveDirectly,
     ['DOTA_UNIT_ORDER_ATTACK_TARGET'] = actionAttackUnit,
     ['DOTA_UNIT_ORDER_GLYPH'] = actionGlyph,
---    ['DOTA_UNIT_ORDER_STOP'] = actionClearAction,
+    ['DOTA_UNIT_ORDER_STOP'] = actionClearAction,
     ['DOTA_UNIT_ORDER_TRAIN_ABILITY'] = actionLevelAbility,
---    ['DOTA_UNIT_ORDER_BUYBACK'] = actionBuyback,
+    ['DOTA_UNIT_ORDER_BUYBACK'] = actionBuyback,
 }
 
 local function table_length(tbl)
@@ -76,7 +76,8 @@ function ActionProcessor:Run(hBot, tblActions)
                 cmd:Call(hBot, value[1], value[2], value[3])
             else
                 print("Unimplemented number of Cmd Args for ", cmd.Name, ": ", cmd.NumArgs)
-                DebugPause()
+                -- DebugPause()
+                do return end
             end
         else
             print("<ERROR> [", key, "] does not exist in action table!")
