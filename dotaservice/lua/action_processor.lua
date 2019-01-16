@@ -5,17 +5,18 @@
 local pprint                = require( "bots/pprint" )
 
 -- Atomic Actions
-local actionGlyph           = require( "bots/atomic_glyph" )
-local actionLevelAbility    = require( "bots/atomic_level_ability" )
+local actionGlyph           = require( "bots/actions/atomic_glyph" )
+local actionLevelAbility    = require( "bots/actions/atomic_level_ability" )
 
 -- Hero Functions
-local actionNone            = require( "bots/none" )
-local actionClearAction     = require( "bots/clear" )
-local actionBuyback         = require( "bots/buyback" )
+local actionNone            = require( "bots/actions/none" )
+local actionClearAction     = require( "bots/actions/clear" )
+local actionBuyback         = require( "bots/actions/buyback" )
+local actionChat            = require( "bots/actions/chat" )
 
---local actionMoveToLocation  = require( "bots/move_to_location" )
-local actionMoveDirectly    = require( "bots/move_directly" )
-local actionAttackUnit      = require( "bots/attack_unit" )
+--local actionMoveToLocation  = require( "bots/actions/move_to_location" )
+local actionMoveDirectly    = require( "bots/actions/move_directly" )
+local actionAttackUnit      = require( "bots/actions/attack_unit" )
 
 
 -- Global Variables
@@ -33,6 +34,7 @@ LookUpTable = {
     ['DOTA_UNIT_ORDER_STOP'] = actionClearAction,
     ['DOTA_UNIT_ORDER_TRAIN_ABILITY'] = actionLevelAbility,
     ['DOTA_UNIT_ORDER_BUYBACK'] = actionBuyback,
+    ['ACTION_CHAT'] = actionChat,
 }
 
 local function table_length(tbl)

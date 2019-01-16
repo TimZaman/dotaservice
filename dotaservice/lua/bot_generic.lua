@@ -19,13 +19,15 @@ local function act(action)
     elseif action.actionType == "DOTA_UNIT_ORDER_ATTACK_TARGET" then
         tblActions[action.actionType] = {{action.attackTarget.target}, {action.attackTarget.once}, {0}}
     elseif action.actionType == "DOTA_UNIT_ORDER_TRAIN_ABILITY" then
-        tblActions[action.actionType] = {{action.ability}}
+        tblActions[action.actionType] = {{action.trainAbility.ability}}
     elseif action.actionType == "DOTA_UNIT_ORDER_GLYPH" then
         tblActions[action.actionType] = {}
     elseif action.actionType == "DOTA_UNIT_ORDER_STOP" then
         tblActions[action.actionType] = {{1}}
     elseif action.actionType == "DOTA_UNIT_ORDER_BUYBACK" then
         tblActions[action.actionType] = {}
+    elseif action.actionType == "ACTION_CHAT" then
+        tblActions[action.actionType] = {{action.chat.message}, {action.chat.to_allchat}}
     end
     action_proc:Run(GetBot(), tblActions)
 end
