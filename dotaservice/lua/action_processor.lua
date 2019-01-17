@@ -63,12 +63,12 @@ function ActionProcessor:Run(hBot, tblActions)
         do return end
     end
 
-    print('Actions: ', pprint.pformat(tblActions))
+    -- print('Actions: ', pprint.pformat(tblActions))
 
     for key, value in pairs(tblActions) do
         local cmd = LookUpTable[key]
         if cmd ~= nil then
-            print("Executing Action: ", cmd.Name)
+            -- print("Executing Action: ", cmd.Name)
             -- NOTE: It is assumed that the first arguement (if args required)
             --       will be the handle to the bot, followed by arguments 
             --       provided by the `agent`.
