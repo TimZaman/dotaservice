@@ -437,7 +437,7 @@ class DotaService(DotaServiceBase):
                 while True:
                     # Deplete the queue.
                     queue = self.dota_game.worldstate_queues[team_id]
-                    data[team_id] = await asyncio.wait_for(queue.get(), timeout=5)
+                    data[team_id] = await asyncio.wait_for(queue.get(), timeout=0.5)
             except asyncio.TimeoutError:
                 pass
 
