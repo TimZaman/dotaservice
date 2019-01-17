@@ -34,6 +34,10 @@ local function act(action)
         tblactions[action.actionType] = {{action.castTarget.abilitySlot}, {action.castTarget.target}, {0}}
     elseif action.actionType == "DOTA_UNIT_ORDER_CAST_TARGET_TREE" then
         tblactions[action.actionType] = {{action.castTree.abilitySlot}, {action.castTree.tree}, {0}}
+    elseif action.actionType == "DOTA_UNIT_ORDER_CAST_NO_TARGET" then
+        tblactions[action.actionType] = {{action.cast.abilitySlot}, {0}}
+    elseif action.actionType == "DOTA_UNIT_ORDER_CAST_TOGGLE" then
+        tblactions[action.actionType] = {{action.castToggle.abilitySlot}}
     end
     action_proc:Run(GetBot(), tblActions)
 end
