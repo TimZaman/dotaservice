@@ -43,7 +43,7 @@ local function act(action)
 end
 
 
-local function get_new_action(dota_time, player_id)
+local function get_new_actions(dota_time, player_id, curr_step)
     -- print('(lua) get_new_action @', dota_time, ' player_id=', player_id)
     -- print('ACTION_FILENAME=', ACTION_FILENAME)
     local file_fn = nil
@@ -66,15 +66,19 @@ local function get_new_action(dota_time, player_id)
             
             if data.dotaTime == dota_time or data.dotaTime == nil then
                 -- Now find correponding player id
+                local actions = {}
                 for _, action in pairs(data.actions) do
                     if action.player == player_id then
                         if action.actionDelay == nil then
                             -- Make sure this defaults to 0 if not present
-                            action.actionDelay = 0
+                            action.actionDelay = curr_step
+                        else
+                            action.actionDelay = curr_step + action.actionDelay
                         end
-                        return action
+                        table.insert(actions, action)
                     end
                 end
+                return actions
             end
         end
     end
@@ -108,8 +112,7 @@ local dota_time_to_step_map = {}
 local worldstate_step_offset = nil
 local step = 0
 
-local action = nil
-local act_at_step = nil
+local actions = {}
 
 function Think()
     
@@ -167,18 +170,24 @@ function Think()
         -- print('(lua) Expecting state @ step=', step, 'dota_time=', dota_time)
         -- TODO(tzaman): read the action file here, and check that it contains an
         -- action with the right timestep.
-        action = get_new_action(dota_time, GetBot():GetPlayerID())
-        -- print('(lua) received action =', dump(action))
+        actions = get_new_actions(dota_time, GetBot():GetPlayerID(), step)
+        -- print('(lua) received actions =', dump(actions))
 
-        debug_text = pprint.pformat(action)
-
-        act_at_step = step + action.actionDelay  -- TODO(tzaman) does this still work if not defined?
+        debug_text = pprint.pformat(actions)
     end
 
-    if step == act_at_step then
-        act(action)
-        act_at_step = nil
-        action = nil
+    if actions and #actions > 0 then
+        completed_actions = {}
+        for index, action in pairs(actions) do
+            if step == action.actionDelay then
+                act(action)
+                table.insert(completed_actions, 1, inded)
+            end
+        end
+
+        for _, erase_id in pairs(completed_actions) do
+            table.remove(actions, erase_id)
+        end
     end
 
     if debug_text ~= nil then
