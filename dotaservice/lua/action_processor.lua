@@ -21,6 +21,8 @@ local actionAttackUnit          = require( "bots/actions/attack_unit" )
 local actionUseAbilityOnEntity  = require( "bots/actions/use_ability_on_entity" )
 local actionUseAbilityOnLocation= require( "bots/actions/use_ability_on_location" )
 local actionUseAbilityOnTree    = require( "bots/actions/use_ability_on_tree" )
+local actionUseAbility          = require( "bots/actions/use_ability" )
+local actionToggleAbility       = require( "bots/actions/toggle_ability" )
 
 -- Global Variables
 ABILITY_STANDARD = 0
@@ -41,6 +43,8 @@ LookUpTable = {
     ['DOTA_UNIT_ORDER_CAST_POSITION'] = actionUseAbilityOnLocation,
     ['DOTA_UNIT_ORDER_CAST_TARGET'] = actionUseAbilityOnEntity,
     ['DOTA_UNIT_ORDER_CAST_TARGET_TREE'] = actionUseAbilityOnTree,
+    ['DOTA_UNIT_ORDER_CAST_NO_TARGET'] = actionUseAbility,
+    ['DOTA_UNIT_ORDER_CAST_TOGGLE'] = actionToggleAbility,
 }
 
 local function table_length(tbl)

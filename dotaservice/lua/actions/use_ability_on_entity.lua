@@ -28,7 +28,7 @@ function UseAbilityOnEntity:Call( hUnit, intAbilitySlot, hTarget, iType )
     -- or any debuffs on the hUnit (e.g., silenced). We assume
     -- only valid and legal actions are agent selected
     if not hTarget:IsNull() and hTarget:IsAlive() then
-        vLoc = hTarget:GetLocation()
+        local vLoc = hTarget:GetLocation()
         DebugDrawCircle(vLoc, 25, 255, 0, 0)
         DebugDrawLine(hUnit:GetLocation(), vLoc, 255, 0, 0)
         
