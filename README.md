@@ -90,30 +90,6 @@ pip3 install -e .
 python3 -m grpc_tools.protoc -I. --python_out=. --python_grpc_out=. --grpc_python_out=. dotaservice/protos/*.proto
 ```
 
-### Benchmarks
-
-From the benchmarks below you can derive that the dota service adds around 6±1 ms of time to
-each action we take. Notice that Dota runs at a fixed (though not precise) 30 ticks/s.
-When watching with `render=True` it seems that the bot is running faster than realtime even at
-`host_timescale=1`. And below (auto-generated) metrics show that it's running faster than real time
-too. Q: what's going on?
-
-| `env.reset` (ms) | `env.step` (ms) | `host_timescale` | `ticks_per_observation` |
-| ---              | ---             | ---              | ---                     |
-| 5291             | 11              | 1                | 1                       |
-| 5097             | 44              | 1                | 5                       |
-| 5515             | 85              | 1                | 10                      |
-| 5310             | 252             | 1                | 30                      |
-| 5316             | 10              | 5                | 1                       |
-| 5309             | 21              | 5                | 5                       |
-| 5295             | 35              | 5                | 10                      |
-| 5497             | 93              | 5                | 30                      |
-| 5322             | 10              | 10               | 1                       |
-| 5299             | 20              | 10               | 5                       |
-| 5308             | 32              | 10               | 10                      |
-| 5312             | 87              | 10               | 30                      |
-
-
 # Notes
 
 My dev notes: [NOTES.md](NOTES.md).

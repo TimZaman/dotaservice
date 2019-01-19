@@ -10,6 +10,8 @@ enum Status {
   RESOURCE_EXHAUSTED = 8;
   FAILED_PRECONDITION = 9;
   OUT_OF_RANGE = 11;
+  RADIANT_WIN = 12;
+  DIRE_WIN = 13;
 }
 
 enum Team {
