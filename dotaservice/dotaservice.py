@@ -62,6 +62,7 @@ class DotaGame(object):
     PORT_WORLDSTATES = {TEAM_RADIANT: 12120, TEAM_DIRE: 12121} 
     RE_DEMO =  re.compile(r'playdemo[ \t](.*dem)')
     RE_LUARDY = re.compile(r'LUARDY[ \t](\{.*\})')
+    RE_WIN = re.compile(r'good guys win = (\d)')
     WORLDSTATE_PAYLOAD_BYTES = 4
 
     def __init__(self,
@@ -132,10 +133,7 @@ class DotaGame(object):
         dota bot client.
         """
         filename = os.path.join(self.bot_path, '{}.lua'.format(filename_stem))
-        data = """
-        -- THIS FILE IS AUTO GENERATED
-        return '{data}'
-        """.format(data=json.dumps(data, separators=(',', ':')))
+        data = """return '{data}'""".format(data=json.dumps(data, separators=(',', ':')))
         with open(filename, 'w') as f:
             f.write(data)
 
@@ -191,6 +189,24 @@ class DotaGame(object):
                             self.lua_config_future.set_result(lua_config)
                             return
             await asyncio.sleep(0.2)
+
+    async def get_final_state_from_log(self):
+        """
+        Crawls the log for a winstate. Returns TEAM_RADIANT or TEAM_DIRE or None (not found).
+        """
+        abs_glob = os.path.join(self.bot_path, self.CONSOLE_LOGS_GLOB)
+        # Console logs can get split from `$stem.log` into `$stem.$number.log`.
+        for filename in glob.glob(abs_glob):
+            with open(filename) as f:
+                for line in f:
+                    m_win = self.RE_WIN.search(line)
+                    if m_win:
+                        key = m_win.group(1)
+                        if key == '1':
+                            return TEAM_RADIANT
+                        elif key == '0':
+                            return TEAM_DIRE                      
+        return None
 
     async def run(self):
         asyncio.create_task(self._run_dota())
@@ -342,6 +358,12 @@ class DotaGame(object):
 
 class DotaService(DotaServiceBase):
 
+    END_STATES = {
+        None: Status.Value('RESOURCE_EXHAUSTED'),
+        TEAM_RADIANT: Status.Value('RADIANT_WIN'),
+        TEAM_DIRE: Status.Value('DIRE_WIN'),
+    }
+
     def __init__(self, dota_path, action_folder, remove_logs):
         self.dota_path = dota_path
         self.action_folder = action_folder
@@ -476,9 +498,9 @@ class DotaService(DotaServiceBase):
             data = await asyncio.wait_for(queue.get(), timeout=self.observe_timeout)
         except (asyncio.TimeoutError, asyncio.CancelledError):
             # A timeout probably means the game is done
-            # TODO(tzaman): how does one know when a game is finished?
+            winstate = await self.dota_game.get_final_state_from_log()
             await stream.send_message(Observation(
-                status=Status.Value('RESOURCE_EXHAUSTED'),
+                status=self.END_STATES[winstate],
                 team_id=team_id,
                 ))
             return     
