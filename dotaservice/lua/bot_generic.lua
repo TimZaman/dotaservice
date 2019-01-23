@@ -16,6 +16,8 @@ local function act(action)
         tblActions[action.actionType] = {}
     elseif action.actionType == "DOTA_UNIT_ORDER_MOVE_TO_POSITION" then
         tblActions[action.actionType] = {{action.moveToLocation.location.x, action.moveToLocation.location.y, 0.0}, {0}}
+    elseif action.actionType == "DOTA_UNIT_ORDER_MOVE_DIRECTLY" then
+        tblActions[action.actionType] = {{action.moveDirectly.location.x, action.moveDirectly.location.y, 0.0}, {0}}
     elseif action.actionType == "DOTA_UNIT_ORDER_ATTACK_TARGET" then
         tblActions[action.actionType] = {{action.attackTarget.target}, {action.attackTarget.once}, {0}}
     elseif action.actionType == "DOTA_UNIT_ORDER_TRAIN_ABILITY" then
