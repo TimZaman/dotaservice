@@ -14,7 +14,7 @@ local actionClearAction         = require( "bots/actions/clear" )
 local actionBuyback             = require( "bots/actions/buyback" )
 local actionChat                = require( "bots/actions/chat" )
 
---local actionMoveToLocation      = require( "bots/actions/move_to_location" )
+local actionMoveToLocation      = require( "bots/actions/move_to_location" )
 local actionMoveDirectly        = require( "bots/actions/move_directly" )
 local actionAttackUnit          = require( "bots/actions/attack_unit" )
 
@@ -33,7 +33,8 @@ local ActionProcessor = {}
 
 LookUpTable = {
     ['DOTA_UNIT_ORDER_NONE'] = actionNone,
-    ['DOTA_UNIT_ORDER_MOVE_TO_POSITION'] = actionMoveDirectly,
+    ['DOTA_UNIT_ORDER_MOVE_TO_POSITION'] = actionMoveToLocation,
+    ['DOTA_UNIT_ORDER_MOVE_DIRECTLY'] = actionMoveDirectly,
     ['DOTA_UNIT_ORDER_ATTACK_TARGET'] = actionAttackUnit,
     ['DOTA_UNIT_ORDER_GLYPH'] = actionGlyph,
     ['DOTA_UNIT_ORDER_STOP'] = actionClearAction,
