@@ -15,8 +15,25 @@ local function act(action)
     if action.actionType == "DOTA_UNIT_ORDER_NONE" then
         tblActions[action.actionType] = {}
     elseif action.actionType == "DOTA_UNIT_ORDER_MOVE_TO_POSITION" then
+        -- NOTE: Move To Position is implemented by Dota2 as a path-navigation movement action.
+        --       It will create a list of waypoints that the bot will walk in straight lines between.
+        --       The waypoints the system creates will guarantee a valid path between current location
+        --       and destination location (PROVIDING A VALID PATH EXISTS).
+        --       It approximates reaching each "waypoint" (including last one) before moving to the next 
+        --       waypoint (if it exists) with a granularity tested to be 50 units. So Move To Location is
+        --       not a VERY precise movement action, but it's not hugely imprecise either. It is an 
+        --       important note though, as if you don't check if your position is within the precision
+        --       approximiation for movement you could end up instructing the bot to move to the same
+        --       location over and over and it just ping-pongs back and forth moving around the precise
+        --       location but never directly on it.
         tblActions[action.actionType] = {{action.moveToLocation.location.x, action.moveToLocation.location.y, 0.0}, {0}}
     elseif action.actionType == "DOTA_UNIT_ORDER_MOVE_DIRECTLY" then
+        -- NOTE: Move Direclty is implemented by Dota2 as a single point-to-point straight line 
+        --       movement action. It does not try to path around any obstacles or check for impossible moves.
+        --       It has high precision in final position (gut belief is a 1-2 unit approximation).
+        --       Because of how it works, it is ill-advised to use Direct movement for long distances as the
+        --       probability of hitting a tree or an obstacle are high and with Direct movement you will
+        --       not path around it, but rather get stuck trying to move through it and not succeeding.
         tblActions[action.actionType] = {{action.moveDirectly.location.x, action.moveDirectly.location.y, 0.0}, {0}}
     elseif action.actionType == "DOTA_UNIT_ORDER_ATTACK_TARGET" then
         tblActions[action.actionType] = {{action.attackTarget.target}, {action.attackTarget.once}, {0}}
