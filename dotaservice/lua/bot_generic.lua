@@ -61,6 +61,8 @@ local function act(action)
         tblactions[action.actionType] = {{action.pickUpRune.rune}, {0}}
     elseif action.actionType == "DOTA_UNIT_ORDER_PICKUP_ITEM" then
         tblactions[action.actionType] = {{action.pickUpItem.itemId}, {0}}
+    elseif action.actionType == "DOTA_UNIT_ORDER_DROP_ITEM" then
+        tblactions[action.actionType] = {{action.dropItem.slot}, {action.dropItem.location.x, action.dropItem.location.y, 0,0}, {0}}
     end
     action_proc:Run(GetBot(), tblActions)
 end
