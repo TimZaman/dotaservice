@@ -57,6 +57,10 @@ local function act(action)
         tblactions[action.actionType] = {{action.cast.abilitySlot}, {0}}
     elseif action.actionType == "DOTA_UNIT_ORDER_CAST_TOGGLE" then
         tblactions[action.actionType] = {{action.castToggle.abilitySlot}}
+    elseif action.actionType == "DOTA_UNIT_ORDER_PICKUP_RUNE" then
+        tblactions[action.actionType] = {{action.pickUpRune.rune}, {0}}
+    elseif action.actionType == "DOTA_UNIT_ORDER_PICKUP_ITEM" then
+        tblactions[action.actionType] = {{action.pickUpItem.itemId}, {0}}
     end
     action_proc:Run(GetBot(), tblActions)
 end

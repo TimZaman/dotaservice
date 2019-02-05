@@ -24,6 +24,9 @@ local actionUseAbilityOnTree    = require( "bots/actions/use_ability_on_tree" )
 local actionUseAbility          = require( "bots/actions/use_ability" )
 local actionToggleAbility       = require( "bots/actions/toggle_ability" )
 
+local actionPickUpRune          = require( "bots/actions/pickup_rune" )
+local actionPickUpItem          = require( "bots/actions/pickup_item" )
+
 -- Global Variables
 ABILITY_STANDARD = 0
 ABILITY_PUSH     = 1
@@ -46,6 +49,8 @@ LookUpTable = {
     ['DOTA_UNIT_ORDER_CAST_TARGET_TREE'] = actionUseAbilityOnTree,
     ['DOTA_UNIT_ORDER_CAST_NO_TARGET'] = actionUseAbility,
     ['DOTA_UNIT_ORDER_CAST_TOGGLE'] = actionToggleAbility,
+    ['DOTA_UNIT_ORDER_PICKUP_RUNE'] = actionPickUpRune,
+    ['DOTA_UNIT_ORDER_PICKUP_ITEM'] = actionPickUpItem,
 }
 
 local function table_length(tbl)
