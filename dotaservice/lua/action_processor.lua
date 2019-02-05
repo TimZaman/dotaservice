@@ -26,6 +26,7 @@ local actionToggleAbility       = require( "bots/actions/toggle_ability" )
 
 local actionPickUpRune          = require( "bots/actions/pickup_rune" )
 local actionPickUpItem          = require( "bots/actions/pickup_item" )
+local actionDropItem            = require( "bots/actions/drop_item" )
 
 -- Global Variables
 ABILITY_STANDARD = 0
@@ -51,6 +52,7 @@ LookUpTable = {
     ['DOTA_UNIT_ORDER_CAST_TOGGLE'] = actionToggleAbility,
     ['DOTA_UNIT_ORDER_PICKUP_RUNE'] = actionPickUpRune,
     ['DOTA_UNIT_ORDER_PICKUP_ITEM'] = actionPickUpItem,
+    ['DOTA_UNIT_ORDER_DROP_ITEM'] = actionDropItem,
 }
 
 local function table_length(tbl)
