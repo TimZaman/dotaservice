@@ -214,5 +214,8 @@ because a radiant move always needs to be made, even before the dire has receive
 4) Invoke all lua scripts for radiant team
 5) repeat (1)
 
-
-
+You can run a custom lua game using:
+```./dota.sh +dota_launch_custom_game hero_demo hero_demo_main```
+These addons are in `game/dota_addons/...`. However, workshop tools for maps and such
+require Windows OS. It seems that whatever you try, the worldstates are not being sent out correctly,
+or they are empty. You can set them up, but it seems they just contain no valid data..
