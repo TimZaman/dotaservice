@@ -1,6 +1,51 @@
 local config = require("bots/config")
+local dkjson = require('game/dkjson')
 
-function TeamToChar()
+local SELECTION_FILENAME = 'bots/selections_t' .. GetTeam()
+
+local DEFAULT_HEROES = {
+    ["pick"] = {
+        "npc_dota_hero_nevermore",
+        "npc_dota_hero_antimage",
+        "npc_dota_hero_lion",
+        "npc_dota_hero_bane",
+        "npc_dota_hero_rattletrap",
+    },
+    ["ban"] = {
+    },
+}
+
+local function get_new_selections(index, phase)
+    local file_fn = nil
+
+    phase               = phase or "pick"
+    local retIndex      = index
+    local retHeroName   = DEFAULT_HEROES[phase][index]
+
+    -- Try to load the file first
+    file_fn = loadfile(SELECTION_FILENAME)
+    if file_fn ~= nil then
+        -- Execute the file_fn; this loads contents into `data`.
+        local data = file_fn()
+        if data ~= nil then
+            local data, pos, err = dkjson.decode(data, 1, nil)
+            if err then
+                print("(lua) JSON Decode Error=", err, " at pos=", pos)
+            else
+                local selections = {}
+                for indx, selection in pairs(data.actions) do
+                    if indx == index then
+                        retIndex = indx
+                        retHeroName = selection
+                    end
+                end
+            end
+        end
+    end
+    return retIndex, retHeroName
+end
+
+local function TeamToChar()
     -- TEAM_RADIANT==2 TEAM_DIRE==3. Makes total sense!
     if GetTeam() == TEAM_RADIANT then return 'R' else return 'D' end
 end
@@ -19,18 +64,10 @@ end
 local function mode1v1()
     local ids = GetTeamPlayers(GetTeam())
     for i,v in pairs(ids) do
-        -- If the human is in the unassigned slot, the radiant bots start at v = 2
-        -- If the human is in the radiant coach slot, the radiant bots start at v = 2
-        -- If the human is in the first radiant slot, the radiant bots start at v = 0
-        -- If the human is in the second radiant slot, the radiant bots start at v = 1
-        -- If the human is in the third radiant slot, the radiant bots start at v = 2
         if IsPlayerBot(v) and IsPlayerInHeroSelectionControl(v) and GetSelectedHeroName(v) == "" then
-        -- if i == 1 and GetTeam() == TEAM_RADIANT then
-            if i == 1 then
-                SelectHero( v, "npc_dota_hero_sniper" );
-            else
-                SelectHero( v, "npc_dota_hero_zuus" );
-            end
+            _, strHero = get_new_selections( i, "pick" )
+            SelectHero( v, strHero );
+            return
         end
     end
 end
