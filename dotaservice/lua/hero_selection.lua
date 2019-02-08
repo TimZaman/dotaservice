@@ -80,6 +80,7 @@ local function modeCM()
     local ids = GetTeamPlayers(GetTeam())
 end
 
+local game_time = 0.0
 function Think()
 	-- This gets called (every server tick AND until all heroes are picked).
 	-- This needs to gets called at least once if there is no human.
@@ -97,7 +98,10 @@ function Think()
         modeCM()
     -- 1v1 Mid
     elseif game_mode == GAMEMODE_1V1MID then
-        mode1v1()
+        if GameTime() > game_time then
+            mode1v1()
+            game_time = GameTime() + 5.0
+        end
     else
         print("[ERROR] UNKNOWN GAME MODE: ", game_mode)
         do return end

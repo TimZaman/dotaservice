@@ -51,6 +51,7 @@ def verify_game_path(game_path):
 
 class DotaGame(object):
 
+    LOG_MONITOR_LINE_OFFSET = 0
     ACTIONS_FILENAME_FMT = 'actions_t{team_id}'
     ACTIONABLE_GAME_STATES = [DOTA_GAMERULES_STATE_PRE_GAME, DOTA_GAMERULES_STATE_GAME_IN_PROGRESS]
     BOTS_FOLDER_NAME = 'bots'
@@ -63,6 +64,7 @@ class DotaGame(object):
     RE_DEMO =  re.compile(r'playdemo[ \t](.*dem)')
     RE_LUARDY = re.compile(r'LUARDY[ \t](\{.*\})')
     RE_WIN = re.compile(r'good guys win = (\d)')
+    RE_HS  =re.compile(r'SetSelectedHero (\d):\S+ (\w+)')
     WORLDSTATE_PAYLOAD_BYTES = 4
 
     def __init__(self,
@@ -174,13 +176,18 @@ class DotaGame(object):
             # Console logs can get split from `$stem.log` into `$stem.$number.log`.
             for filename in glob.glob(abs_glob):
                 with open(filename) as f:
+                    line_index = 0
                     for line in f:
+                        if line_index < self.LOG_MONITOR_LINE_OFFSET:
+                            line_index += 1
+                            continue
                         # Demo line always comes before the LUADRY signal.
                         if self.demo_path_rel is None:
                             m_demo = self.RE_DEMO.search(line)
                             if m_demo:
                                 self.demo_path_rel = m_demo.group(1)
                                 logger.debug("demo_path_rel={}".format(self.demo_path_rel))
+                                self.LOG_MONITOR_LINE_OFFSET = line_index + 1
                         m_luadry = self.RE_LUARDY.search(line)
                         if m_luadry:
                             config_json = m_luadry.group(1)
@@ -188,6 +195,13 @@ class DotaGame(object):
                             logger.debug('lua_config={}'.format(lua_config))
                             self.lua_config_future.set_result(lua_config)
                             return
+                        m_hs = self.RE_HS.search(line)
+                        if m_hs:
+                            player_id = m_hs.group(1)
+                            hero_name = m_hs.group(2)
+                            logger.info('PlayerID: {}, NAME: {}'.format(player_id, hero_name))
+                            self.LOG_MONITOR_LINE_OFFSET = line_index + 1
+                        line_index += 1
             await asyncio.sleep(0.2)
 
     async def get_final_state_from_log(self):
@@ -338,6 +352,7 @@ class DotaGame(object):
             else:
                 break
         try:
+            hero_selection_line_offset = 0
             while True:
                 # This reader is always going to need to keep going to keep the buffers flushed.
                 try:
