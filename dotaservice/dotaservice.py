@@ -544,7 +544,19 @@ class DotaService(DotaServiceBase):
         # Return the reponse.
         await stream.send_message(Empty())
 
+    async def select_hero(self, stream):
+        logger.debug('DotaService::select_hero()')
 
+        request = await stream.recv_message()
+        selection_type = request.type
+        team_id = request.team_id
+        name = request.hero_name
+
+        logger.debug('team_id={}, selection={}, name={}'.format(team_id, selection_type, name))
+        # TODO - implement sending to dota_game
+        
+        # Return the reponse.
+        await stream.send_message(Empty())
 
 
 async def serve(server, *, host, port):

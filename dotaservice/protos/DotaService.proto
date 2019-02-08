@@ -25,7 +25,20 @@ enum HostMode {
   HOST_MODE_GUI_MENU = 2;
 }
 
+enum SelectionType {
+  SELECTION_TYPE_PICK = 0;
+  SELECTION_TYPE_BAN = 1;
+  // For Ability Draft
+  SELECTION_TYPE_ABILITY_PICK = 2;
+}
+
 message Empty {}
+
+message HeroSelection {
+  required SelectionType type = 1;
+  optional Team team_id = 2;
+  optional string hero_name = 3;
+}
 
 message Observation {
   required Status status = 1;
@@ -62,4 +75,5 @@ service DotaService {
   rpc reset (GameConfig) returns (InitialObservation) {}  // TODO(tzaman): add version and hostname in response.
   rpc observe (ObserveConfig) returns (Observation) {}
   rpc act (Actions) returns (Empty) {}
+  rpc select_hero (HeroSelection) returns (Empty) {}
 }

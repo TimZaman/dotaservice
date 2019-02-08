@@ -25,6 +25,10 @@ class DotaServiceBase(abc.ABC):
     async def act(self, stream):
         pass
 
+    @abc.abstractmethod
+    async def select_hero(self, stream):
+        pass
+
     def __mapping__(self):
         return {
             '/DotaService/reset': grpclib.const.Handler(
@@ -43,6 +47,12 @@ class DotaServiceBase(abc.ABC):
                 self.act,
                 grpclib.const.Cardinality.UNARY_UNARY,
                 dotaservice.protos.DotaService_pb2.Actions,
+                dotaservice.protos.DotaService_pb2.Empty,
+            ),
+            '/DotaService/select_hero': grpclib.const.Handler(
+                self.select_hero,
+                grpclib.const.Cardinality.UNARY_UNARY,
+                dotaservice.protos.DotaService_pb2.HeroSelection,
                 dotaservice.protos.DotaService_pb2.Empty,
             ),
         }
@@ -67,5 +77,11 @@ class DotaServiceStub:
             channel,
             '/DotaService/act',
             dotaservice.protos.DotaService_pb2.Actions,
+            dotaservice.protos.DotaService_pb2.Empty,
+        )
+        self.select_hero = grpclib.client.UnaryUnaryMethod(
+            channel,
+            '/DotaService/select_hero',
+            dotaservice.protos.DotaService_pb2.HeroSelection,
             dotaservice.protos.DotaService_pb2.Empty,
         )

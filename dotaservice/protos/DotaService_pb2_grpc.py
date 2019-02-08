@@ -29,6 +29,11 @@ class DotaServiceStub(object):
         request_serializer=dotaservice_dot_protos_dot_DotaService__pb2.Actions.SerializeToString,
         response_deserializer=dotaservice_dot_protos_dot_DotaService__pb2.Empty.FromString,
         )
+    self.select_hero = channel.unary_unary(
+        '/DotaService/select_hero',
+        request_serializer=dotaservice_dot_protos_dot_DotaService__pb2.HeroSelection.SerializeToString,
+        response_deserializer=dotaservice_dot_protos_dot_DotaService__pb2.Empty.FromString,
+        )
 
 
 class DotaServiceServicer(object):
@@ -56,6 +61,13 @@ class DotaServiceServicer(object):
     context.set_details('Method not implemented!')
     raise NotImplementedError('Method not implemented!')
 
+  def select_hero(self, request, context):
+    # missing associated documentation comment in .proto file
+    pass
+    context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+    context.set_details('Method not implemented!')
+    raise NotImplementedError('Method not implemented!')
+
 
 def add_DotaServiceServicer_to_server(servicer, server):
   rpc_method_handlers = {
@@ -72,6 +84,11 @@ def add_DotaServiceServicer_to_server(servicer, server):
       'act': grpc.unary_unary_rpc_method_handler(
           servicer.act,
           request_deserializer=dotaservice_dot_protos_dot_DotaService__pb2.Actions.FromString,
+          response_serializer=dotaservice_dot_protos_dot_DotaService__pb2.Empty.SerializeToString,
+      ),
+      'select_hero': grpc.unary_unary_rpc_method_handler(
+          servicer.select_hero,
+          request_deserializer=dotaservice_dot_protos_dot_DotaService__pb2.HeroSelection.FromString,
           response_serializer=dotaservice_dot_protos_dot_DotaService__pb2.Empty.SerializeToString,
       ),
   }

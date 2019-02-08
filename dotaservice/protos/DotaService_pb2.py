@@ -22,7 +22,7 @@ DESCRIPTOR = _descriptor.FileDescriptor(
   package='',
   syntax='proto2',
   serialized_options=None,
-  serialized_pb=_b('\n$dotaservice/protos/DotaService.proto\x1a:dotaservice/protos/dota_gcmessages_common_bot_script.proto\x1a*dotaservice/protos/dota_shared_enums.proto\"\x07\n\x05\x45mpty\"g\n\x0bObservation\x12\x17\n\x06status\x18\x01 \x02(\x0e\x32\x07.Status\x12\x16\n\x07team_id\x18\x02 \x01(\x0e\x32\x05.Team\x12\'\n\x0bworld_state\x18\x03 \x01(\x0b\x32\x12.CMsgBotWorldState\"\x8c\x01\n\x12InitialObservation\x12\x17\n\x06status\x18\x01 \x01(\x0e\x32\x07.Status\x12/\n\x13world_state_radiant\x18\x02 \x01(\x0b\x32\x12.CMsgBotWorldState\x12,\n\x10world_state_dire\x18\x03 \x01(\x0b\x32\x12.CMsgBotWorldState\"\xbf\x01\n\nGameConfig\x12\x0f\n\x07game_id\x18\x01 \x01(\t\x12\x1d\n\x15ticks_per_observation\x18\x03 \x02(\r\x12\x19\n\x0ehost_timescale\x18\x02 \x01(\r:\x01\x31\x12\x31\n\thost_mode\x18\x05 \x01(\x0e\x32\t.HostMode:\x13HOST_MODE_DEDICATED\x12\x33\n\tgame_mode\x18\x06 \x01(\x0e\x32\x0e.DOTA_GameMode:\x10\x44OTA_GAMEMODE_MO\"N\n\x07\x41\x63tions\x12+\n\x07\x61\x63tions\x18\x01 \x02(\x0b\x32\x1a.CMsgBotWorldState.Actions\x12\x16\n\x07team_id\x18\x02 \x02(\x0e\x32\x05.Team\"\'\n\rObserveConfig\x12\x16\n\x07team_id\x18\x01 \x02(\x0e\x32\x05.Team*r\n\x06Status\x12\x06\n\x02OK\x10\x00\x12\x16\n\x12RESOURCE_EXHAUSTED\x10\x08\x12\x17\n\x13\x46\x41ILED_PRECONDITION\x10\t\x12\x10\n\x0cOUT_OF_RANGE\x10\x0b\x12\x0f\n\x0bRADIANT_WIN\x10\x0c\x12\x0c\n\x08\x44IRE_WIN\x10\r*\'\n\x04Team\x12\x10\n\x0cTEAM_RADIANT\x10\x02\x12\r\n\tTEAM_DIRE\x10\x03*N\n\x08HostMode\x12\x17\n\x13HOST_MODE_DEDICATED\x10\x00\x12\x11\n\rHOST_MODE_GUI\x10\x01\x12\x16\n\x12HOST_MODE_GUI_MENU\x10\x02\x32\x80\x01\n\x0b\x44otaService\x12+\n\x05reset\x12\x0b.GameConfig\x1a\x13.InitialObservation\"\x00\x12)\n\x07observe\x12\x0e.ObserveConfig\x1a\x0c.Observation\"\x00\x12\x19\n\x03\x61\x63t\x12\x08.Actions\x1a\x06.Empty\"\x00')
+  serialized_pb=_b('\n$dotaservice/protos/DotaService.proto\x1a:dotaservice/protos/dota_gcmessages_common_bot_script.proto\x1a*dotaservice/protos/dota_shared_enums.proto\"\x07\n\x05\x45mpty\"X\n\rHeroSelection\x12\x1c\n\x04type\x18\x01 \x02(\x0e\x32\x0e.SelectionType\x12\x16\n\x07team_id\x18\x02 \x01(\x0e\x32\x05.Team\x12\x11\n\thero_name\x18\x03 \x01(\t\"g\n\x0bObservation\x12\x17\n\x06status\x18\x01 \x02(\x0e\x32\x07.Status\x12\x16\n\x07team_id\x18\x02 \x01(\x0e\x32\x05.Team\x12\'\n\x0bworld_state\x18\x03 \x01(\x0b\x32\x12.CMsgBotWorldState\"\x8c\x01\n\x12InitialObservation\x12\x17\n\x06status\x18\x01 \x01(\x0e\x32\x07.Status\x12/\n\x13world_state_radiant\x18\x02 \x01(\x0b\x32\x12.CMsgBotWorldState\x12,\n\x10world_state_dire\x18\x03 \x01(\x0b\x32\x12.CMsgBotWorldState\"\xbf\x01\n\nGameConfig\x12\x0f\n\x07game_id\x18\x01 \x01(\t\x12\x1d\n\x15ticks_per_observation\x18\x03 \x02(\r\x12\x19\n\x0ehost_timescale\x18\x02 \x01(\r:\x01\x31\x12\x31\n\thost_mode\x18\x05 \x01(\x0e\x32\t.HostMode:\x13HOST_MODE_DEDICATED\x12\x33\n\tgame_mode\x18\x06 \x01(\x0e\x32\x0e.DOTA_GameMode:\x10\x44OTA_GAMEMODE_MO\"N\n\x07\x41\x63tions\x12+\n\x07\x61\x63tions\x18\x01 \x02(\x0b\x32\x1a.CMsgBotWorldState.Actions\x12\x16\n\x07team_id\x18\x02 \x02(\x0e\x32\x05.Team\"\'\n\rObserveConfig\x12\x16\n\x07team_id\x18\x01 \x02(\x0e\x32\x05.Team*r\n\x06Status\x12\x06\n\x02OK\x10\x00\x12\x16\n\x12RESOURCE_EXHAUSTED\x10\x08\x12\x17\n\x13\x46\x41ILED_PRECONDITION\x10\t\x12\x10\n\x0cOUT_OF_RANGE\x10\x0b\x12\x0f\n\x0bRADIANT_WIN\x10\x0c\x12\x0c\n\x08\x44IRE_WIN\x10\r*\'\n\x04Team\x12\x10\n\x0cTEAM_RADIANT\x10\x02\x12\r\n\tTEAM_DIRE\x10\x03*N\n\x08HostMode\x12\x17\n\x13HOST_MODE_DEDICATED\x10\x00\x12\x11\n\rHOST_MODE_GUI\x10\x01\x12\x16\n\x12HOST_MODE_GUI_MENU\x10\x02*a\n\rSelectionType\x12\x17\n\x13SELECTION_TYPE_PICK\x10\x00\x12\x16\n\x12SELECTION_TYPE_BAN\x10\x01\x12\x1f\n\x1bSELECTION_TYPE_ABILITY_PICK\x10\x02\x32\xa9\x01\n\x0b\x44otaService\x12+\n\x05reset\x12\x0b.GameConfig\x1a\x13.InitialObservation\"\x00\x12)\n\x07observe\x12\x0e.ObserveConfig\x1a\x0c.Observation\"\x00\x12\x19\n\x03\x61\x63t\x12\x08.Actions\x1a\x06.Empty\"\x00\x12\'\n\x0bselect_hero\x12\x0e.HeroSelection\x1a\x06.Empty\"\x00')
   ,
   dependencies=[dotaservice_dot_protos_dot_dota__gcmessages__common__bot__script__pb2.DESCRIPTOR,dotaservice_dot_protos_dot_dota__shared__enums__pb2.DESCRIPTOR,])
 
@@ -59,8 +59,8 @@ _STATUS = _descriptor.EnumDescriptor(
   ],
   containing_type=None,
   serialized_options=None,
-  serialized_start=716,
-  serialized_end=830,
+  serialized_start=806,
+  serialized_end=920,
 )
 _sym_db.RegisterEnumDescriptor(_STATUS)
 
@@ -82,8 +82,8 @@ _TEAM = _descriptor.EnumDescriptor(
   ],
   containing_type=None,
   serialized_options=None,
-  serialized_start=832,
-  serialized_end=871,
+  serialized_start=922,
+  serialized_end=961,
 )
 _sym_db.RegisterEnumDescriptor(_TEAM)
 
@@ -109,12 +109,39 @@ _HOSTMODE = _descriptor.EnumDescriptor(
   ],
   containing_type=None,
   serialized_options=None,
-  serialized_start=873,
-  serialized_end=951,
+  serialized_start=963,
+  serialized_end=1041,
 )
 _sym_db.RegisterEnumDescriptor(_HOSTMODE)
 
 HostMode = enum_type_wrapper.EnumTypeWrapper(_HOSTMODE)
+_SELECTIONTYPE = _descriptor.EnumDescriptor(
+  name='SelectionType',
+  full_name='SelectionType',
+  filename=None,
+  file=DESCRIPTOR,
+  values=[
+    _descriptor.EnumValueDescriptor(
+      name='SELECTION_TYPE_PICK', index=0, number=0,
+      serialized_options=None,
+      type=None),
+    _descriptor.EnumValueDescriptor(
+      name='SELECTION_TYPE_BAN', index=1, number=1,
+      serialized_options=None,
+      type=None),
+    _descriptor.EnumValueDescriptor(
+      name='SELECTION_TYPE_ABILITY_PICK', index=2, number=2,
+      serialized_options=None,
+      type=None),
+  ],
+  containing_type=None,
+  serialized_options=None,
+  serialized_start=1043,
+  serialized_end=1140,
+)
+_sym_db.RegisterEnumDescriptor(_SELECTIONTYPE)
+
+SelectionType = enum_type_wrapper.EnumTypeWrapper(_SELECTIONTYPE)
 OK = 0
 RESOURCE_EXHAUSTED = 8
 FAILED_PRECONDITION = 9
@@ -126,6 +153,9 @@ TEAM_DIRE = 3
 HOST_MODE_DEDICATED = 0
 HOST_MODE_GUI = 1
 HOST_MODE_GUI_MENU = 2
+SELECTION_TYPE_PICK = 0
+SELECTION_TYPE_BAN = 1
+SELECTION_TYPE_ABILITY_PICK = 2
 
 
 
@@ -150,6 +180,51 @@ _EMPTY = _descriptor.Descriptor(
   ],
   serialized_start=144,
   serialized_end=151,
+)
+
+
+_HEROSELECTION = _descriptor.Descriptor(
+  name='HeroSelection',
+  full_name='HeroSelection',
+  filename=None,
+  file=DESCRIPTOR,
+  containing_type=None,
+  fields=[
+    _descriptor.FieldDescriptor(
+      name='type', full_name='HeroSelection.type', index=0,
+      number=1, type=14, cpp_type=8, label=2,
+      has_default_value=False, default_value=0,
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      serialized_options=None, file=DESCRIPTOR),
+    _descriptor.FieldDescriptor(
+      name='team_id', full_name='HeroSelection.team_id', index=1,
+      number=2, type=14, cpp_type=8, label=1,
+      has_default_value=False, default_value=2,
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      serialized_options=None, file=DESCRIPTOR),
+    _descriptor.FieldDescriptor(
+      name='hero_name', full_name='HeroSelection.hero_name', index=2,
+      number=3, type=9, cpp_type=9, label=1,
+      has_default_value=False, default_value=_b("").decode('utf-8'),
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      serialized_options=None, file=DESCRIPTOR),
+  ],
+  extensions=[
+  ],
+  nested_types=[],
+  enum_types=[
+  ],
+  serialized_options=None,
+  is_extendable=False,
+  syntax='proto2',
+  extension_ranges=[],
+  oneofs=[
+  ],
+  serialized_start=153,
+  serialized_end=241,
 )
 
 
@@ -193,8 +268,8 @@ _OBSERVATION = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=153,
-  serialized_end=256,
+  serialized_start=243,
+  serialized_end=346,
 )
 
 
@@ -238,8 +313,8 @@ _INITIALOBSERVATION = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=259,
-  serialized_end=399,
+  serialized_start=349,
+  serialized_end=489,
 )
 
 
@@ -297,8 +372,8 @@ _GAMECONFIG = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=402,
-  serialized_end=593,
+  serialized_start=492,
+  serialized_end=683,
 )
 
 
@@ -335,8 +410,8 @@ _ACTIONS = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=595,
-  serialized_end=673,
+  serialized_start=685,
+  serialized_end=763,
 )
 
 
@@ -366,10 +441,12 @@ _OBSERVECONFIG = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=675,
-  serialized_end=714,
+  serialized_start=765,
+  serialized_end=804,
 )
 
+_HEROSELECTION.fields_by_name['type'].enum_type = _SELECTIONTYPE
+_HEROSELECTION.fields_by_name['team_id'].enum_type = _TEAM
 _OBSERVATION.fields_by_name['status'].enum_type = _STATUS
 _OBSERVATION.fields_by_name['team_id'].enum_type = _TEAM
 _OBSERVATION.fields_by_name['world_state'].message_type = dotaservice_dot_protos_dot_dota__gcmessages__common__bot__script__pb2._CMSGBOTWORLDSTATE
@@ -382,6 +459,7 @@ _ACTIONS.fields_by_name['actions'].message_type = dotaservice_dot_protos_dot_dot
 _ACTIONS.fields_by_name['team_id'].enum_type = _TEAM
 _OBSERVECONFIG.fields_by_name['team_id'].enum_type = _TEAM
 DESCRIPTOR.message_types_by_name['Empty'] = _EMPTY
+DESCRIPTOR.message_types_by_name['HeroSelection'] = _HEROSELECTION
 DESCRIPTOR.message_types_by_name['Observation'] = _OBSERVATION
 DESCRIPTOR.message_types_by_name['InitialObservation'] = _INITIALOBSERVATION
 DESCRIPTOR.message_types_by_name['GameConfig'] = _GAMECONFIG
@@ -390,6 +468,7 @@ DESCRIPTOR.message_types_by_name['ObserveConfig'] = _OBSERVECONFIG
 DESCRIPTOR.enum_types_by_name['Status'] = _STATUS
 DESCRIPTOR.enum_types_by_name['Team'] = _TEAM
 DESCRIPTOR.enum_types_by_name['HostMode'] = _HOSTMODE
+DESCRIPTOR.enum_types_by_name['SelectionType'] = _SELECTIONTYPE
 _sym_db.RegisterFileDescriptor(DESCRIPTOR)
 
 Empty = _reflection.GeneratedProtocolMessageType('Empty', (_message.Message,), dict(
@@ -398,6 +477,13 @@ Empty = _reflection.GeneratedProtocolMessageType('Empty', (_message.Message,), d
   # @@protoc_insertion_point(class_scope:Empty)
   ))
 _sym_db.RegisterMessage(Empty)
+
+HeroSelection = _reflection.GeneratedProtocolMessageType('HeroSelection', (_message.Message,), dict(
+  DESCRIPTOR = _HEROSELECTION,
+  __module__ = 'dotaservice.protos.DotaService_pb2'
+  # @@protoc_insertion_point(class_scope:HeroSelection)
+  ))
+_sym_db.RegisterMessage(HeroSelection)
 
 Observation = _reflection.GeneratedProtocolMessageType('Observation', (_message.Message,), dict(
   DESCRIPTOR = _OBSERVATION,
@@ -442,8 +528,8 @@ _DOTASERVICE = _descriptor.ServiceDescriptor(
   file=DESCRIPTOR,
   index=0,
   serialized_options=None,
-  serialized_start=954,
-  serialized_end=1082,
+  serialized_start=1143,
+  serialized_end=1312,
   methods=[
   _descriptor.MethodDescriptor(
     name='reset',
@@ -469,6 +555,15 @@ _DOTASERVICE = _descriptor.ServiceDescriptor(
     index=2,
     containing_service=None,
     input_type=_ACTIONS,
+    output_type=_EMPTY,
+    serialized_options=None,
+  ),
+  _descriptor.MethodDescriptor(
+    name='select_hero',
+    full_name='DotaService.select_hero',
+    index=3,
+    containing_service=None,
+    input_type=_HEROSELECTION,
     output_type=_EMPTY,
     serialized_options=None,
   ),
