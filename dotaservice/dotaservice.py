@@ -53,6 +53,7 @@ class DotaGame(object):
 
     LOG_MONITOR_LINE_OFFSET = 0
     ACTIONS_FILENAME_FMT = 'actions_t{team_id}'
+    SELECTIONS_FILENAME_FMT = 'selections_t{team_id}'
     ACTIONABLE_GAME_STATES = [DOTA_GAMERULES_STATE_PRE_GAME, DOTA_GAMERULES_STATE_GAME_IN_PROGRESS]
     BOTS_FOLDER_NAME = 'bots'
     CONFIG_FILENAME = 'config_auto'
@@ -126,6 +127,10 @@ class DotaGame(object):
         
     def write_action(self, data, team_id):
         filename_stem = self.ACTIONS_FILENAME_FMT.format(team_id=team_id)
+        self._write_bot_data_file(filename_stem=filename_stem, data=data)
+
+    def write_selection(self, data, team_id):
+        filename_stem = self.SELECTIONS_FILENAME_FMT.format(team_id=team_id)
         self._write_bot_data_file(filename_stem=filename_stem, data=data)
 
     def _write_bot_data_file(self, filename_stem, data):
@@ -551,9 +556,10 @@ class DotaService(DotaServiceBase):
         selection_type = request.type
         team_id = request.team_id
         name = request.hero_name
+        selections = MessageToDict(request.actions)
 
         logger.debug('team_id={}, selection={}, name={}'.format(team_id, selection_type, name))
-        # TODO - implement sending to dota_game
+        self.dota_game.write_selection(data=selections, team_id=team_id)
         
         # Return the reponse.
         await stream.send_message(Empty())
