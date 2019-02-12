@@ -12,6 +12,7 @@ enum Status {
   OUT_OF_RANGE = 11;
   RADIANT_WIN = 12;
   DIRE_WIN = 13;
+  HERO_SELECTION = 14;
 }
 
 enum Team {

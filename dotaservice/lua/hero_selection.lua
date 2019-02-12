@@ -6,10 +6,13 @@ local SELECTION_FILENAME = 'bots/selections_t' .. GetTeam()
 
 local function get_new_selections()
     local file_fn = nil
+    while true do
+        -- Try to load the file first
+        while true do
+            file_fn = loadfile(SELECTION_FILENAME)
+            if file_fn ~= nil then break end
+        end
 
-    -- Try to load the file first
-    file_fn = loadfile(SELECTION_FILENAME)
-    if file_fn ~= nil then
         -- Execute the file_fn; this loads contents into `data`.
         local data = file_fn()
         if data ~= nil then
@@ -17,11 +20,31 @@ local function get_new_selections()
             if err then
                 print("(lua) JSON Decode Error=", err, " at pos=", pos)
             else
+                indx = data.playerIndex
+                if IsPlayerBot(indx) and IsPlayerInHeroSelectionControl(indx) and GetSelectedHeroName(indx) == "" then
+                    SelectHero( indx, data.heroName )
+                end
                 return data.playerIndex, data.heroName, data.type
             end
         end
+
+        local hero_picked_cnt = 0
+        local rad_ids = GetTeamPlayers(TEAM_RADIANT)
+        for i,v in pairs(rad_ids) do
+            if GetSelectedHeroName(v) ~= "" then
+                hero_picked_cnt = hero_picked_cnt + 1
+            end
+        end
+        local dire_ids = GetTeamPlayers(TEAM_DIRE)
+        for i,v in pairs(dire_ids) do
+            if GetSelectedHeroName(v) ~= "" then
+                hero_picked_cnt = hero_picked_cnt + 1
+            end
+        end
+        if hero_picked_cnt >= 10 then
+            return
+        end
     end
-    return nil, nil, nil
 end
 
 local function TeamToChar()
@@ -41,13 +64,7 @@ function GetBotNames ()
 end
 
 local function mode1v1()
-    local ids = GetTeamPlayers(GetTeam())
-    local indx, name, select_type = get_new_selections()
-    if indx and IsPlayerBot(indx) and IsPlayerInHeroSelectionControl(indx) and GetSelectedHeroName(indx) == "" then
-        -- print("HERO SELECTION: ", select_type, "PlayerIndex: ", indx, " -- ", name)
-        SelectHero( indx, name );
-        return
-    end
+    get_new_selections()
 end
 
 local function modeAP()

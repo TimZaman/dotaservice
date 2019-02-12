@@ -52,7 +52,6 @@ def verify_game_path(game_path):
 
 class DotaGame(object):
 
-    LOG_MONITOR_LINE_OFFSET = 0
     ACTIONS_FILENAME_FMT = 'actions_t{team_id}'
     SELECTIONS_FILENAME_FMT = 'selections_t{team_id}'
     ACTIONABLE_GAME_STATES = [DOTA_GAMERULES_STATE_PRE_GAME, DOTA_GAMERULES_STATE_GAME_IN_PROGRESS]
@@ -66,7 +65,6 @@ class DotaGame(object):
     RE_DEMO =  re.compile(r'playdemo[ \t](.*dem)')
     RE_LUARDY = re.compile(r'LUARDY[ \t](\{.*\})')
     RE_WIN = re.compile(r'good guys win = (\d)')
-    RE_HS_START = re.compile(r"entering state 'DOTA_GAMERULES_STATE_HERO_SELECTION'")
     RE_HS = re.compile(r'SetSelectedHero (\d):\S+ (\w+)')
     WORLDSTATE_PAYLOAD_BYTES = 4
 
@@ -90,6 +88,7 @@ class DotaGame(object):
         self.game_id = game_id
         if not self.game_id:
             self.game_id = str(uuid.uuid1())
+        self.LOG_MONITOR_LINE_OFFSET = 0
         self.dota_bot_path = os.path.join(self.dota_path, 'dota', 'scripts', 'vscripts',
                                           self.BOTS_FOLDER_NAME)
         self.bot_path = self._create_bot_path()
@@ -209,7 +208,7 @@ class DotaGame(object):
                             player_id = m_hs.group(1)
                             hero_name = m_hs.group(2)
                             self.hs_mode_future[str(player_id)].set_result(True)
-                            logger.debug('PlayerID: {}, NAME: {}'.format(player_id, hero_name))
+                            logger.info('PlayerID: {}, NAME: {}'.format(player_id, hero_name))
                             self.LOG_MONITOR_LINE_OFFSET = line_index + 1
                         line_index += 1
             await asyncio.sleep(0.2)
@@ -222,7 +221,11 @@ class DotaGame(object):
         # Console logs can get split from `$stem.log` into `$stem.$number.log`.
         for filename in glob.glob(abs_glob):
             with open(filename) as f:
+                line_index = 0
                 for line in f:
+                    if line_index < self.LOG_MONITOR_LINE_OFFSET:
+                        line_index += 1
+                        continue
                     m_win = self.RE_WIN.search(line)
                     if m_win:
                         key = m_win.group(1)
@@ -230,6 +233,7 @@ class DotaGame(object):
                             return TEAM_RADIANT
                         elif key == '0':
                             return TEAM_DIRE                      
+                    line_index += 1
         return None
 
     async def run(self):
@@ -450,12 +454,14 @@ class DotaService(DotaServiceBase):
 
         This method should start up the dota game and the other required services.
         """
-        logger.debug('DotaService::reset()')
+        logger.info('DotaService::reset()')
 
         config = await stream.recv_message()
         logger.debug('config=\n{}'.format(config))
 
         await self.clean_resources()
+
+        self.heroes_selected = { TEAM_RADIANT: 0, TEAM_DIRE: 0 }
 
         # Create a new dota game instance.
         self.dota_game = DotaGame(
@@ -515,8 +521,6 @@ class DotaService(DotaServiceBase):
 
         self.dota_game.write_action(data=actions, team_id=team_id)
 
-        #hero_selection_mode = await self.dota_game.hs_mode
-
         # Return the reponse.
         await stream.send_message(Empty())
 
@@ -542,9 +546,9 @@ class DotaService(DotaServiceBase):
 
         if hs_done:
             # We first wait for the lua config. TODO(tzaman): do this in DotaGame?
-            logger.debug('::reset is awaiting lua config..')
+            logger.debug('::select_hero: is awaiting lua config..')
             lua_config = await self.dota_game.lua_config_future
-            logger.debug('::reset: lua config received={}'.format(lua_config))
+            logger.debug('::select_hero: lua config received={}'.format(lua_config))
 
         # Cycle through the queue until its empty, then only using the latest worldstate.
         data = {TEAM_RADIANT: None, TEAM_DIRE: None}
@@ -574,11 +578,16 @@ class DotaService(DotaServiceBase):
             }
             self.dota_game.write_live_config(data=config)
 
-        # Return the reponse
+            # Return the response
+            await stream.send_message(InitialObservation(
+                status=Status.Value('OK'),
+                world_state_radiant=data[TEAM_RADIANT],
+                world_state_dire=data[TEAM_DIRE],
+            ))
+            return 
+        # Return the response for select_hero
         await stream.send_message(InitialObservation(
-            status=Status.Value('OK'),
-            world_state_radiant=data[TEAM_RADIANT],
-            world_state_dire=data[TEAM_DIRE],
+            status=Status.Value('HERO_SELECTION'),
         ))
 
 

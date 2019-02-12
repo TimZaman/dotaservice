@@ -22,7 +22,7 @@ DESCRIPTOR = _descriptor.FileDescriptor(
   package='',
   syntax='proto2',
   serialized_options=None,
-  serialized_pb=_b('\n$dotaservice/protos/DotaService.proto\x1a:dotaservice/protos/dota_gcmessages_common_bot_script.proto\x1a*dotaservice/protos/dota_shared_enums.proto\"\x07\n\x05\x45mpty\"n\n\rHeroSelection\x12\x1c\n\x04type\x18\x01 \x02(\x0e\x32\x0e.SelectionType\x12\x16\n\x07team_id\x18\x02 \x01(\x0e\x32\x05.Team\x12\x14\n\x0cplayer_index\x18\x03 \x01(\r\x12\x11\n\thero_name\x18\x04 \x01(\t\"g\n\x0bObservation\x12\x17\n\x06status\x18\x01 \x02(\x0e\x32\x07.Status\x12\x16\n\x07team_id\x18\x02 \x01(\x0e\x32\x05.Team\x12\'\n\x0bworld_state\x18\x03 \x01(\x0b\x32\x12.CMsgBotWorldState\"\x8c\x01\n\x12InitialObservation\x12\x17\n\x06status\x18\x01 \x01(\x0e\x32\x07.Status\x12/\n\x13world_state_radiant\x18\x02 \x01(\x0b\x32\x12.CMsgBotWorldState\x12,\n\x10world_state_dire\x18\x03 \x01(\x0b\x32\x12.CMsgBotWorldState\"\xbf\x01\n\nGameConfig\x12\x0f\n\x07game_id\x18\x01 \x01(\t\x12\x1d\n\x15ticks_per_observation\x18\x03 \x02(\r\x12\x19\n\x0ehost_timescale\x18\x02 \x01(\r:\x01\x31\x12\x31\n\thost_mode\x18\x05 \x01(\x0e\x32\t.HostMode:\x13HOST_MODE_DEDICATED\x12\x33\n\tgame_mode\x18\x06 \x01(\x0e\x32\x0e.DOTA_GameMode:\x10\x44OTA_GAMEMODE_MO\"N\n\x07\x41\x63tions\x12+\n\x07\x61\x63tions\x18\x01 \x02(\x0b\x32\x1a.CMsgBotWorldState.Actions\x12\x16\n\x07team_id\x18\x02 \x02(\x0e\x32\x05.Team\"\'\n\rObserveConfig\x12\x16\n\x07team_id\x18\x01 \x02(\x0e\x32\x05.Team*r\n\x06Status\x12\x06\n\x02OK\x10\x00\x12\x16\n\x12RESOURCE_EXHAUSTED\x10\x08\x12\x17\n\x13\x46\x41ILED_PRECONDITION\x10\t\x12\x10\n\x0cOUT_OF_RANGE\x10\x0b\x12\x0f\n\x0bRADIANT_WIN\x10\x0c\x12\x0c\n\x08\x44IRE_WIN\x10\r*\'\n\x04Team\x12\x10\n\x0cTEAM_RADIANT\x10\x02\x12\r\n\tTEAM_DIRE\x10\x03*N\n\x08HostMode\x12\x17\n\x13HOST_MODE_DEDICATED\x10\x00\x12\x11\n\rHOST_MODE_GUI\x10\x01\x12\x16\n\x12HOST_MODE_GUI_MENU\x10\x02*a\n\rSelectionType\x12\x17\n\x13SELECTION_TYPE_PICK\x10\x00\x12\x16\n\x12SELECTION_TYPE_BAN\x10\x01\x12\x1f\n\x1bSELECTION_TYPE_ABILITY_PICK\x10\x02\x32\xa9\x01\n\x0b\x44otaService\x12\x1e\n\x05reset\x12\x0b.GameConfig\x1a\x06.Empty\"\x00\x12)\n\x07observe\x12\x0e.ObserveConfig\x1a\x0c.Observation\"\x00\x12\x19\n\x03\x61\x63t\x12\x08.Actions\x1a\x06.Empty\"\x00\x12\x34\n\x0bselect_hero\x12\x0e.HeroSelection\x1a\x13.InitialObservation\"\x00')
+  serialized_pb=_b('\n$dotaservice/protos/DotaService.proto\x1a:dotaservice/protos/dota_gcmessages_common_bot_script.proto\x1a*dotaservice/protos/dota_shared_enums.proto\"\x07\n\x05\x45mpty\"n\n\rHeroSelection\x12\x1c\n\x04type\x18\x01 \x02(\x0e\x32\x0e.SelectionType\x12\x16\n\x07team_id\x18\x02 \x01(\x0e\x32\x05.Team\x12\x14\n\x0cplayer_index\x18\x03 \x01(\r\x12\x11\n\thero_name\x18\x04 \x01(\t\"g\n\x0bObservation\x12\x17\n\x06status\x18\x01 \x02(\x0e\x32\x07.Status\x12\x16\n\x07team_id\x18\x02 \x01(\x0e\x32\x05.Team\x12\'\n\x0bworld_state\x18\x03 \x01(\x0b\x32\x12.CMsgBotWorldState\"\x8c\x01\n\x12InitialObservation\x12\x17\n\x06status\x18\x01 \x01(\x0e\x32\x07.Status\x12/\n\x13world_state_radiant\x18\x02 \x01(\x0b\x32\x12.CMsgBotWorldState\x12,\n\x10world_state_dire\x18\x03 \x01(\x0b\x32\x12.CMsgBotWorldState\"\xbf\x01\n\nGameConfig\x12\x0f\n\x07game_id\x18\x01 \x01(\t\x12\x1d\n\x15ticks_per_observation\x18\x03 \x02(\r\x12\x19\n\x0ehost_timescale\x18\x02 \x01(\r:\x01\x31\x12\x31\n\thost_mode\x18\x05 \x01(\x0e\x32\t.HostMode:\x13HOST_MODE_DEDICATED\x12\x33\n\tgame_mode\x18\x06 \x01(\x0e\x32\x0e.DOTA_GameMode:\x10\x44OTA_GAMEMODE_MO\"N\n\x07\x41\x63tions\x12+\n\x07\x61\x63tions\x18\x01 \x02(\x0b\x32\x1a.CMsgBotWorldState.Actions\x12\x16\n\x07team_id\x18\x02 \x02(\x0e\x32\x05.Team\"\'\n\rObserveConfig\x12\x16\n\x07team_id\x18\x01 \x02(\x0e\x32\x05.Team*\x86\x01\n\x06Status\x12\x06\n\x02OK\x10\x00\x12\x16\n\x12RESOURCE_EXHAUSTED\x10\x08\x12\x17\n\x13\x46\x41ILED_PRECONDITION\x10\t\x12\x10\n\x0cOUT_OF_RANGE\x10\x0b\x12\x0f\n\x0bRADIANT_WIN\x10\x0c\x12\x0c\n\x08\x44IRE_WIN\x10\r\x12\x12\n\x0eHERO_SELECTION\x10\x0e*\'\n\x04Team\x12\x10\n\x0cTEAM_RADIANT\x10\x02\x12\r\n\tTEAM_DIRE\x10\x03*N\n\x08HostMode\x12\x17\n\x13HOST_MODE_DEDICATED\x10\x00\x12\x11\n\rHOST_MODE_GUI\x10\x01\x12\x16\n\x12HOST_MODE_GUI_MENU\x10\x02*a\n\rSelectionType\x12\x17\n\x13SELECTION_TYPE_PICK\x10\x00\x12\x16\n\x12SELECTION_TYPE_BAN\x10\x01\x12\x1f\n\x1bSELECTION_TYPE_ABILITY_PICK\x10\x02\x32\xa9\x01\n\x0b\x44otaService\x12\x1e\n\x05reset\x12\x0b.GameConfig\x1a\x06.Empty\"\x00\x12)\n\x07observe\x12\x0e.ObserveConfig\x1a\x0c.Observation\"\x00\x12\x19\n\x03\x61\x63t\x12\x08.Actions\x1a\x06.Empty\"\x00\x12\x34\n\x0bselect_hero\x12\x0e.HeroSelection\x1a\x13.InitialObservation\"\x00')
   ,
   dependencies=[dotaservice_dot_protos_dot_dota__gcmessages__common__bot__script__pb2.DESCRIPTOR,dotaservice_dot_protos_dot_dota__shared__enums__pb2.DESCRIPTOR,])
 
@@ -56,11 +56,15 @@ _STATUS = _descriptor.EnumDescriptor(
       name='DIRE_WIN', index=5, number=13,
       serialized_options=None,
       type=None),
+    _descriptor.EnumValueDescriptor(
+      name='HERO_SELECTION', index=6, number=14,
+      serialized_options=None,
+      type=None),
   ],
   containing_type=None,
   serialized_options=None,
-  serialized_start=828,
-  serialized_end=942,
+  serialized_start=829,
+  serialized_end=963,
 )
 _sym_db.RegisterEnumDescriptor(_STATUS)
 
@@ -82,8 +86,8 @@ _TEAM = _descriptor.EnumDescriptor(
   ],
   containing_type=None,
   serialized_options=None,
-  serialized_start=944,
-  serialized_end=983,
+  serialized_start=965,
+  serialized_end=1004,
 )
 _sym_db.RegisterEnumDescriptor(_TEAM)
 
@@ -109,8 +113,8 @@ _HOSTMODE = _descriptor.EnumDescriptor(
   ],
   containing_type=None,
   serialized_options=None,
-  serialized_start=985,
-  serialized_end=1063,
+  serialized_start=1006,
+  serialized_end=1084,
 )
 _sym_db.RegisterEnumDescriptor(_HOSTMODE)
 
@@ -136,8 +140,8 @@ _SELECTIONTYPE = _descriptor.EnumDescriptor(
   ],
   containing_type=None,
   serialized_options=None,
-  serialized_start=1065,
-  serialized_end=1162,
+  serialized_start=1086,
+  serialized_end=1183,
 )
 _sym_db.RegisterEnumDescriptor(_SELECTIONTYPE)
 
@@ -148,6 +152,7 @@ FAILED_PRECONDITION = 9
 OUT_OF_RANGE = 11
 RADIANT_WIN = 12
 DIRE_WIN = 13
+HERO_SELECTION = 14
 TEAM_RADIANT = 2
 TEAM_DIRE = 3
 HOST_MODE_DEDICATED = 0
@@ -535,8 +540,8 @@ _DOTASERVICE = _descriptor.ServiceDescriptor(
   file=DESCRIPTOR,
   index=0,
   serialized_options=None,
-  serialized_start=1165,
-  serialized_end=1334,
+  serialized_start=1186,
+  serialized_end=1355,
   methods=[
   _descriptor.MethodDescriptor(
     name='reset',
