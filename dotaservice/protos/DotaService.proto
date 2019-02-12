@@ -37,7 +37,8 @@ message Empty {}
 message HeroSelection {
   required SelectionType type = 1;
   optional Team team_id = 2;
-  optional string hero_name = 3;
+  optional uint32 player_index = 3;
+  optional string hero_name = 4;
 }
 
 message Observation {
@@ -72,8 +73,8 @@ message ObserveConfig {
 }
 
 service DotaService {
-  rpc reset (GameConfig) returns (InitialObservation) {}  // TODO(tzaman): add version and hostname in response.
+  rpc reset (GameConfig) returns (Empty) {}
   rpc observe (ObserveConfig) returns (Observation) {}
   rpc act (Actions) returns (Empty) {}
-  rpc select_hero (HeroSelection) returns (Empty) {}
+  rpc select_hero (HeroSelection) returns (InitialObservation) {}
 }

@@ -35,7 +35,7 @@ class DotaServiceBase(abc.ABC):
                 self.reset,
                 grpclib.const.Cardinality.UNARY_UNARY,
                 dotaservice.protos.DotaService_pb2.GameConfig,
-                dotaservice.protos.DotaService_pb2.InitialObservation,
+                dotaservice.protos.DotaService_pb2.Empty,
             ),
             '/DotaService/observe': grpclib.const.Handler(
                 self.observe,
@@ -53,7 +53,7 @@ class DotaServiceBase(abc.ABC):
                 self.select_hero,
                 grpclib.const.Cardinality.UNARY_UNARY,
                 dotaservice.protos.DotaService_pb2.HeroSelection,
-                dotaservice.protos.DotaService_pb2.Empty,
+                dotaservice.protos.DotaService_pb2.InitialObservation,
             ),
         }
 
@@ -65,7 +65,7 @@ class DotaServiceStub:
             channel,
             '/DotaService/reset',
             dotaservice.protos.DotaService_pb2.GameConfig,
-            dotaservice.protos.DotaService_pb2.InitialObservation,
+            dotaservice.protos.DotaService_pb2.Empty,
         )
         self.observe = grpclib.client.UnaryUnaryMethod(
             channel,
@@ -83,5 +83,5 @@ class DotaServiceStub:
             channel,
             '/DotaService/select_hero',
             dotaservice.protos.DotaService_pb2.HeroSelection,
-            dotaservice.protos.DotaService_pb2.Empty,
+            dotaservice.protos.DotaService_pb2.InitialObservation,
         )

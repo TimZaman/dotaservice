@@ -23,6 +23,7 @@ from dotaservice import __version__
 from dotaservice.protos.dota_gcmessages_common_bot_script_pb2 import CMsgBotWorldState
 from dotaservice.protos.dota_shared_enums_pb2 import DOTA_GAMERULES_STATE_GAME_IN_PROGRESS
 from dotaservice.protos.dota_shared_enums_pb2 import DOTA_GAMERULES_STATE_PRE_GAME
+from dotaservice.protos.dota_shared_enums_pb2 import DOTA_GAMERULES_STATE_HERO_SELECTION
 from dotaservice.protos.DotaService_grpc import DotaServiceBase
 from dotaservice.protos.DotaService_pb2 import Empty
 from dotaservice.protos.DotaService_pb2 import HOST_MODE_DEDICATED, HOST_MODE_GUI, HOST_MODE_GUI_MENU
@@ -65,7 +66,8 @@ class DotaGame(object):
     RE_DEMO =  re.compile(r'playdemo[ \t](.*dem)')
     RE_LUARDY = re.compile(r'LUARDY[ \t](\{.*\})')
     RE_WIN = re.compile(r'good guys win = (\d)')
-    RE_HS  =re.compile(r'SetSelectedHero (\d):\S+ (\w+)')
+    RE_HS_START = re.compile(r"entering state 'DOTA_GAMERULES_STATE_HERO_SELECTION'")
+    RE_HS = re.compile(r'SetSelectedHero (\d):\S+ (\w+)')
     WORLDSTATE_PAYLOAD_BYTES = 4
 
     def __init__(self,
@@ -96,6 +98,7 @@ class DotaGame(object):
             TEAM_DIRE: asyncio.Queue(loop=asyncio.get_event_loop()),
         }
         self.lua_config_future = asyncio.get_event_loop().create_future()
+        self.hs_mode_future = {}
         self._write_config()
         self.process = None
         self.demo_path_rel = None
@@ -132,6 +135,7 @@ class DotaGame(object):
     def write_selection(self, data, team_id):
         filename_stem = self.SELECTIONS_FILENAME_FMT.format(team_id=team_id)
         self._write_bot_data_file(filename_stem=filename_stem, data=data)
+        self.hs_mode_future[str(data['playerIndex'])] = asyncio.get_event_loop().create_future()
 
     def _write_bot_data_file(self, filename_stem, data):
         """Write a file to lua to that the bot can read it.
@@ -204,7 +208,8 @@ class DotaGame(object):
                         if m_hs:
                             player_id = m_hs.group(1)
                             hero_name = m_hs.group(2)
-                            logger.info('PlayerID: {}, NAME: {}'.format(player_id, hero_name))
+                            self.hs_mode_future[str(player_id)].set_result(True)
+                            logger.debug('PlayerID: {}, NAME: {}'.format(player_id, hero_name))
                             self.LOG_MONITOR_LINE_OFFSET = line_index + 1
                         line_index += 1
             await asyncio.sleep(0.2)
@@ -357,7 +362,6 @@ class DotaGame(object):
             else:
                 break
         try:
-            hero_selection_line_offset = 0
             while True:
                 # This reader is always going to need to keep going to keep the buffers flushed.
                 try:
@@ -388,6 +392,7 @@ class DotaService(DotaServiceBase):
         self.dota_path = dota_path
         self.action_folder = action_folder
         self.remove_logs = remove_logs
+        self.heroes_selected = { TEAM_RADIANT: 0, TEAM_DIRE: 0 }
 
         # Initial assertions.
         verify_game_path(self.dota_path)
@@ -445,7 +450,7 @@ class DotaService(DotaServiceBase):
 
         This method should start up the dota game and the other required services.
         """
-        logger.info('DotaService::reset()')
+        logger.debug('DotaService::reset()')
 
         config = await stream.recv_message()
         logger.debug('config=\n{}'.format(config))
@@ -466,45 +471,9 @@ class DotaService(DotaServiceBase):
 
         # Start dota.
         asyncio.create_task(self.dota_game.run())
-
-        # We first wait for the lua config. TODO(tzaman): do this in DotaGame?
-        logger.debug('::reset is awaiting lua config..')
-        lua_config = await self.dota_game.lua_config_future
-        logger.debug('::reset: lua config received={}'.format(lua_config))
-
-        # Cycle through the queue until its empty, then only using the latest worldstate.
-        data = {TEAM_RADIANT: None, TEAM_DIRE: None}
-        for team_id in self.dota_game.worldstate_queues:
-            try:
-                while True:
-                    # Deplete the queue.
-                    queue = self.dota_game.worldstate_queues[team_id]
-                    data[team_id] = await asyncio.wait_for(queue.get(), timeout=0.5)
-            except asyncio.TimeoutError:
-                pass
-
-        assert data[TEAM_RADIANT] is not None
-        assert data[TEAM_DIRE] is not None
-
-        if data[TEAM_RADIANT].dota_time != data[TEAM_DIRE].dota_time:
-            raise ValueError(
-                'dota_time discrepancy in depleting initial worldstate queue.\n'
-                'radiant={:.2f}, dire={:.2f}'.format(data[TEAM_RADIANT].dota_time, data[TEAM_DIRE].dota_time))
-
-        last_dota_time = data[TEAM_RADIANT].dota_time
-
-        # Now write the calibration file.
-        config = {
-            'calibration_dota_time': last_dota_time
-        }
-        self.dota_game.write_live_config(data=config)
-
-        # Return the reponse
-        await stream.send_message(InitialObservation(
-            world_state_radiant=data[TEAM_RADIANT],
-            world_state_dire=data[TEAM_DIRE],
-        ))
-
+            
+        # Return the reponse.
+        await stream.send_message(Empty())
 
     async def observe(self, stream):
         logger.debug('DotaService::observe()')
@@ -546,6 +515,8 @@ class DotaService(DotaServiceBase):
 
         self.dota_game.write_action(data=actions, team_id=team_id)
 
+        #hero_selection_mode = await self.dota_game.hs_mode
+
         # Return the reponse.
         await stream.send_message(Empty())
 
@@ -556,13 +527,59 @@ class DotaService(DotaServiceBase):
         selection_type = request.type
         team_id = request.team_id
         name = request.hero_name
-        selections = MessageToDict(request.actions)
+        player_id = request.player_index
 
-        logger.debug('team_id={}, selection={}, name={}'.format(team_id, selection_type, name))
-        self.dota_game.write_selection(data=selections, team_id=team_id)
-        
-        # Return the reponse.
-        await stream.send_message(Empty())
+        logger.debug('team_id={}, selection={}, player_id={}, name={}'.format(team_id, selection_type, player_id, name))
+        self.dota_game.write_selection(data=MessageToDict(request), team_id=team_id)
+
+        result = await self.dota_game.hs_mode_future[str(player_id)]
+
+        self.heroes_selected[team_id] += 1
+
+        hs_done = False
+        if self.heroes_selected[TEAM_RADIANT] == 5 and self.heroes_selected[TEAM_DIRE] == 5:
+            hs_done = True
+
+        if hs_done:
+            # We first wait for the lua config. TODO(tzaman): do this in DotaGame?
+            logger.debug('::reset is awaiting lua config..')
+            lua_config = await self.dota_game.lua_config_future
+            logger.debug('::reset: lua config received={}'.format(lua_config))
+
+        # Cycle through the queue until its empty, then only using the latest worldstate.
+        data = {TEAM_RADIANT: None, TEAM_DIRE: None}
+        for team_id in self.dota_game.worldstate_queues:
+            try:
+                while True:
+                    # Deplete the queue.
+                    queue = self.dota_game.worldstate_queues[team_id]
+                    data[team_id] = await asyncio.wait_for(queue.get(), timeout=0.5)
+            except asyncio.TimeoutError:
+                pass
+
+        if hs_done:
+            assert data[TEAM_RADIANT] is not None
+            assert data[TEAM_DIRE] is not None
+
+            if data[TEAM_RADIANT].dota_time != data[TEAM_DIRE].dota_time:
+                raise ValueError(
+                'dota_time discrepancy in depleting initial worldstate queue.\n'
+                'radiant={:.2f}, dire={:.2f}'.format(data[TEAM_RADIANT].dota_time, data[TEAM_DIRE].dota_time))
+
+            last_dota_time = data[TEAM_RADIANT].dota_time
+
+            # Now write the calibration file.
+            config = {
+                'calibration_dota_time': last_dota_time
+            }
+            self.dota_game.write_live_config(data=config)
+
+        # Return the reponse
+        await stream.send_message(InitialObservation(
+            status=Status.Value('OK'),
+            world_state_radiant=data[TEAM_RADIANT],
+            world_state_dire=data[TEAM_DIRE],
+        ))
 
 
 async def serve(server, *, host, port):

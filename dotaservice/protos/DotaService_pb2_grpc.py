@@ -17,7 +17,7 @@ class DotaServiceStub(object):
     self.reset = channel.unary_unary(
         '/DotaService/reset',
         request_serializer=dotaservice_dot_protos_dot_DotaService__pb2.GameConfig.SerializeToString,
-        response_deserializer=dotaservice_dot_protos_dot_DotaService__pb2.InitialObservation.FromString,
+        response_deserializer=dotaservice_dot_protos_dot_DotaService__pb2.Empty.FromString,
         )
     self.observe = channel.unary_unary(
         '/DotaService/observe',
@@ -32,7 +32,7 @@ class DotaServiceStub(object):
     self.select_hero = channel.unary_unary(
         '/DotaService/select_hero',
         request_serializer=dotaservice_dot_protos_dot_DotaService__pb2.HeroSelection.SerializeToString,
-        response_deserializer=dotaservice_dot_protos_dot_DotaService__pb2.Empty.FromString,
+        response_deserializer=dotaservice_dot_protos_dot_DotaService__pb2.InitialObservation.FromString,
         )
 
 
@@ -74,7 +74,7 @@ def add_DotaServiceServicer_to_server(servicer, server):
       'reset': grpc.unary_unary_rpc_method_handler(
           servicer.reset,
           request_deserializer=dotaservice_dot_protos_dot_DotaService__pb2.GameConfig.FromString,
-          response_serializer=dotaservice_dot_protos_dot_DotaService__pb2.InitialObservation.SerializeToString,
+          response_serializer=dotaservice_dot_protos_dot_DotaService__pb2.Empty.SerializeToString,
       ),
       'observe': grpc.unary_unary_rpc_method_handler(
           servicer.observe,
@@ -89,7 +89,7 @@ def add_DotaServiceServicer_to_server(servicer, server):
       'select_hero': grpc.unary_unary_rpc_method_handler(
           servicer.select_hero,
           request_deserializer=dotaservice_dot_protos_dot_DotaService__pb2.HeroSelection.FromString,
-          response_serializer=dotaservice_dot_protos_dot_DotaService__pb2.Empty.SerializeToString,
+          response_serializer=dotaservice_dot_protos_dot_DotaService__pb2.InitialObservation.SerializeToString,
       ),
   }
   generic_handler = grpc.method_handlers_generic_handler(
