@@ -31,10 +31,36 @@ function Think()
 		if IsPlayerBot(v) and IsPlayerInHeroSelectionControl(v) then
         -- if i == 1 and GetTeam() == TEAM_RADIANT then
             if i == 1 then
-                SelectHero( v, "npc_dota_hero_nevermore" );
+                if GetTeam() == TEAM_RADIANT then
+                    SelectHero( v, "npc_dota_hero_nevermore" );
+                elseif GetTeam() == TEAM_DIRE then
+                    SelectHero( v, "npc_dota_hero_sniper" );
+                end
             else
-                SelectHero( v, "npc_dota_hero_sniper" );
+                SelectHero( v, "npc_dota_hero_wisp" );
             end
 		end
 	end
+end
+
+-- Function below sets the lane assignments for default bots
+-- Obviously, our own agents will do what they belive best
+function UpdateLaneAssignments()
+    if GetTeam() == TEAM_RADIANT then
+        return {
+            [1] = LANE_MID,
+            [2] = LANE_BOT,
+            [3] = LANE_BOT,
+            [4] = LANE_TOP,
+            [5] = LANE_TOP,
+        }
+    elseif GetTeam() == TEAM_DIRE then
+        return {
+            [1] = LANE_MID,
+            [2] = LANE_BOT,
+            [3] = LANE_BOT,
+            [4] = LANE_TOP,
+            [5] = LANE_TOP,
+        }
+    end
 end
