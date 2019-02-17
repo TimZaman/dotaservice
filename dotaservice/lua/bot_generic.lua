@@ -138,20 +138,11 @@ local worldstate_step_offset = nil
 local step = 0
 
 local actions = {}
+local completed_actions = {}
 
-function Think()
-    
+local function think_fn()
+
     step = step + 1
-
-    -- if GetTeam() == TEAM_DIRE then
-    --     -- For now, just focus on radiant. We can add DIRE action files some time later.
-    --     do return end
-    -- end
-    
-    -- TODO (tzaman): Get controllable bot IDs here somehow
-    if GetBot():GetPlayerID() ~= 0 and GetBot():GetPlayerID() ~= 5  then
-        do return end
-    end
 
     local dota_time = DotaTime()
     local game_state = GetGameState()
@@ -206,7 +197,7 @@ function Think()
         for index, action in pairs(actions) do
             if step == action.actionDelay then
                 act(action)
-                table.insert(completed_actions, 1, inded)
+                table.insert(completed_actions, 1, index)
             end
         end
 
@@ -219,3 +210,17 @@ function Think()
         DebugDrawText(8, 90, debug_text, 255, 255, 255)
     end
 end
+
+local function no_op() end
+
+-- Verify we actually want to control this bot.
+-- The below is only called once per bot, so if we want to control a bot, we can register the
+-- corresponding Think function here. If we don't want to control the bot, we don't expose the
+-- Think function.
+if GetBot():GetPlayerID() == 0 or GetBot():GetPlayerID() == 5  then
+    Think = think_fn
+else
+    -- If we want the bot to idle, we can no_op him here.
+    Think = no_op
+end
+-- Else: The bot will be controlled by the default impl

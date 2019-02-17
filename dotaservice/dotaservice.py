@@ -228,6 +228,7 @@ class DotaGame(object):
             '-con_logfile scripts/vscripts/bots/{}'.format(self.CONSOLE_LOG_FILENAME),
             '-con_timestamp',
             '-console',
+            '-dev',
             '-insecure',
             '-noip',
             '-nowatchdog',  # WatchDog will quit the game if e.g. the lua api takes a few seconds.
