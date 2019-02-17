@@ -11,10 +11,10 @@ local live_config = nil
 
 -- Dump all player id's and if they are controlled.
 local player_ids = {}
-for _, pid in pairs(GetTeamPlayers(TEAM_DIRE)) do
+for _, pid in pairs(GetTeamPlayers(TEAM_RADIANT)) do
     table.insert(player_ids, pid)
 end
-for _, pid in pairs(GetTeamPlayers(TEAM_RADIANT)) do
+for _, pid in pairs(GetTeamPlayers(TEAM_DIRE)) do
     table.insert(player_ids, pid)
 end
 local players = {}
