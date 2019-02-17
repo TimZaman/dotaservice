@@ -22,10 +22,508 @@ DESCRIPTOR = _descriptor.FileDescriptor(
   package='',
   syntax='proto2',
   serialized_options=None,
-  serialized_pb=_b('\n$dotaservice/protos/DotaService.proto\x1a:dotaservice/protos/dota_gcmessages_common_bot_script.proto\x1a*dotaservice/protos/dota_shared_enums.proto\"\x07\n\x05\x45mpty\"g\n\x0bObservation\x12\x17\n\x06status\x18\x01 \x02(\x0e\x32\x07.Status\x12\x16\n\x07team_id\x18\x02 \x01(\x0e\x32\x05.Team\x12\'\n\x0bworld_state\x18\x03 \x01(\x0b\x32\x12.CMsgBotWorldState\"\x8c\x01\n\x12InitialObservation\x12\x17\n\x06status\x18\x01 \x01(\x0e\x32\x07.Status\x12/\n\x13world_state_radiant\x18\x02 \x01(\x0b\x32\x12.CMsgBotWorldState\x12,\n\x10world_state_dire\x18\x03 \x01(\x0b\x32\x12.CMsgBotWorldState\"\xbf\x01\n\nGameConfig\x12\x0f\n\x07game_id\x18\x01 \x01(\t\x12\x1d\n\x15ticks_per_observation\x18\x03 \x02(\r\x12\x19\n\x0ehost_timescale\x18\x02 \x01(\r:\x01\x31\x12\x31\n\thost_mode\x18\x05 \x01(\x0e\x32\t.HostMode:\x13HOST_MODE_DEDICATED\x12\x33\n\tgame_mode\x18\x06 \x01(\x0e\x32\x0e.DOTA_GameMode:\x10\x44OTA_GAMEMODE_MO\"N\n\x07\x41\x63tions\x12+\n\x07\x61\x63tions\x18\x01 \x02(\x0b\x32\x1a.CMsgBotWorldState.Actions\x12\x16\n\x07team_id\x18\x02 \x02(\x0e\x32\x05.Team\"\'\n\rObserveConfig\x12\x16\n\x07team_id\x18\x01 \x02(\x0e\x32\x05.Team*r\n\x06Status\x12\x06\n\x02OK\x10\x00\x12\x16\n\x12RESOURCE_EXHAUSTED\x10\x08\x12\x17\n\x13\x46\x41ILED_PRECONDITION\x10\t\x12\x10\n\x0cOUT_OF_RANGE\x10\x0b\x12\x0f\n\x0bRADIANT_WIN\x10\x0c\x12\x0c\n\x08\x44IRE_WIN\x10\r*\'\n\x04Team\x12\x10\n\x0cTEAM_RADIANT\x10\x02\x12\r\n\tTEAM_DIRE\x10\x03*N\n\x08HostMode\x12\x17\n\x13HOST_MODE_DEDICATED\x10\x00\x12\x11\n\rHOST_MODE_GUI\x10\x01\x12\x16\n\x12HOST_MODE_GUI_MENU\x10\x02\x32\x80\x01\n\x0b\x44otaService\x12+\n\x05reset\x12\x0b.GameConfig\x1a\x13.InitialObservation\"\x00\x12)\n\x07observe\x12\x0e.ObserveConfig\x1a\x0c.Observation\"\x00\x12\x19\n\x03\x61\x63t\x12\x08.Actions\x1a\x06.Empty\"\x00')
+  serialized_pb=_b('\n$dotaservice/protos/DotaService.proto\x1a:dotaservice/protos/dota_gcmessages_common_bot_script.proto\x1a*dotaservice/protos/dota_shared_enums.proto\"\x07\n\x05\x45mpty\"g\n\x0bObservation\x12\x17\n\x06status\x18\x01 \x02(\x0e\x32\x07.Status\x12\x16\n\x07team_id\x18\x02 \x01(\x0e\x32\x05.Team\x12\'\n\x0bworld_state\x18\x03 \x01(\x0b\x32\x12.CMsgBotWorldState\"C\n\x06Player\x12\n\n\x02id\x18\x01 \x01(\r\x12\x0f\n\x07team_id\x18\x02 \x01(\r\x12\x0e\n\x06is_bot\x18\x03 \x01(\x08\x12\x0c\n\x04hero\x18\x04 \x01(\t\"\xa6\x01\n\x12InitialObservation\x12\x17\n\x06status\x18\x01 \x01(\x0e\x32\x07.Status\x12/\n\x13world_state_radiant\x18\x02 \x01(\x0b\x32\x12.CMsgBotWorldState\x12,\n\x10world_state_dire\x18\x03 \x01(\x0b\x32\x12.CMsgBotWorldState\x12\x18\n\x07players\x18\x04 \x03(\x0b\x32\x07.Player\"b\n\x08HeroPick\x12\x16\n\x07team_id\x18\x01 \x02(\x0e\x32\x05.Team\x12\x16\n\x07hero_id\x18\x02 \x02(\x0e\x32\x05.Hero\x12&\n\x0c\x63ontrol_mode\x18\x03 \x02(\x0e\x32\x10.HeroControlMode\"\xde\x01\n\nGameConfig\x12\x0f\n\x07game_id\x18\x01 \x01(\t\x12\x1d\n\x15ticks_per_observation\x18\x03 \x02(\r\x12\x19\n\x0ehost_timescale\x18\x02 \x01(\r:\x01\x31\x12\x31\n\thost_mode\x18\x05 \x01(\x0e\x32\t.HostMode:\x13HOST_MODE_DEDICATED\x12\x33\n\tgame_mode\x18\x06 \x01(\x0e\x32\x0e.DOTA_GameMode:\x10\x44OTA_GAMEMODE_MO\x12\x1d\n\nhero_picks\x18\x07 \x03(\x0b\x32\t.HeroPick\"N\n\x07\x41\x63tions\x12+\n\x07\x61\x63tions\x18\x01 \x02(\x0b\x32\x1a.CMsgBotWorldState.Actions\x12\x16\n\x07team_id\x18\x02 \x02(\x0e\x32\x05.Team\"\'\n\rObserveConfig\x12\x16\n\x07team_id\x18\x01 \x02(\x0e\x32\x05.Team*\'\n\x04Team\x12\x10\n\x0cTEAM_RADIANT\x10\x02\x12\r\n\tTEAM_DIRE\x10\x03*\x8f\x1a\n\x04Hero\x12\x1a\n\x16NPC_DOTA_HERO_ANTIMAGE\x10\x01\x12\x15\n\x11NPC_DOTA_HERO_AXE\x10\x02\x12\x16\n\x12NPC_DOTA_HERO_BANE\x10\x03\x12\x1d\n\x19NPC_DOTA_HERO_BLOODSEEKER\x10\x04\x12 \n\x1cNPC_DOTA_HERO_CRYSTAL_MAIDEN\x10\x05\x12\x1d\n\x19NPC_DOTA_HERO_DROW_RANGER\x10\x06\x12\x1d\n\x19NPC_DOTA_HERO_EARTHSHAKER\x10\x07\x12\x1c\n\x18NPC_DOTA_HERO_JUGGERNAUT\x10\x08\x12\x18\n\x14NPC_DOTA_HERO_MIRANA\x10\t\x12\x1b\n\x17NPC_DOTA_HERO_MORPHLING\x10\n\x12\x1b\n\x17NPC_DOTA_HERO_NEVERMORE\x10\x0b\x12 \n\x1cNPC_DOTA_HERO_PHANTOM_LANCER\x10\x0c\x12\x16\n\x12NPC_DOTA_HERO_PUCK\x10\r\x12\x17\n\x13NPC_DOTA_HERO_PUDGE\x10\x0e\x12\x17\n\x13NPC_DOTA_HERO_RAZOR\x10\x0f\x12\x1b\n\x17NPC_DOTA_HERO_SAND_KING\x10\x10\x12\x1e\n\x1aNPC_DOTA_HERO_STORM_SPIRIT\x10\x11\x12\x16\n\x12NPC_DOTA_HERO_SVEN\x10\x12\x12\x16\n\x12NPC_DOTA_HERO_TINY\x10\x13\x12 \n\x1cNPC_DOTA_HERO_VENGEFULSPIRIT\x10\x14\x12\x1c\n\x18NPC_DOTA_HERO_WINDRUNNER\x10\x15\x12\x16\n\x12NPC_DOTA_HERO_ZUUS\x10\x16\x12\x18\n\x14NPC_DOTA_HERO_KUNKKA\x10\x17\x12\x16\n\x12NPC_DOTA_HERO_LINA\x10\x19\x12\x16\n\x12NPC_DOTA_HERO_LION\x10\x1a\x12\x1f\n\x1bNPC_DOTA_HERO_SHADOW_SHAMAN\x10\x1b\x12\x19\n\x15NPC_DOTA_HERO_SLARDAR\x10\x1c\x12\x1c\n\x18NPC_DOTA_HERO_TIDEHUNTER\x10\x1d\x12\x1e\n\x1aNPC_DOTA_HERO_WITCH_DOCTOR\x10\x1e\x12\x16\n\x12NPC_DOTA_HERO_LICH\x10\x1f\x12\x16\n\x12NPC_DOTA_HERO_RIKI\x10 \x12\x18\n\x14NPC_DOTA_HERO_ENIGMA\x10!\x12\x18\n\x14NPC_DOTA_HERO_TINKER\x10\"\x12\x18\n\x14NPC_DOTA_HERO_SNIPER\x10#\x12\x1b\n\x17NPC_DOTA_HERO_NECROLYTE\x10$\x12\x19\n\x15NPC_DOTA_HERO_WARLOCK\x10%\x12\x1d\n\x19NPC_DOTA_HERO_BEASTMASTER\x10&\x12\x1d\n\x19NPC_DOTA_HERO_QUEENOFPAIN\x10\'\x12\x1c\n\x18NPC_DOTA_HERO_VENOMANCER\x10(\x12\x1f\n\x1bNPC_DOTA_HERO_FACELESS_VOID\x10)\x12\x1f\n\x1bNPC_DOTA_HERO_SKELETON_KING\x10*\x12\x1f\n\x1bNPC_DOTA_HERO_DEATH_PROPHET\x10+\x12\"\n\x1eNPC_DOTA_HERO_PHANTOM_ASSASSIN\x10,\x12\x17\n\x13NPC_DOTA_HERO_PUGNA\x10-\x12\"\n\x1eNPC_DOTA_HERO_TEMPLAR_ASSASSIN\x10.\x12\x17\n\x13NPC_DOTA_HERO_VIPER\x10/\x12\x16\n\x12NPC_DOTA_HERO_LUNA\x10\x30\x12\x1f\n\x1bNPC_DOTA_HERO_DRAGON_KNIGHT\x10\x31\x12\x18\n\x14NPC_DOTA_HERO_DAZZLE\x10\x32\x12\x1c\n\x18NPC_DOTA_HERO_RATTLETRAP\x10\x33\x12\x19\n\x15NPC_DOTA_HERO_LESHRAC\x10\x34\x12\x18\n\x14NPC_DOTA_HERO_FURION\x10\x35\x12\x1e\n\x1aNPC_DOTA_HERO_LIFE_STEALER\x10\x36\x12\x1b\n\x17NPC_DOTA_HERO_DARK_SEER\x10\x37\x12\x18\n\x14NPC_DOTA_HERO_CLINKZ\x10\x38\x12\x1c\n\x18NPC_DOTA_HERO_OMNIKNIGHT\x10\x39\x12\x1d\n\x19NPC_DOTA_HERO_ENCHANTRESS\x10:\x12\x18\n\x14NPC_DOTA_HERO_HUSKAR\x10;\x12\x1f\n\x1bNPC_DOTA_HERO_NIGHT_STALKER\x10<\x12\x1d\n\x19NPC_DOTA_HERO_BROODMOTHER\x10=\x12\x1f\n\x1bNPC_DOTA_HERO_BOUNTY_HUNTER\x10>\x12\x18\n\x14NPC_DOTA_HERO_WEAVER\x10?\x12\x18\n\x14NPC_DOTA_HERO_JAKIRO\x10@\x12\x1a\n\x16NPC_DOTA_HERO_BATRIDER\x10\x41\x12\x16\n\x12NPC_DOTA_HERO_CHEN\x10\x42\x12\x19\n\x15NPC_DOTA_HERO_SPECTRE\x10\x43\x12\x1e\n\x1aNPC_DOTA_HERO_DOOM_BRINGER\x10\x45\x12$\n NPC_DOTA_HERO_ANCIENT_APPARITION\x10\x44\x12\x16\n\x12NPC_DOTA_HERO_URSA\x10\x46\x12 \n\x1cNPC_DOTA_HERO_SPIRIT_BREAKER\x10G\x12\x1c\n\x18NPC_DOTA_HERO_GYROCOPTER\x10H\x12\x1b\n\x17NPC_DOTA_HERO_ALCHEMIST\x10I\x12\x19\n\x15NPC_DOTA_HERO_INVOKER\x10J\x12\x1a\n\x16NPC_DOTA_HERO_SILENCER\x10K\x12$\n NPC_DOTA_HERO_OBSIDIAN_DESTROYER\x10L\x12\x17\n\x13NPC_DOTA_HERO_LYCAN\x10M\x12\x1c\n\x18NPC_DOTA_HERO_BREWMASTER\x10N\x12\x1e\n\x1aNPC_DOTA_HERO_SHADOW_DEMON\x10O\x12\x1c\n\x18NPC_DOTA_HERO_LONE_DRUID\x10P\x12\x1e\n\x1aNPC_DOTA_HERO_CHAOS_KNIGHT\x10Q\x12\x17\n\x13NPC_DOTA_HERO_MEEPO\x10R\x12\x18\n\x14NPC_DOTA_HERO_TREANT\x10S\x12\x1b\n\x17NPC_DOTA_HERO_OGRE_MAGI\x10T\x12\x19\n\x15NPC_DOTA_HERO_UNDYING\x10U\x12\x18\n\x14NPC_DOTA_HERO_RUBICK\x10V\x12\x1b\n\x17NPC_DOTA_HERO_DISRUPTOR\x10W\x12\x1e\n\x1aNPC_DOTA_HERO_NYX_ASSASSIN\x10X\x12\x1c\n\x18NPC_DOTA_HERO_NAGA_SIREN\x10Y\x12%\n!NPC_DOTA_HERO_KEEPER_OF_THE_LIGHT\x10Z\x12\x16\n\x12NPC_DOTA_HERO_WISP\x10[\x12\x18\n\x14NPC_DOTA_HERO_VISAGE\x10\\\x12\x17\n\x13NPC_DOTA_HERO_SLARK\x10]\x12\x18\n\x14NPC_DOTA_HERO_MEDUSA\x10^\x12\x1f\n\x1bNPC_DOTA_HERO_TROLL_WARLORD\x10_\x12\x19\n\x15NPC_DOTA_HERO_CENTAUR\x10`\x12\x1b\n\x17NPC_DOTA_HERO_MAGNATAUR\x10\x61\x12\x1a\n\x16NPC_DOTA_HERO_SHREDDER\x10\x62\x12\x1d\n\x19NPC_DOTA_HERO_BRISTLEBACK\x10\x63\x12\x16\n\x12NPC_DOTA_HERO_TUSK\x10\x64\x12\x1f\n\x1bNPC_DOTA_HERO_SKYWRATH_MAGE\x10\x65\x12\x19\n\x15NPC_DOTA_HERO_ABADDON\x10\x66\x12\x1d\n\x19NPC_DOTA_HERO_ELDER_TITAN\x10g\x12\"\n\x1eNPC_DOTA_HERO_LEGION_COMMANDER\x10h\x12\x19\n\x15NPC_DOTA_HERO_TECHIES\x10i\x12\x1e\n\x1aNPC_DOTA_HERO_EMBER_SPIRIT\x10j\x12\x1e\n\x1aNPC_DOTA_HERO_EARTH_SPIRIT\x10k\x12#\n\x1fNPC_DOTA_HERO_ABYSSAL_UNDERLORD\x10l\x12\x1d\n\x19NPC_DOTA_HERO_TERRORBLADE\x10m\x12\x19\n\x15NPC_DOTA_HERO_PHOENIX\x10n\x12\x18\n\x14NPC_DOTA_HERO_ORACLE\x10o\x12\x1f\n\x1bNPC_DOTA_HERO_WINTER_WYVERN\x10p\x12\x1c\n\x18NPC_DOTA_HERO_ARC_WARDEN\x10q\x12\x1d\n\x19NPC_DOTA_HERO_MONKEY_KING\x10r\x12\x1d\n\x19NPC_DOTA_HERO_DARK_WILLOW\x10w\x12\x1a\n\x16NPC_DOTA_HERO_PANGOLIE\x10x*r\n\x06Status\x12\x06\n\x02OK\x10\x00\x12\x16\n\x12RESOURCE_EXHAUSTED\x10\x08\x12\x17\n\x13\x46\x41ILED_PRECONDITION\x10\t\x12\x10\n\x0cOUT_OF_RANGE\x10\x0b\x12\x0f\n\x0bRADIANT_WIN\x10\x0c\x12\x0c\n\x08\x44IRE_WIN\x10\r*N\n\x08HostMode\x12\x17\n\x13HOST_MODE_DEDICATED\x10\x00\x12\x11\n\rHOST_MODE_GUI\x10\x01\x12\x16\n\x12HOST_MODE_GUI_MENU\x10\x02*n\n\x0fHeroControlMode\x12\x1a\n\x16HERO_CONTROL_MODE_IDLE\x10\x00\x12\x1d\n\x19HERO_CONTROL_MODE_DEFAULT\x10\x01\x12 \n\x1cHERO_CONTROL_MODE_CONTROLLED\x10\x02\x32\x80\x01\n\x0b\x44otaService\x12+\n\x05reset\x12\x0b.GameConfig\x1a\x13.InitialObservation\"\x00\x12)\n\x07observe\x12\x0e.ObserveConfig\x1a\x0c.Observation\"\x00\x12\x19\n\x03\x61\x63t\x12\x08.Actions\x1a\x06.Empty\"\x00')
   ,
   dependencies=[dotaservice_dot_protos_dot_dota__gcmessages__common__bot__script__pb2.DESCRIPTOR,dotaservice_dot_protos_dot_dota__shared__enums__pb2.DESCRIPTOR,])
 
+_TEAM = _descriptor.EnumDescriptor(
+  name='Team',
+  full_name='Team',
+  filename=None,
+  file=DESCRIPTOR,
+  values=[
+    _descriptor.EnumValueDescriptor(
+      name='TEAM_RADIANT', index=0, number=2,
+      serialized_options=None,
+      type=None),
+    _descriptor.EnumValueDescriptor(
+      name='TEAM_DIRE', index=1, number=3,
+      serialized_options=None,
+      type=None),
+  ],
+  containing_type=None,
+  serialized_options=None,
+  serialized_start=942,
+  serialized_end=981,
+)
+_sym_db.RegisterEnumDescriptor(_TEAM)
+
+Team = enum_type_wrapper.EnumTypeWrapper(_TEAM)
+_HERO = _descriptor.EnumDescriptor(
+  name='Hero',
+  full_name='Hero',
+  filename=None,
+  file=DESCRIPTOR,
+  values=[
+    _descriptor.EnumValueDescriptor(
+      name='NPC_DOTA_HERO_ANTIMAGE', index=0, number=1,
+      serialized_options=None,
+      type=None),
+    _descriptor.EnumValueDescriptor(
+      name='NPC_DOTA_HERO_AXE', index=1, number=2,
+      serialized_options=None,
+      type=None),
+    _descriptor.EnumValueDescriptor(
+      name='NPC_DOTA_HERO_BANE', index=2, number=3,
+      serialized_options=None,
+      type=None),
+    _descriptor.EnumValueDescriptor(
+      name='NPC_DOTA_HERO_BLOODSEEKER', index=3, number=4,
+      serialized_options=None,
+      type=None),
+    _descriptor.EnumValueDescriptor(
+      name='NPC_DOTA_HERO_CRYSTAL_MAIDEN', index=4, number=5,
+      serialized_options=None,
+      type=None),
+    _descriptor.EnumValueDescriptor(
+      name='NPC_DOTA_HERO_DROW_RANGER', index=5, number=6,
+      serialized_options=None,
+      type=None),
+    _descriptor.EnumValueDescriptor(
+      name='NPC_DOTA_HERO_EARTHSHAKER', index=6, number=7,
+      serialized_options=None,
+      type=None),
+    _descriptor.EnumValueDescriptor(
+      name='NPC_DOTA_HERO_JUGGERNAUT', index=7, number=8,
+      serialized_options=None,
+      type=None),
+    _descriptor.EnumValueDescriptor(
+      name='NPC_DOTA_HERO_MIRANA', index=8, number=9,
+      serialized_options=None,
+      type=None),
+    _descriptor.EnumValueDescriptor(
+      name='NPC_DOTA_HERO_MORPHLING', index=9, number=10,
+      serialized_options=None,
+      type=None),
+    _descriptor.EnumValueDescriptor(
+      name='NPC_DOTA_HERO_NEVERMORE', index=10, number=11,
+      serialized_options=None,
+      type=None),
+    _descriptor.EnumValueDescriptor(
+      name='NPC_DOTA_HERO_PHANTOM_LANCER', index=11, number=12,
+      serialized_options=None,
+      type=None),
+    _descriptor.EnumValueDescriptor(
+      name='NPC_DOTA_HERO_PUCK', index=12, number=13,
+      serialized_options=None,
+      type=None),
+    _descriptor.EnumValueDescriptor(
+      name='NPC_DOTA_HERO_PUDGE', index=13, number=14,
+      serialized_options=None,
+      type=None),
+    _descriptor.EnumValueDescriptor(
+      name='NPC_DOTA_HERO_RAZOR', index=14, number=15,
+      serialized_options=None,
+      type=None),
+    _descriptor.EnumValueDescriptor(
+      name='NPC_DOTA_HERO_SAND_KING', index=15, number=16,
+      serialized_options=None,
+      type=None),
+    _descriptor.EnumValueDescriptor(
+      name='NPC_DOTA_HERO_STORM_SPIRIT', index=16, number=17,
+      serialized_options=None,
+      type=None),
+    _descriptor.EnumValueDescriptor(
+      name='NPC_DOTA_HERO_SVEN', index=17, number=18,
+      serialized_options=None,
+      type=None),
+    _descriptor.EnumValueDescriptor(
+      name='NPC_DOTA_HERO_TINY', index=18, number=19,
+      serialized_options=None,
+      type=None),
+    _descriptor.EnumValueDescriptor(
+      name='NPC_DOTA_HERO_VENGEFULSPIRIT', index=19, number=20,
+      serialized_options=None,
+      type=None),
+    _descriptor.EnumValueDescriptor(
+      name='NPC_DOTA_HERO_WINDRUNNER', index=20, number=21,
+      serialized_options=None,
+      type=None),
+    _descriptor.EnumValueDescriptor(
+      name='NPC_DOTA_HERO_ZUUS', index=21, number=22,
+      serialized_options=None,
+      type=None),
+    _descriptor.EnumValueDescriptor(
+      name='NPC_DOTA_HERO_KUNKKA', index=22, number=23,
+      serialized_options=None,
+      type=None),
+    _descriptor.EnumValueDescriptor(
+      name='NPC_DOTA_HERO_LINA', index=23, number=25,
+      serialized_options=None,
+      type=None),
+    _descriptor.EnumValueDescriptor(
+      name='NPC_DOTA_HERO_LION', index=24, number=26,
+      serialized_options=None,
+      type=None),
+    _descriptor.EnumValueDescriptor(
+      name='NPC_DOTA_HERO_SHADOW_SHAMAN', index=25, number=27,
+      serialized_options=None,
+      type=None),
+    _descriptor.EnumValueDescriptor(
+      name='NPC_DOTA_HERO_SLARDAR', index=26, number=28,
+      serialized_options=None,
+      type=None),
+    _descriptor.EnumValueDescriptor(
+      name='NPC_DOTA_HERO_TIDEHUNTER', index=27, number=29,
+      serialized_options=None,
+      type=None),
+    _descriptor.EnumValueDescriptor(
+      name='NPC_DOTA_HERO_WITCH_DOCTOR', index=28, number=30,
+      serialized_options=None,
+      type=None),
+    _descriptor.EnumValueDescriptor(
+      name='NPC_DOTA_HERO_LICH', index=29, number=31,
+      serialized_options=None,
+      type=None),
+    _descriptor.EnumValueDescriptor(
+      name='NPC_DOTA_HERO_RIKI', index=30, number=32,
+      serialized_options=None,
+      type=None),
+    _descriptor.EnumValueDescriptor(
+      name='NPC_DOTA_HERO_ENIGMA', index=31, number=33,
+      serialized_options=None,
+      type=None),
+    _descriptor.EnumValueDescriptor(
+      name='NPC_DOTA_HERO_TINKER', index=32, number=34,
+      serialized_options=None,
+      type=None),
+    _descriptor.EnumValueDescriptor(
+      name='NPC_DOTA_HERO_SNIPER', index=33, number=35,
+      serialized_options=None,
+      type=None),
+    _descriptor.EnumValueDescriptor(
+      name='NPC_DOTA_HERO_NECROLYTE', index=34, number=36,
+      serialized_options=None,
+      type=None),
+    _descriptor.EnumValueDescriptor(
+      name='NPC_DOTA_HERO_WARLOCK', index=35, number=37,
+      serialized_options=None,
+      type=None),
+    _descriptor.EnumValueDescriptor(
+      name='NPC_DOTA_HERO_BEASTMASTER', index=36, number=38,
+      serialized_options=None,
+      type=None),
+    _descriptor.EnumValueDescriptor(
+      name='NPC_DOTA_HERO_QUEENOFPAIN', index=37, number=39,
+      serialized_options=None,
+      type=None),
+    _descriptor.EnumValueDescriptor(
+      name='NPC_DOTA_HERO_VENOMANCER', index=38, number=40,
+      serialized_options=None,
+      type=None),
+    _descriptor.EnumValueDescriptor(
+      name='NPC_DOTA_HERO_FACELESS_VOID', index=39, number=41,
+      serialized_options=None,
+      type=None),
+    _descriptor.EnumValueDescriptor(
+      name='NPC_DOTA_HERO_SKELETON_KING', index=40, number=42,
+      serialized_options=None,
+      type=None),
+    _descriptor.EnumValueDescriptor(
+      name='NPC_DOTA_HERO_DEATH_PROPHET', index=41, number=43,
+      serialized_options=None,
+      type=None),
+    _descriptor.EnumValueDescriptor(
+      name='NPC_DOTA_HERO_PHANTOM_ASSASSIN', index=42, number=44,
+      serialized_options=None,
+      type=None),
+    _descriptor.EnumValueDescriptor(
+      name='NPC_DOTA_HERO_PUGNA', index=43, number=45,
+      serialized_options=None,
+      type=None),
+    _descriptor.EnumValueDescriptor(
+      name='NPC_DOTA_HERO_TEMPLAR_ASSASSIN', index=44, number=46,
+      serialized_options=None,
+      type=None),
+    _descriptor.EnumValueDescriptor(
+      name='NPC_DOTA_HERO_VIPER', index=45, number=47,
+      serialized_options=None,
+      type=None),
+    _descriptor.EnumValueDescriptor(
+      name='NPC_DOTA_HERO_LUNA', index=46, number=48,
+      serialized_options=None,
+      type=None),
+    _descriptor.EnumValueDescriptor(
+      name='NPC_DOTA_HERO_DRAGON_KNIGHT', index=47, number=49,
+      serialized_options=None,
+      type=None),
+    _descriptor.EnumValueDescriptor(
+      name='NPC_DOTA_HERO_DAZZLE', index=48, number=50,
+      serialized_options=None,
+      type=None),
+    _descriptor.EnumValueDescriptor(
+      name='NPC_DOTA_HERO_RATTLETRAP', index=49, number=51,
+      serialized_options=None,
+      type=None),
+    _descriptor.EnumValueDescriptor(
+      name='NPC_DOTA_HERO_LESHRAC', index=50, number=52,
+      serialized_options=None,
+      type=None),
+    _descriptor.EnumValueDescriptor(
+      name='NPC_DOTA_HERO_FURION', index=51, number=53,
+      serialized_options=None,
+      type=None),
+    _descriptor.EnumValueDescriptor(
+      name='NPC_DOTA_HERO_LIFE_STEALER', index=52, number=54,
+      serialized_options=None,
+      type=None),
+    _descriptor.EnumValueDescriptor(
+      name='NPC_DOTA_HERO_DARK_SEER', index=53, number=55,
+      serialized_options=None,
+      type=None),
+    _descriptor.EnumValueDescriptor(
+      name='NPC_DOTA_HERO_CLINKZ', index=54, number=56,
+      serialized_options=None,
+      type=None),
+    _descriptor.EnumValueDescriptor(
+      name='NPC_DOTA_HERO_OMNIKNIGHT', index=55, number=57,
+      serialized_options=None,
+      type=None),
+    _descriptor.EnumValueDescriptor(
+      name='NPC_DOTA_HERO_ENCHANTRESS', index=56, number=58,
+      serialized_options=None,
+      type=None),
+    _descriptor.EnumValueDescriptor(
+      name='NPC_DOTA_HERO_HUSKAR', index=57, number=59,
+      serialized_options=None,
+      type=None),
+    _descriptor.EnumValueDescriptor(
+      name='NPC_DOTA_HERO_NIGHT_STALKER', index=58, number=60,
+      serialized_options=None,
+      type=None),
+    _descriptor.EnumValueDescriptor(
+      name='NPC_DOTA_HERO_BROODMOTHER', index=59, number=61,
+      serialized_options=None,
+      type=None),
+    _descriptor.EnumValueDescriptor(
+      name='NPC_DOTA_HERO_BOUNTY_HUNTER', index=60, number=62,
+      serialized_options=None,
+      type=None),
+    _descriptor.EnumValueDescriptor(
+      name='NPC_DOTA_HERO_WEAVER', index=61, number=63,
+      serialized_options=None,
+      type=None),
+    _descriptor.EnumValueDescriptor(
+      name='NPC_DOTA_HERO_JAKIRO', index=62, number=64,
+      serialized_options=None,
+      type=None),
+    _descriptor.EnumValueDescriptor(
+      name='NPC_DOTA_HERO_BATRIDER', index=63, number=65,
+      serialized_options=None,
+      type=None),
+    _descriptor.EnumValueDescriptor(
+      name='NPC_DOTA_HERO_CHEN', index=64, number=66,
+      serialized_options=None,
+      type=None),
+    _descriptor.EnumValueDescriptor(
+      name='NPC_DOTA_HERO_SPECTRE', index=65, number=67,
+      serialized_options=None,
+      type=None),
+    _descriptor.EnumValueDescriptor(
+      name='NPC_DOTA_HERO_DOOM_BRINGER', index=66, number=69,
+      serialized_options=None,
+      type=None),
+    _descriptor.EnumValueDescriptor(
+      name='NPC_DOTA_HERO_ANCIENT_APPARITION', index=67, number=68,
+      serialized_options=None,
+      type=None),
+    _descriptor.EnumValueDescriptor(
+      name='NPC_DOTA_HERO_URSA', index=68, number=70,
+      serialized_options=None,
+      type=None),
+    _descriptor.EnumValueDescriptor(
+      name='NPC_DOTA_HERO_SPIRIT_BREAKER', index=69, number=71,
+      serialized_options=None,
+      type=None),
+    _descriptor.EnumValueDescriptor(
+      name='NPC_DOTA_HERO_GYROCOPTER', index=70, number=72,
+      serialized_options=None,
+      type=None),
+    _descriptor.EnumValueDescriptor(
+      name='NPC_DOTA_HERO_ALCHEMIST', index=71, number=73,
+      serialized_options=None,
+      type=None),
+    _descriptor.EnumValueDescriptor(
+      name='NPC_DOTA_HERO_INVOKER', index=72, number=74,
+      serialized_options=None,
+      type=None),
+    _descriptor.EnumValueDescriptor(
+      name='NPC_DOTA_HERO_SILENCER', index=73, number=75,
+      serialized_options=None,
+      type=None),
+    _descriptor.EnumValueDescriptor(
+      name='NPC_DOTA_HERO_OBSIDIAN_DESTROYER', index=74, number=76,
+      serialized_options=None,
+      type=None),
+    _descriptor.EnumValueDescriptor(
+      name='NPC_DOTA_HERO_LYCAN', index=75, number=77,
+      serialized_options=None,
+      type=None),
+    _descriptor.EnumValueDescriptor(
+      name='NPC_DOTA_HERO_BREWMASTER', index=76, number=78,
+      serialized_options=None,
+      type=None),
+    _descriptor.EnumValueDescriptor(
+      name='NPC_DOTA_HERO_SHADOW_DEMON', index=77, number=79,
+      serialized_options=None,
+      type=None),
+    _descriptor.EnumValueDescriptor(
+      name='NPC_DOTA_HERO_LONE_DRUID', index=78, number=80,
+      serialized_options=None,
+      type=None),
+    _descriptor.EnumValueDescriptor(
+      name='NPC_DOTA_HERO_CHAOS_KNIGHT', index=79, number=81,
+      serialized_options=None,
+      type=None),
+    _descriptor.EnumValueDescriptor(
+      name='NPC_DOTA_HERO_MEEPO', index=80, number=82,
+      serialized_options=None,
+      type=None),
+    _descriptor.EnumValueDescriptor(
+      name='NPC_DOTA_HERO_TREANT', index=81, number=83,
+      serialized_options=None,
+      type=None),
+    _descriptor.EnumValueDescriptor(
+      name='NPC_DOTA_HERO_OGRE_MAGI', index=82, number=84,
+      serialized_options=None,
+      type=None),
+    _descriptor.EnumValueDescriptor(
+      name='NPC_DOTA_HERO_UNDYING', index=83, number=85,
+      serialized_options=None,
+      type=None),
+    _descriptor.EnumValueDescriptor(
+      name='NPC_DOTA_HERO_RUBICK', index=84, number=86,
+      serialized_options=None,
+      type=None),
+    _descriptor.EnumValueDescriptor(
+      name='NPC_DOTA_HERO_DISRUPTOR', index=85, number=87,
+      serialized_options=None,
+      type=None),
+    _descriptor.EnumValueDescriptor(
+      name='NPC_DOTA_HERO_NYX_ASSASSIN', index=86, number=88,
+      serialized_options=None,
+      type=None),
+    _descriptor.EnumValueDescriptor(
+      name='NPC_DOTA_HERO_NAGA_SIREN', index=87, number=89,
+      serialized_options=None,
+      type=None),
+    _descriptor.EnumValueDescriptor(
+      name='NPC_DOTA_HERO_KEEPER_OF_THE_LIGHT', index=88, number=90,
+      serialized_options=None,
+      type=None),
+    _descriptor.EnumValueDescriptor(
+      name='NPC_DOTA_HERO_WISP', index=89, number=91,
+      serialized_options=None,
+      type=None),
+    _descriptor.EnumValueDescriptor(
+      name='NPC_DOTA_HERO_VISAGE', index=90, number=92,
+      serialized_options=None,
+      type=None),
+    _descriptor.EnumValueDescriptor(
+      name='NPC_DOTA_HERO_SLARK', index=91, number=93,
+      serialized_options=None,
+      type=None),
+    _descriptor.EnumValueDescriptor(
+      name='NPC_DOTA_HERO_MEDUSA', index=92, number=94,
+      serialized_options=None,
+      type=None),
+    _descriptor.EnumValueDescriptor(
+      name='NPC_DOTA_HERO_TROLL_WARLORD', index=93, number=95,
+      serialized_options=None,
+      type=None),
+    _descriptor.EnumValueDescriptor(
+      name='NPC_DOTA_HERO_CENTAUR', index=94, number=96,
+      serialized_options=None,
+      type=None),
+    _descriptor.EnumValueDescriptor(
+      name='NPC_DOTA_HERO_MAGNATAUR', index=95, number=97,
+      serialized_options=None,
+      type=None),
+    _descriptor.EnumValueDescriptor(
+      name='NPC_DOTA_HERO_SHREDDER', index=96, number=98,
+      serialized_options=None,
+      type=None),
+    _descriptor.EnumValueDescriptor(
+      name='NPC_DOTA_HERO_BRISTLEBACK', index=97, number=99,
+      serialized_options=None,
+      type=None),
+    _descriptor.EnumValueDescriptor(
+      name='NPC_DOTA_HERO_TUSK', index=98, number=100,
+      serialized_options=None,
+      type=None),
+    _descriptor.EnumValueDescriptor(
+      name='NPC_DOTA_HERO_SKYWRATH_MAGE', index=99, number=101,
+      serialized_options=None,
+      type=None),
+    _descriptor.EnumValueDescriptor(
+      name='NPC_DOTA_HERO_ABADDON', index=100, number=102,
+      serialized_options=None,
+      type=None),
+    _descriptor.EnumValueDescriptor(
+      name='NPC_DOTA_HERO_ELDER_TITAN', index=101, number=103,
+      serialized_options=None,
+      type=None),
+    _descriptor.EnumValueDescriptor(
+      name='NPC_DOTA_HERO_LEGION_COMMANDER', index=102, number=104,
+      serialized_options=None,
+      type=None),
+    _descriptor.EnumValueDescriptor(
+      name='NPC_DOTA_HERO_TECHIES', index=103, number=105,
+      serialized_options=None,
+      type=None),
+    _descriptor.EnumValueDescriptor(
+      name='NPC_DOTA_HERO_EMBER_SPIRIT', index=104, number=106,
+      serialized_options=None,
+      type=None),
+    _descriptor.EnumValueDescriptor(
+      name='NPC_DOTA_HERO_EARTH_SPIRIT', index=105, number=107,
+      serialized_options=None,
+      type=None),
+    _descriptor.EnumValueDescriptor(
+      name='NPC_DOTA_HERO_ABYSSAL_UNDERLORD', index=106, number=108,
+      serialized_options=None,
+      type=None),
+    _descriptor.EnumValueDescriptor(
+      name='NPC_DOTA_HERO_TERRORBLADE', index=107, number=109,
+      serialized_options=None,
+      type=None),
+    _descriptor.EnumValueDescriptor(
+      name='NPC_DOTA_HERO_PHOENIX', index=108, number=110,
+      serialized_options=None,
+      type=None),
+    _descriptor.EnumValueDescriptor(
+      name='NPC_DOTA_HERO_ORACLE', index=109, number=111,
+      serialized_options=None,
+      type=None),
+    _descriptor.EnumValueDescriptor(
+      name='NPC_DOTA_HERO_WINTER_WYVERN', index=110, number=112,
+      serialized_options=None,
+      type=None),
+    _descriptor.EnumValueDescriptor(
+      name='NPC_DOTA_HERO_ARC_WARDEN', index=111, number=113,
+      serialized_options=None,
+      type=None),
+    _descriptor.EnumValueDescriptor(
+      name='NPC_DOTA_HERO_MONKEY_KING', index=112, number=114,
+      serialized_options=None,
+      type=None),
+    _descriptor.EnumValueDescriptor(
+      name='NPC_DOTA_HERO_DARK_WILLOW', index=113, number=119,
+      serialized_options=None,
+      type=None),
+    _descriptor.EnumValueDescriptor(
+      name='NPC_DOTA_HERO_PANGOLIE', index=114, number=120,
+      serialized_options=None,
+      type=None),
+  ],
+  containing_type=None,
+  serialized_options=None,
+  serialized_start=984,
+  serialized_end=4327,
+)
+_sym_db.RegisterEnumDescriptor(_HERO)
+
+Hero = enum_type_wrapper.EnumTypeWrapper(_HERO)
 _STATUS = _descriptor.EnumDescriptor(
   name='Status',
   full_name='Status',
@@ -59,35 +557,12 @@ _STATUS = _descriptor.EnumDescriptor(
   ],
   containing_type=None,
   serialized_options=None,
-  serialized_start=716,
-  serialized_end=830,
+  serialized_start=4329,
+  serialized_end=4443,
 )
 _sym_db.RegisterEnumDescriptor(_STATUS)
 
 Status = enum_type_wrapper.EnumTypeWrapper(_STATUS)
-_TEAM = _descriptor.EnumDescriptor(
-  name='Team',
-  full_name='Team',
-  filename=None,
-  file=DESCRIPTOR,
-  values=[
-    _descriptor.EnumValueDescriptor(
-      name='TEAM_RADIANT', index=0, number=2,
-      serialized_options=None,
-      type=None),
-    _descriptor.EnumValueDescriptor(
-      name='TEAM_DIRE', index=1, number=3,
-      serialized_options=None,
-      type=None),
-  ],
-  containing_type=None,
-  serialized_options=None,
-  serialized_start=832,
-  serialized_end=871,
-)
-_sym_db.RegisterEnumDescriptor(_TEAM)
-
-Team = enum_type_wrapper.EnumTypeWrapper(_TEAM)
 _HOSTMODE = _descriptor.EnumDescriptor(
   name='HostMode',
   full_name='HostMode',
@@ -109,23 +584,168 @@ _HOSTMODE = _descriptor.EnumDescriptor(
   ],
   containing_type=None,
   serialized_options=None,
-  serialized_start=873,
-  serialized_end=951,
+  serialized_start=4445,
+  serialized_end=4523,
 )
 _sym_db.RegisterEnumDescriptor(_HOSTMODE)
 
 HostMode = enum_type_wrapper.EnumTypeWrapper(_HOSTMODE)
+_HEROCONTROLMODE = _descriptor.EnumDescriptor(
+  name='HeroControlMode',
+  full_name='HeroControlMode',
+  filename=None,
+  file=DESCRIPTOR,
+  values=[
+    _descriptor.EnumValueDescriptor(
+      name='HERO_CONTROL_MODE_IDLE', index=0, number=0,
+      serialized_options=None,
+      type=None),
+    _descriptor.EnumValueDescriptor(
+      name='HERO_CONTROL_MODE_DEFAULT', index=1, number=1,
+      serialized_options=None,
+      type=None),
+    _descriptor.EnumValueDescriptor(
+      name='HERO_CONTROL_MODE_CONTROLLED', index=2, number=2,
+      serialized_options=None,
+      type=None),
+  ],
+  containing_type=None,
+  serialized_options=None,
+  serialized_start=4525,
+  serialized_end=4635,
+)
+_sym_db.RegisterEnumDescriptor(_HEROCONTROLMODE)
+
+HeroControlMode = enum_type_wrapper.EnumTypeWrapper(_HEROCONTROLMODE)
+TEAM_RADIANT = 2
+TEAM_DIRE = 3
+NPC_DOTA_HERO_ANTIMAGE = 1
+NPC_DOTA_HERO_AXE = 2
+NPC_DOTA_HERO_BANE = 3
+NPC_DOTA_HERO_BLOODSEEKER = 4
+NPC_DOTA_HERO_CRYSTAL_MAIDEN = 5
+NPC_DOTA_HERO_DROW_RANGER = 6
+NPC_DOTA_HERO_EARTHSHAKER = 7
+NPC_DOTA_HERO_JUGGERNAUT = 8
+NPC_DOTA_HERO_MIRANA = 9
+NPC_DOTA_HERO_MORPHLING = 10
+NPC_DOTA_HERO_NEVERMORE = 11
+NPC_DOTA_HERO_PHANTOM_LANCER = 12
+NPC_DOTA_HERO_PUCK = 13
+NPC_DOTA_HERO_PUDGE = 14
+NPC_DOTA_HERO_RAZOR = 15
+NPC_DOTA_HERO_SAND_KING = 16
+NPC_DOTA_HERO_STORM_SPIRIT = 17
+NPC_DOTA_HERO_SVEN = 18
+NPC_DOTA_HERO_TINY = 19
+NPC_DOTA_HERO_VENGEFULSPIRIT = 20
+NPC_DOTA_HERO_WINDRUNNER = 21
+NPC_DOTA_HERO_ZUUS = 22
+NPC_DOTA_HERO_KUNKKA = 23
+NPC_DOTA_HERO_LINA = 25
+NPC_DOTA_HERO_LION = 26
+NPC_DOTA_HERO_SHADOW_SHAMAN = 27
+NPC_DOTA_HERO_SLARDAR = 28
+NPC_DOTA_HERO_TIDEHUNTER = 29
+NPC_DOTA_HERO_WITCH_DOCTOR = 30
+NPC_DOTA_HERO_LICH = 31
+NPC_DOTA_HERO_RIKI = 32
+NPC_DOTA_HERO_ENIGMA = 33
+NPC_DOTA_HERO_TINKER = 34
+NPC_DOTA_HERO_SNIPER = 35
+NPC_DOTA_HERO_NECROLYTE = 36
+NPC_DOTA_HERO_WARLOCK = 37
+NPC_DOTA_HERO_BEASTMASTER = 38
+NPC_DOTA_HERO_QUEENOFPAIN = 39
+NPC_DOTA_HERO_VENOMANCER = 40
+NPC_DOTA_HERO_FACELESS_VOID = 41
+NPC_DOTA_HERO_SKELETON_KING = 42
+NPC_DOTA_HERO_DEATH_PROPHET = 43
+NPC_DOTA_HERO_PHANTOM_ASSASSIN = 44
+NPC_DOTA_HERO_PUGNA = 45
+NPC_DOTA_HERO_TEMPLAR_ASSASSIN = 46
+NPC_DOTA_HERO_VIPER = 47
+NPC_DOTA_HERO_LUNA = 48
+NPC_DOTA_HERO_DRAGON_KNIGHT = 49
+NPC_DOTA_HERO_DAZZLE = 50
+NPC_DOTA_HERO_RATTLETRAP = 51
+NPC_DOTA_HERO_LESHRAC = 52
+NPC_DOTA_HERO_FURION = 53
+NPC_DOTA_HERO_LIFE_STEALER = 54
+NPC_DOTA_HERO_DARK_SEER = 55
+NPC_DOTA_HERO_CLINKZ = 56
+NPC_DOTA_HERO_OMNIKNIGHT = 57
+NPC_DOTA_HERO_ENCHANTRESS = 58
+NPC_DOTA_HERO_HUSKAR = 59
+NPC_DOTA_HERO_NIGHT_STALKER = 60
+NPC_DOTA_HERO_BROODMOTHER = 61
+NPC_DOTA_HERO_BOUNTY_HUNTER = 62
+NPC_DOTA_HERO_WEAVER = 63
+NPC_DOTA_HERO_JAKIRO = 64
+NPC_DOTA_HERO_BATRIDER = 65
+NPC_DOTA_HERO_CHEN = 66
+NPC_DOTA_HERO_SPECTRE = 67
+NPC_DOTA_HERO_DOOM_BRINGER = 69
+NPC_DOTA_HERO_ANCIENT_APPARITION = 68
+NPC_DOTA_HERO_URSA = 70
+NPC_DOTA_HERO_SPIRIT_BREAKER = 71
+NPC_DOTA_HERO_GYROCOPTER = 72
+NPC_DOTA_HERO_ALCHEMIST = 73
+NPC_DOTA_HERO_INVOKER = 74
+NPC_DOTA_HERO_SILENCER = 75
+NPC_DOTA_HERO_OBSIDIAN_DESTROYER = 76
+NPC_DOTA_HERO_LYCAN = 77
+NPC_DOTA_HERO_BREWMASTER = 78
+NPC_DOTA_HERO_SHADOW_DEMON = 79
+NPC_DOTA_HERO_LONE_DRUID = 80
+NPC_DOTA_HERO_CHAOS_KNIGHT = 81
+NPC_DOTA_HERO_MEEPO = 82
+NPC_DOTA_HERO_TREANT = 83
+NPC_DOTA_HERO_OGRE_MAGI = 84
+NPC_DOTA_HERO_UNDYING = 85
+NPC_DOTA_HERO_RUBICK = 86
+NPC_DOTA_HERO_DISRUPTOR = 87
+NPC_DOTA_HERO_NYX_ASSASSIN = 88
+NPC_DOTA_HERO_NAGA_SIREN = 89
+NPC_DOTA_HERO_KEEPER_OF_THE_LIGHT = 90
+NPC_DOTA_HERO_WISP = 91
+NPC_DOTA_HERO_VISAGE = 92
+NPC_DOTA_HERO_SLARK = 93
+NPC_DOTA_HERO_MEDUSA = 94
+NPC_DOTA_HERO_TROLL_WARLORD = 95
+NPC_DOTA_HERO_CENTAUR = 96
+NPC_DOTA_HERO_MAGNATAUR = 97
+NPC_DOTA_HERO_SHREDDER = 98
+NPC_DOTA_HERO_BRISTLEBACK = 99
+NPC_DOTA_HERO_TUSK = 100
+NPC_DOTA_HERO_SKYWRATH_MAGE = 101
+NPC_DOTA_HERO_ABADDON = 102
+NPC_DOTA_HERO_ELDER_TITAN = 103
+NPC_DOTA_HERO_LEGION_COMMANDER = 104
+NPC_DOTA_HERO_TECHIES = 105
+NPC_DOTA_HERO_EMBER_SPIRIT = 106
+NPC_DOTA_HERO_EARTH_SPIRIT = 107
+NPC_DOTA_HERO_ABYSSAL_UNDERLORD = 108
+NPC_DOTA_HERO_TERRORBLADE = 109
+NPC_DOTA_HERO_PHOENIX = 110
+NPC_DOTA_HERO_ORACLE = 111
+NPC_DOTA_HERO_WINTER_WYVERN = 112
+NPC_DOTA_HERO_ARC_WARDEN = 113
+NPC_DOTA_HERO_MONKEY_KING = 114
+NPC_DOTA_HERO_DARK_WILLOW = 119
+NPC_DOTA_HERO_PANGOLIE = 120
 OK = 0
 RESOURCE_EXHAUSTED = 8
 FAILED_PRECONDITION = 9
 OUT_OF_RANGE = 11
 RADIANT_WIN = 12
 DIRE_WIN = 13
-TEAM_RADIANT = 2
-TEAM_DIRE = 3
 HOST_MODE_DEDICATED = 0
 HOST_MODE_GUI = 1
 HOST_MODE_GUI_MENU = 2
+HERO_CONTROL_MODE_IDLE = 0
+HERO_CONTROL_MODE_DEFAULT = 1
+HERO_CONTROL_MODE_CONTROLLED = 2
 
 
 
@@ -198,6 +818,58 @@ _OBSERVATION = _descriptor.Descriptor(
 )
 
 
+_PLAYER = _descriptor.Descriptor(
+  name='Player',
+  full_name='Player',
+  filename=None,
+  file=DESCRIPTOR,
+  containing_type=None,
+  fields=[
+    _descriptor.FieldDescriptor(
+      name='id', full_name='Player.id', index=0,
+      number=1, type=13, cpp_type=3, label=1,
+      has_default_value=False, default_value=0,
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      serialized_options=None, file=DESCRIPTOR),
+    _descriptor.FieldDescriptor(
+      name='team_id', full_name='Player.team_id', index=1,
+      number=2, type=13, cpp_type=3, label=1,
+      has_default_value=False, default_value=0,
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      serialized_options=None, file=DESCRIPTOR),
+    _descriptor.FieldDescriptor(
+      name='is_bot', full_name='Player.is_bot', index=2,
+      number=3, type=8, cpp_type=7, label=1,
+      has_default_value=False, default_value=False,
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      serialized_options=None, file=DESCRIPTOR),
+    _descriptor.FieldDescriptor(
+      name='hero', full_name='Player.hero', index=3,
+      number=4, type=9, cpp_type=9, label=1,
+      has_default_value=False, default_value=_b("").decode('utf-8'),
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      serialized_options=None, file=DESCRIPTOR),
+  ],
+  extensions=[
+  ],
+  nested_types=[],
+  enum_types=[
+  ],
+  serialized_options=None,
+  is_extendable=False,
+  syntax='proto2',
+  extension_ranges=[],
+  oneofs=[
+  ],
+  serialized_start=258,
+  serialized_end=325,
+)
+
+
 _INITIALOBSERVATION = _descriptor.Descriptor(
   name='InitialObservation',
   full_name='InitialObservation',
@@ -226,6 +898,13 @@ _INITIALOBSERVATION = _descriptor.Descriptor(
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
       serialized_options=None, file=DESCRIPTOR),
+    _descriptor.FieldDescriptor(
+      name='players', full_name='InitialObservation.players', index=3,
+      number=4, type=11, cpp_type=10, label=3,
+      has_default_value=False, default_value=[],
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      serialized_options=None, file=DESCRIPTOR),
   ],
   extensions=[
   ],
@@ -238,8 +917,53 @@ _INITIALOBSERVATION = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=259,
-  serialized_end=399,
+  serialized_start=328,
+  serialized_end=494,
+)
+
+
+_HEROPICK = _descriptor.Descriptor(
+  name='HeroPick',
+  full_name='HeroPick',
+  filename=None,
+  file=DESCRIPTOR,
+  containing_type=None,
+  fields=[
+    _descriptor.FieldDescriptor(
+      name='team_id', full_name='HeroPick.team_id', index=0,
+      number=1, type=14, cpp_type=8, label=2,
+      has_default_value=False, default_value=2,
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      serialized_options=None, file=DESCRIPTOR),
+    _descriptor.FieldDescriptor(
+      name='hero_id', full_name='HeroPick.hero_id', index=1,
+      number=2, type=14, cpp_type=8, label=2,
+      has_default_value=False, default_value=1,
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      serialized_options=None, file=DESCRIPTOR),
+    _descriptor.FieldDescriptor(
+      name='control_mode', full_name='HeroPick.control_mode', index=2,
+      number=3, type=14, cpp_type=8, label=2,
+      has_default_value=False, default_value=0,
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      serialized_options=None, file=DESCRIPTOR),
+  ],
+  extensions=[
+  ],
+  nested_types=[],
+  enum_types=[
+  ],
+  serialized_options=None,
+  is_extendable=False,
+  syntax='proto2',
+  extension_ranges=[],
+  oneofs=[
+  ],
+  serialized_start=496,
+  serialized_end=594,
 )
 
 
@@ -285,6 +1009,13 @@ _GAMECONFIG = _descriptor.Descriptor(
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
       serialized_options=None, file=DESCRIPTOR),
+    _descriptor.FieldDescriptor(
+      name='hero_picks', full_name='GameConfig.hero_picks', index=5,
+      number=7, type=11, cpp_type=10, label=3,
+      has_default_value=False, default_value=[],
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      serialized_options=None, file=DESCRIPTOR),
   ],
   extensions=[
   ],
@@ -297,8 +1028,8 @@ _GAMECONFIG = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=402,
-  serialized_end=593,
+  serialized_start=597,
+  serialized_end=819,
 )
 
 
@@ -335,8 +1066,8 @@ _ACTIONS = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=595,
-  serialized_end=673,
+  serialized_start=821,
+  serialized_end=899,
 )
 
 
@@ -366,8 +1097,8 @@ _OBSERVECONFIG = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=675,
-  serialized_end=714,
+  serialized_start=901,
+  serialized_end=940,
 )
 
 _OBSERVATION.fields_by_name['status'].enum_type = _STATUS
@@ -376,20 +1107,29 @@ _OBSERVATION.fields_by_name['world_state'].message_type = dotaservice_dot_protos
 _INITIALOBSERVATION.fields_by_name['status'].enum_type = _STATUS
 _INITIALOBSERVATION.fields_by_name['world_state_radiant'].message_type = dotaservice_dot_protos_dot_dota__gcmessages__common__bot__script__pb2._CMSGBOTWORLDSTATE
 _INITIALOBSERVATION.fields_by_name['world_state_dire'].message_type = dotaservice_dot_protos_dot_dota__gcmessages__common__bot__script__pb2._CMSGBOTWORLDSTATE
+_INITIALOBSERVATION.fields_by_name['players'].message_type = _PLAYER
+_HEROPICK.fields_by_name['team_id'].enum_type = _TEAM
+_HEROPICK.fields_by_name['hero_id'].enum_type = _HERO
+_HEROPICK.fields_by_name['control_mode'].enum_type = _HEROCONTROLMODE
 _GAMECONFIG.fields_by_name['host_mode'].enum_type = _HOSTMODE
 _GAMECONFIG.fields_by_name['game_mode'].enum_type = dotaservice_dot_protos_dot_dota__shared__enums__pb2._DOTA_GAMEMODE
+_GAMECONFIG.fields_by_name['hero_picks'].message_type = _HEROPICK
 _ACTIONS.fields_by_name['actions'].message_type = dotaservice_dot_protos_dot_dota__gcmessages__common__bot__script__pb2._CMSGBOTWORLDSTATE_ACTIONS
 _ACTIONS.fields_by_name['team_id'].enum_type = _TEAM
 _OBSERVECONFIG.fields_by_name['team_id'].enum_type = _TEAM
 DESCRIPTOR.message_types_by_name['Empty'] = _EMPTY
 DESCRIPTOR.message_types_by_name['Observation'] = _OBSERVATION
+DESCRIPTOR.message_types_by_name['Player'] = _PLAYER
 DESCRIPTOR.message_types_by_name['InitialObservation'] = _INITIALOBSERVATION
+DESCRIPTOR.message_types_by_name['HeroPick'] = _HEROPICK
 DESCRIPTOR.message_types_by_name['GameConfig'] = _GAMECONFIG
 DESCRIPTOR.message_types_by_name['Actions'] = _ACTIONS
 DESCRIPTOR.message_types_by_name['ObserveConfig'] = _OBSERVECONFIG
-DESCRIPTOR.enum_types_by_name['Status'] = _STATUS
 DESCRIPTOR.enum_types_by_name['Team'] = _TEAM
+DESCRIPTOR.enum_types_by_name['Hero'] = _HERO
+DESCRIPTOR.enum_types_by_name['Status'] = _STATUS
 DESCRIPTOR.enum_types_by_name['HostMode'] = _HOSTMODE
+DESCRIPTOR.enum_types_by_name['HeroControlMode'] = _HEROCONTROLMODE
 _sym_db.RegisterFileDescriptor(DESCRIPTOR)
 
 Empty = _reflection.GeneratedProtocolMessageType('Empty', (_message.Message,), dict(
@@ -406,12 +1146,26 @@ Observation = _reflection.GeneratedProtocolMessageType('Observation', (_message.
   ))
 _sym_db.RegisterMessage(Observation)
 
+Player = _reflection.GeneratedProtocolMessageType('Player', (_message.Message,), dict(
+  DESCRIPTOR = _PLAYER,
+  __module__ = 'dotaservice.protos.DotaService_pb2'
+  # @@protoc_insertion_point(class_scope:Player)
+  ))
+_sym_db.RegisterMessage(Player)
+
 InitialObservation = _reflection.GeneratedProtocolMessageType('InitialObservation', (_message.Message,), dict(
   DESCRIPTOR = _INITIALOBSERVATION,
   __module__ = 'dotaservice.protos.DotaService_pb2'
   # @@protoc_insertion_point(class_scope:InitialObservation)
   ))
 _sym_db.RegisterMessage(InitialObservation)
+
+HeroPick = _reflection.GeneratedProtocolMessageType('HeroPick', (_message.Message,), dict(
+  DESCRIPTOR = _HEROPICK,
+  __module__ = 'dotaservice.protos.DotaService_pb2'
+  # @@protoc_insertion_point(class_scope:HeroPick)
+  ))
+_sym_db.RegisterMessage(HeroPick)
 
 GameConfig = _reflection.GeneratedProtocolMessageType('GameConfig', (_message.Message,), dict(
   DESCRIPTOR = _GAMECONFIG,
@@ -442,8 +1196,8 @@ _DOTASERVICE = _descriptor.ServiceDescriptor(
   file=DESCRIPTOR,
   index=0,
   serialized_options=None,
-  serialized_start=954,
-  serialized_end=1082,
+  serialized_start=4638,
+  serialized_end=4766,
   methods=[
   _descriptor.MethodDescriptor(
     name='reset',

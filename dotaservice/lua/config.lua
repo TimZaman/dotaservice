@@ -11,4 +11,6 @@ else
 end
 assert(config.ticks_per_observation ~= nil)
 assert(config.game_id ~= nil)
+assert(config.hero_picks ~= nil)
+assert(#config.hero_picks == 10)
 return config

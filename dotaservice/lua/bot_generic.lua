@@ -9,6 +9,24 @@ local LIVE_CONFIG_FILENAME = 'bots/live_config_auto'
 local debug_text = nil
 local live_config = nil
 
+-- Dump all player id's and if they are controlled.
+local player_ids = {}
+for _, pid in pairs(GetTeamPlayers(TEAM_DIRE)) do
+    table.insert(player_ids, pid)
+end
+for _, pid in pairs(GetTeamPlayers(TEAM_RADIANT)) do
+    table.insert(player_ids, pid)
+end
+local players = {}
+for _, pid in pairs(player_ids) do
+    local player = {}
+    player['id'] = pid
+    player['is_bot'] = IsPlayerBot(pid)
+    player['team_id'] = GetTeamForPlayer(pid)
+    player['hero'] = GetSelectedHeroName(pid)
+    table.insert(players, player)
+end
+print('PLYRS', json.encode(players))
 
 local function act(action)
     local tblActions = {}
@@ -217,10 +235,13 @@ local function no_op() end
 -- The below is only called once per bot, so if we want to control a bot, we can register the
 -- corresponding Think function here. If we don't want to control the bot, we don't expose the
 -- Think function.
-if GetBot():GetPlayerID() == 0 or GetBot():GetPlayerID() == 5  then
-    Think = think_fn
-else
-    -- If we want the bot to idle, we can no_op him here.
-    Think = no_op
+for i, hero_pick in pairs(config.hero_picks) do
+    if GetBot():GetPlayerID() + 1 == i then  -- '+1' is to offset the GetPlayedID C++ 0- indexing
+        if hero_pick.controlMode == 'HERO_CONTROL_MODE_CONTROLLED' then
+            Think = think_fn
+        elseif hero_pick.controlMode == "HERO_CONTROL_MODE_IDLE" then
+            Think = no_op
+        end -- If above conditions are not met, the bot will be controlled by the default implementation.
+    end
 end
--- Else: The bot will be controlled by the default impl
+

@@ -29,6 +29,7 @@ from dotaservice.protos.DotaService_pb2 import HOST_MODE_DEDICATED, HOST_MODE_GU
 from dotaservice.protos.DotaService_pb2 import TEAM_RADIANT, TEAM_DIRE
 from dotaservice.protos.DotaService_pb2 import Observation, ObserveConfig, InitialObservation
 from dotaservice.protos.DotaService_pb2 import Status
+from dotaservice.protos.DotaService_pb2 import Player, Team, Hero
 
 logging.basicConfig(format='%(asctime)s %(levelname)-8s %(message)s')
 logger = logging.getLogger(__name__)
@@ -62,6 +63,7 @@ class DotaGame(object):
     PORT_WORLDSTATES = {TEAM_RADIANT: 12120, TEAM_DIRE: 12121} 
     RE_DEMO =  re.compile(r'playdemo[ \t](.*dem)')
     RE_LUARDY = re.compile(r'LUARDY[ \t](\{.*\})')
+    RE_PLAYERS = re.compile(r'PLYRS[ \t](\[.*\])')
     RE_WIN = re.compile(r'good guys win = (\d)')
     WORLDSTATE_PAYLOAD_BYTES = 4
 
@@ -71,6 +73,7 @@ class DotaGame(object):
                  remove_logs,
                  host_timescale,
                  ticks_per_observation,
+                 hero_picks,
                  game_mode,
                  host_mode,
                  game_id=None,
@@ -80,6 +83,7 @@ class DotaGame(object):
         self.remove_logs = remove_logs
         self.host_timescale = host_timescale
         self.ticks_per_observation = ticks_per_observation
+        self.hero_picks = hero_picks
         self.game_mode = game_mode
         self.host_mode = host_mode
         self.game_id = game_id
@@ -95,11 +99,15 @@ class DotaGame(object):
         self.lua_config_future = asyncio.get_event_loop().create_future()
         self._write_config()
         self.process = None
+        self.players = None
         self.demo_path_rel = None
 
         if self.host_mode != HOST_MODE_DEDICATED:
             # TODO(tzaman): Change the proto so that there are per-hostmode settings?
             self.host_timescale = 1
+
+        if len(hero_picks) != 10:
+            raise ValueError('Expected 10 hero picks. Got {}.'.format(len(hero_picks)))
 
         has_display = 'DISPLAY' in os.environ or platform == "darwin"
         if not has_display and host_mode != HOST_MODE_DEDICATED:
@@ -112,6 +120,7 @@ class DotaGame(object):
         config = {
             'game_id': self.game_id,
             'ticks_per_observation': self.ticks_per_observation,
+            'hero_picks': [MessageToDict(h) for h in self.hero_picks],
         }
         self.write_static_config(data=config)
 
@@ -181,6 +190,14 @@ class DotaGame(object):
                             if m_demo:
                                 self.demo_path_rel = m_demo.group(1)
                                 logger.debug("demo_path_rel={}".format(self.demo_path_rel))
+
+                        if self.players is None:
+                            m_players = self.RE_PLAYERS.search(line)
+                            if m_players:
+                                players_json = m_players.group(1)
+                                self.players = json.loads(players_json)
+                                logger.debug('players={}'.format(self.players))
+
                         m_luadry = self.RE_LUARDY.search(line)
                         if m_luadry:
                             config_json = m_luadry.group(1)
@@ -440,6 +457,7 @@ class DotaService(DotaServiceBase):
             remove_logs=self.remove_logs,
             host_timescale=config.host_timescale,
             ticks_per_observation=config.ticks_per_observation,
+            hero_picks=config.hero_picks,
             game_mode=config.game_mode,
             host_mode=config.host_mode,
             game_id=config.game_id,
@@ -484,8 +502,22 @@ class DotaService(DotaServiceBase):
         await stream.send_message(InitialObservation(
             world_state_radiant=data[TEAM_RADIANT],
             world_state_dire=data[TEAM_DIRE],
+            players=self.players_to_pb(self.dota_game.players),
         ))
 
+    @staticmethod
+    def players_to_pb(players):
+        players_pb = []
+        for player in players:
+            players_pb.append(
+                Player(
+                    id=player['id'],
+                    team_id=player['team_id'],
+                    is_bot=player['is_bot'],
+                    hero=player['hero'].upper(),
+                )
+            )
+        return players_pb
 
     async def observe(self, stream):
         logger.debug('DotaService::observe()')
