@@ -29,3 +29,5 @@ ARG user
 ARG pwd
 ARG guard
 RUN /root/steamcmd/steamcmd.sh +login ${user} ${pwd} ${guard} +app_update 570 +quit
+
+RUN ln -s ~/steamcmd/linux64 ~/.steam/sdk64
