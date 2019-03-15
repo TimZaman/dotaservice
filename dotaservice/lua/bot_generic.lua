@@ -29,9 +29,9 @@ end
 print('PLYRS', json.encode(players))
 
 local function act(action)
-    local tblActions = {}
+    local action_table = {}
     if action.actionType == "DOTA_UNIT_ORDER_NONE" then
-        tblActions[action.actionType] = {}
+        action_table[action.actionType] = {}
     elseif action.actionType == "DOTA_UNIT_ORDER_MOVE_TO_POSITION" then
         -- NOTE: Move To Position is implemented by Dota2 as a path-navigation movement action.
         --       It will create a list of waypoints that the bot will walk in straight lines between.
@@ -44,7 +44,7 @@ local function act(action)
         --       approximiation for movement you could end up instructing the bot to move to the same
         --       location over and over and it just ping-pongs back and forth moving around the precise
         --       location but never directly on it.
-        tblActions[action.actionType] = {{action.moveToLocation.location.x, action.moveToLocation.location.y, 0.0}, {0}}
+        action_table[action.actionType] = {{action.moveToLocation.location.x, action.moveToLocation.location.y, 0.0}, {0}}
     elseif action.actionType == "DOTA_UNIT_ORDER_MOVE_DIRECTLY" then
         -- NOTE: Move Direclty is implemented by Dota2 as a single point-to-point straight line 
         --       movement action. It does not try to path around any obstacles or check for impossible moves.
@@ -52,37 +52,37 @@ local function act(action)
         --       Because of how it works, it is ill-advised to use Direct movement for long distances as the
         --       probability of hitting a tree or an obstacle are high and with Direct movement you will
         --       not path around it, but rather get stuck trying to move through it and not succeeding.
-        tblActions[action.actionType] = {{action.moveDirectly.location.x, action.moveDirectly.location.y, 0.0}, {0}}
+        action_table[action.actionType] = {{action.moveDirectly.location.x, action.moveDirectly.location.y, 0.0}, {0}}
     elseif action.actionType == "DOTA_UNIT_ORDER_ATTACK_TARGET" then
-        tblActions[action.actionType] = {{action.attackTarget.target}, {action.attackTarget.once}, {0}}
+        action_table[action.actionType] = {{action.attackTarget.target}, {action.attackTarget.once}, {0}}
     elseif action.actionType == "DOTA_UNIT_ORDER_TRAIN_ABILITY" then
-        tblActions[action.actionType] = {{action.trainAbility.ability}}
+        action_table[action.actionType] = {{action.trainAbility.ability}}
     elseif action.actionType == "DOTA_UNIT_ORDER_GLYPH" then
-        tblActions[action.actionType] = {}
+        action_table[action.actionType] = {}
     elseif action.actionType == "DOTA_UNIT_ORDER_STOP" then
-        tblActions[action.actionType] = {{1}}
+        action_table[action.actionType] = {{1}}
     elseif action.actionType == "DOTA_UNIT_ORDER_BUYBACK" then
-        tblActions[action.actionType] = {}
+        action_table[action.actionType] = {}
     elseif action.actionType == "ACTION_CHAT" then
-        tblActions[action.actionType] = {{action.chat.message}, {action.chat.to_allchat}}
+        action_table[action.actionType] = {{action.chat.message}, {action.chat.to_allchat}}
     elseif action.actionType == "DOTA_UNIT_ORDER_CAST_POSITION" then
-        tblactions[action.actionType] = {{action.castLocation.abilitySlot}, {action.castLocation.location.x, action.castLocation.location.y, 0.0}, {0}}
+        action_table[action.actionType] = {{action.castLocation.abilitySlot}, {action.castLocation.location.x, action.castLocation.location.y, 0.0}, {0}}
     elseif action.actionType == "DOTA_UNIT_ORDER_CAST_TARGET" then
-        tblactions[action.actionType] = {{action.castTarget.abilitySlot}, {action.castTarget.target}, {0}}
+        action_table[action.actionType] = {{action.castTarget.abilitySlot}, {action.castTarget.target}, {0}}
     elseif action.actionType == "DOTA_UNIT_ORDER_CAST_TARGET_TREE" then
-        tblactions[action.actionType] = {{action.castTree.abilitySlot}, {action.castTree.tree}, {0}}
+        action_table[action.actionType] = {{action.castTree.abilitySlot}, {action.castTree.tree}, {0}}
     elseif action.actionType == "DOTA_UNIT_ORDER_CAST_NO_TARGET" then
-        tblactions[action.actionType] = {{action.cast.abilitySlot}, {0}}
+        action_table[action.actionType] = {{action.cast.abilitySlot}, {0}}
     elseif action.actionType == "DOTA_UNIT_ORDER_CAST_TOGGLE" then
-        tblactions[action.actionType] = {{action.castToggle.abilitySlot}}
+        action_table[action.actionType] = {{action.castToggle.abilitySlot}}
     elseif action.actionType == "DOTA_UNIT_ORDER_PICKUP_RUNE" then
-        tblactions[action.actionType] = {{action.pickUpRune.rune}, {0}}
+        action_table[action.actionType] = {{action.pickUpRune.rune}, {0}}
     elseif action.actionType == "DOTA_UNIT_ORDER_PICKUP_ITEM" then
-        tblactions[action.actionType] = {{action.pickUpItem.itemId}, {0}}
+        action_table[action.actionType] = {{action.pickUpItem.itemId}, {0}}
     elseif action.actionType == "DOTA_UNIT_ORDER_DROP_ITEM" then
-        tblactions[action.actionType] = {{action.dropItem.slot}, {action.dropItem.location.x, action.dropItem.location.y, 0,0}, {0}}
+        action_table[action.actionType] = {{action.dropItem.slot}, {action.dropItem.location.x, action.dropItem.location.y, 0,0}, {0}}
     end
-    action_proc:Run(GetBot(), tblActions)
+    action_proc:Run(GetBot(), action_table)
 end
 
 
@@ -165,7 +165,7 @@ local function think_fn()
     local dota_time = DotaTime()
     local game_state = GetGameState()
 
-    -- Only keep track of this for cliabration purposes.
+    -- Only keep track of this for calibration purposes.
     if live_config == nil then
         dota_time_to_step_map[dota_time] = step
     end
