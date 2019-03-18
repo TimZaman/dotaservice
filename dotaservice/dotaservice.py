@@ -412,7 +412,7 @@ class DotaService(DotaServiceBase):
     @property
     def observe_timeout(self):
         if self.dota_game.host_mode == HOST_MODE_DEDICATED:
-            return 20
+            return 10
         return 3600
 
     @staticmethod
@@ -563,8 +563,6 @@ class DotaService(DotaServiceBase):
 
         # Return the reponse.
         await stream.send_message(Empty())
-
-
 
 
 async def serve(server, *, host, port):
