@@ -81,6 +81,8 @@ local function act(action)
         action_table[action.actionType] = {{action.pickUpItem.itemId}, {0}}
     elseif action.actionType == "DOTA_UNIT_ORDER_DROP_ITEM" then
         action_table[action.actionType] = {{action.dropItem.slot}, {action.dropItem.location.x, action.dropItem.location.y, 0,0}, {0}}
+    elseif action.actionType == "ACTION_COURIER" then
+        action_table[action.actionType] = {{action.courier.courier}, {action.courier.action}}
     end
     action_proc:Run(GetBot(), action_table)
 end
