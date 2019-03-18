@@ -44,7 +44,7 @@ local function act(action)
         --       approximiation for movement you could end up instructing the bot to move to the same
         --       location over and over and it just ping-pongs back and forth moving around the precise
         --       location but never directly on it.
-        action_table[action.actionType] = {{action.moveToLocation.location.x, action.moveToLocation.location.y, 0.0}, {0}}
+        action_table[action.actionType] = {{action.moveToLocation.location.x, action.moveToLocation.location.y, action.moveToLocation.location.z}, {0}}
     elseif action.actionType == "DOTA_UNIT_ORDER_MOVE_DIRECTLY" then
         -- NOTE: Move Direclty is implemented by Dota2 as a single point-to-point straight line 
         --       movement action. It does not try to path around any obstacles or check for impossible moves.
@@ -52,7 +52,7 @@ local function act(action)
         --       Because of how it works, it is ill-advised to use Direct movement for long distances as the
         --       probability of hitting a tree or an obstacle are high and with Direct movement you will
         --       not path around it, but rather get stuck trying to move through it and not succeeding.
-        action_table[action.actionType] = {{action.moveDirectly.location.x, action.moveDirectly.location.y, 0.0}, {0}}
+        action_table[action.actionType] = {{action.moveDirectly.location.x, action.moveDirectly.location.y, action.moveDirectly.location.z}, {0}}
     elseif action.actionType == "DOTA_UNIT_ORDER_ATTACK_TARGET" then
         action_table[action.actionType] = {{action.attackTarget.target}, {action.attackTarget.once}, {0}}
     elseif action.actionType == "DOTA_UNIT_ORDER_TRAIN_ABILITY" then
@@ -78,7 +78,7 @@ local function act(action)
     elseif action.actionType == "DOTA_UNIT_ORDER_PICKUP_RUNE" then
         action_table[action.actionType] = {{action.pickUpRune.rune}, {0}}
     elseif action.actionType == "DOTA_UNIT_ORDER_PICKUP_ITEM" then
-        action_table[action.actionType] = {{action.pickUpItem.itemId}, {0}}
+        action_table[action.actionType] = {{action.pickUpItem.itemId}, {action.pickUpItem.location.x, action.pickUpItem.location.y, action.pickUpItem.location.z}, {0}}
     elseif action.actionType == "DOTA_UNIT_ORDER_DROP_ITEM" then
         action_table[action.actionType] = {{action.dropItem.slot}, {action.dropItem.location.x, action.dropItem.location.y, 0,0}, {0}}
     elseif action.actionType == "ACTION_COURIER" then
