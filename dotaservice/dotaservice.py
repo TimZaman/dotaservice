@@ -89,6 +89,7 @@ class DotaGame(object):
         self.game_id = game_id
         if not self.game_id:
             self.game_id = str(uuid.uuid1())
+        logger.info('Creating game_id={}'.format(self.game_id))
         self.dota_bot_path = os.path.join(self.dota_path, 'dota', 'scripts', 'vscripts',
                                           self.BOTS_FOLDER_NAME)
         self.bot_path = self._create_bot_path()
@@ -112,7 +113,6 @@ class DotaGame(object):
         has_display = 'DISPLAY' in os.environ or platform == "darwin"
         if not has_display and host_mode != HOST_MODE_DEDICATED:
             raise ValueError('GUI requested but no display detected.')
-            exit(-1)
         super().__init__()
 
     def _write_config(self):
@@ -222,7 +222,8 @@ class DotaGame(object):
                         if key == '1':
                             return TEAM_RADIANT
                         elif key == '0':
-                            return TEAM_DIRE                      
+                            return TEAM_DIRE
+        logger.warning('get_final_state_from_log() did not find a winner.')
         return None
 
     async def run(self):
@@ -361,7 +362,7 @@ class DotaGame(object):
                 try:
                     world_state = await self._world_state_from_reader(reader, team_id)
                     if world_state is None:
-                        logger.debug('Finishing worldstate listener (team_id={})'.format(team_id))
+                        logger.info('Finishing worldstate listener (team_id={})'.format(team_id))
                         return
                     is_in_game = world_state.game_state in self.ACTIONABLE_GAME_STATES
                     has_units = len(world_state.units) > 0
@@ -369,6 +370,7 @@ class DotaGame(object):
                         # Only regard worldstates that are actionable (in-game + has units).
                         queue.put_nowait(world_state)
                 except DecodeError as e:
+                    logger.warning('Worldstate decode error.')
                     pass
         except asyncio.CancelledError:
             raise
