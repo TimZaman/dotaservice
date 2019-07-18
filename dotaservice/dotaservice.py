@@ -240,28 +240,28 @@ class DotaGame(object):
         args = [
             script_path,
             '-botworldstatesocket_threaded',
-            '-botworldstatetosocket_frames {}'.format(self.ticks_per_observation),
-            '-botworldstatetosocket_radiant {}'.format(self.PORT_WORLDSTATES[TEAM_RADIANT]),
-            '-botworldstatetosocket_dire {}'.format(self.PORT_WORLDSTATES[TEAM_DIRE]),
-            '-con_logfile scripts/vscripts/bots/{}'.format(self.CONSOLE_LOG_FILENAME),
+            '-botworldstatetosocket_frames', '{}'.format(self.ticks_per_observation),
+            '-botworldstatetosocket_radiant', '{}'.format(self.PORT_WORLDSTATES[TEAM_RADIANT]),
+            '-botworldstatetosocket_dire', '{}'.format(self.PORT_WORLDSTATES[TEAM_DIRE]),
+            '-con_logfile', 'scripts/vscripts/bots/{}'.format(self.CONSOLE_LOG_FILENAME),
             '-con_timestamp',
             '-console',
             '-dev',
             '-insecure',
             '-noip',
             '-nowatchdog',  # WatchDog will quit the game if e.g. the lua api takes a few seconds.
-            '+clientport 27006',  # Relates to steam client.
-            '+dota_1v1_skip_strategy 1',
-            '+dota_surrender_on_disconnect 0',
-            '+host_timescale {}'.format(self.host_timescale),
+            '+clientport', '27006',  # Relates to steam client.
+            '+dota_1v1_skip_strategy', '1',
+            '+dota_surrender_on_disconnect', '0',
+            '+host_timescale', '{}'.format(self.host_timescale),
             '+hostname dotaservice',
-            '+sv_cheats 1',
-            '+sv_hibernate_when_empty 0',
-            '+tv_delay 0 ',
-            '+tv_enable 1',
-            '+tv_title {}'.format(self.game_id),
-            '+tv_autorecord 1',
-            '+tv_transmitall 1',  # TODO(tzaman): what does this do exactly?
+            '+sv_cheats', '1',
+            '+sv_hibernate_when_empty', '0',
+            '+tv_delay', '0',
+            '+tv_enable', '1',
+            '+tv_title', '{}'.format(self.game_id),
+            '+tv_autorecord', '1',
+            '+tv_transmitall', '1',  # TODO(tzaman): what does this do exactly?
         ]
 
         if self.host_mode == HOST_MODE_DEDICATED:
@@ -269,10 +269,10 @@ class DotaGame(object):
         if self.host_mode == HOST_MODE_DEDICATED or \
             self.host_mode == HOST_MODE_GUI:
             args.append('-fill_with_bots')
-            args.extend(['+map', 'start gamemode {}'.format(self.game_mode)])
-            args.append('+sv_lan 1')
+            args.extend(['+map', 'start', 'gamemode', '{}'.format(self.game_mode)])
+            args.extend(['+sv_lan', '1'])
         if self.host_mode == HOST_MODE_GUI_MENU:
-            args.append('+sv_lan 0')
+            args.extend(['+sv_lan', '0'])
 
         # Supress stdout if the logger level is info.
         stdout = None if logger.level == 'INFO' else asyncio.subprocess.PIPE
