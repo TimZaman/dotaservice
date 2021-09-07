@@ -274,13 +274,7 @@ class DotaGame(object):
         if self.host_mode == HOST_MODE_GUI_MENU:
             args.extend(['+sv_lan', '0'])
 
-        # Supress stdout if the logger level is info.
-        stdout = None if logger.level == 'INFO' else asyncio.subprocess.PIPE
-
-        create = asyncio.create_subprocess_exec(
-            *args,
-            stdin=asyncio.subprocess.PIPE, stdout=stdout, stderr=stdout,
-        )
+        create = asyncio.create_subprocess_exec(*args, stdin=asyncio.subprocess.PIPE)
         self.process = await create
 
         task_monitor_log = asyncio.create_task(self.monitor_log())
