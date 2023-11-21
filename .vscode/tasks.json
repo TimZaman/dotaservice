@@ -1,0 +1,52 @@
+{
+	"version": "2.0.0",
+	"inputs": [
+		{
+		  "id": "STEAM_USER",
+		  "type": "promptString",
+		  "description": "Steam username"},
+		{
+		  "id": "STEAM_PWD",
+		  "type": "promptString",
+		  "description": "Steam pwd",
+		  // type specific configuration attributes
+		},
+		{
+		  "id": "STEAM_GUARD",
+		  "type": "promptString",
+		  "description": "Steam guard",
+		  // type specific configuration attributes
+		}
+	  ],
+	"tasks": [
+		{
+			"type": "docker-build",
+			"label": "docker-build dota",
+			"platform": "python",
+			"options": {
+				"env": {
+					"STEAM_USER": "${input:STEAM_USER}"
+				}
+			},
+			"dockerBuild": {
+				"tag": "dota:latest",
+				"dockerfile": "${workspaceFolder}/docker/Dockerfile-dota",
+				"context": "${workspaceFolder}/docker",
+				"pull": true,
+				"buildArgs": {"user": "${input:STEAM_USER}",
+							  "pwd": "${input:STEAM_PWD}",
+							  "guard": "${input:STEAM_GUARD}",}
+			}
+		},
+		{
+			"type": "docker-run",
+			"label": "docker-run: debug",
+			"dependsOn": [
+				"docker-build"
+			],
+			"python": {
+				"file": "setup.py"
+			}
+		}
+	]
+}
