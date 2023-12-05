@@ -39,6 +39,17 @@
 			}
 		},
 		{
+			"type": "docker-build",
+			"label": "docker-build dotaservice",
+			"platform": "python",
+			"dockerBuild": {
+				"tag": "dotaservice:latest",
+				"dockerfile": "${workspaceFolder}/docker/Dockerfile-dotaservice",
+				"context": "${workspaceFolder}/",
+				"pull": false,
+			}
+		},
+		{
 			"type": "docker-run",
 			"label": "docker-run: debug",
 			"dependsOn": [

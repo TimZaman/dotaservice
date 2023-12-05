@@ -32,7 +32,7 @@ setuptools.setup(
     ],
     install_requires=[
         'grpclib',
-        'protobuf',
+        'protobuf<=3.20.1',
     ],
     extras_require={
         'dev': [
